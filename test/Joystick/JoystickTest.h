@@ -47,6 +47,7 @@ private slots:
 
     // Calibration tests
     void _calibrationDataTest();
+    void _manualControlAuxAxisMappingTest();
     void _adjustRangeTest();
 
     // Error handling tests

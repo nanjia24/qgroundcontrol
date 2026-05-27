@@ -42,6 +42,7 @@ qt_add_qml_module(VehicleSetupModule
     QML_FILES
         FirmwareUpgrade.qml
         JoystickComponent.qml
+        JoystickComponentAxisActions.qml
         JoystickComponentButtons.qml
         JoystickComponentButtonMonitor.qml
         JoystickComponentSettings.qml

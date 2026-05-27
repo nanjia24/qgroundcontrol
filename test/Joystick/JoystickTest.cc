@@ -4,6 +4,7 @@
 #include "JoystickSDL.h"
 #include "MockJoystick.h"
 #include "SDLJoystick.h"
+#include "Fact.h"
 
 #include <QtCore/QPointer>
 
@@ -342,6 +343,38 @@ void JoystickTest::_calibrationDataTest()
         QCOMPARE(axisCal.deadband, 500 + axis * 50);
         QCOMPARE(axisCal.reversed, (axis % 2 == 0));
     }
+}
+
+void JoystickTest::_manualControlAuxAxisMappingTest()
+{
+    _mockJoystick = std::unique_ptr<MockJoystick>(MockJoystick::create(
+        QStringLiteral("Manual Control Aux Test"),
+        8, 16, 0));
+    QVERIFY(_mockJoystick->isValid());
+    _pumpEvents();
+    _discoveredJoysticks = JoystickSDL::discover();
+    JoystickSDL* js = _findJoystickByInstanceId(_mockJoystick->instanceId());
+    QVERIFY(js != nullptr);
+    QCOMPARE(js->axisCount(), 8);
+
+    QVERIFY(!js->settings()->enableManualControlAux1()->rawValue().toBool());
+    QVERIFY(!js->settings()->enableManualControlAux2()->rawValue().toBool());
+    QVERIFY(!js->settings()->enableManualControlAux3()->rawValue().toBool());
+    QVERIFY(!js->settings()->enableManualControlAux4()->rawValue().toBool());
+
+    js->setFunctionForChannel(RemoteControlCalibrationController::stickFunctionAux1Extension, 4);
+    js->setFunctionForChannel(RemoteControlCalibrationController::stickFunctionAux2Extension, 5);
+    js->setFunctionForChannel(RemoteControlCalibrationController::stickFunctionAux3Extension, 6);
+    js->setFunctionForChannel(RemoteControlCalibrationController::stickFunctionAux4Extension, 7);
+
+    QCOMPARE(js->getChannelForFunction(RemoteControlCalibrationController::stickFunctionAux1Extension), 4);
+    QCOMPARE(js->getChannelForFunction(RemoteControlCalibrationController::stickFunctionAux2Extension), 5);
+    QCOMPARE(js->getChannelForFunction(RemoteControlCalibrationController::stickFunctionAux3Extension), 6);
+    QCOMPARE(js->getChannelForFunction(RemoteControlCalibrationController::stickFunctionAux4Extension), 7);
+    QCOMPARE(js->mapRCCStickFunctionToAxisFunction(RemoteControlCalibrationController::stickFunctionAux1Extension),
+             Joystick::aux1ExtensionFunction);
+    QCOMPARE(js->mapRCCStickFunctionToAxisFunction(RemoteControlCalibrationController::stickFunctionAux4Extension),
+             Joystick::aux4ExtensionFunction);
 }
 
 void JoystickTest::_adjustRangeTest()

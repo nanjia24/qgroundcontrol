@@ -39,6 +39,10 @@ namespace
 static constexpr const char* kButtonActionArrayGroup = "JoystickButtonActionSettingsArray";
 static constexpr const char* kButtonActionNameKey = "actionName";
 static constexpr const char* kButtonRepeatKey = "repeat";
+static constexpr const char* kAxisActionArrayGroup = "JoystickAxisActionSettingsArray";
+static constexpr const char* kAxisActionLowKey = "lowActionName";
+static constexpr const char* kAxisActionMidKey = "midActionName";
+static constexpr const char* kAxisActionHighKey = "highActionName";
 static constexpr const char* kAxisSettingsArrayGroup = "JoystickAxisSettingsArray";
 static constexpr const char* kAxisFunctionKey = "function";
 static constexpr const char* kAxisMinKey = "min";
@@ -80,6 +84,7 @@ Joystick::Joystick(const QString &name, int axisCount, int buttonCount, int hatC
     , _rgCalibration(_axisCount)
     , _buttonEventStates(_totalButtonCount)
     , _assignedButtonActions(_totalButtonCount, nullptr)
+    , _assignedAxisActions(_axisCount)
     , _mavlinkActionManager(new MavlinkActionManager(SettingsManager::instance()->mavlinkActionsSettings()->joystickActionsFile(), this))
     , _availableButtonActions(new QmlObjectListModel(this))
     , _joystickManager(JoystickManager::instance())
@@ -151,6 +156,7 @@ Joystick::Joystick(const QString &name, int axisCount, int buttonCount, int hatC
     _resetFunctionToAxisMap();
     _resetAxisCalibrationData();
     _resetButtonActionData();
+    _resetAxisActionData();
     _resetButtonEventStates();
 
     _buildAvailableButtonsActionList(MultiVehicleManager::instance()->activeVehicle());
@@ -195,6 +201,16 @@ void Joystick::_resetButtonActionData()
     for (int i = 0; i < _assignedButtonActions.count(); i++) {
         delete _assignedButtonActions[i];
         _assignedButtonActions[i] = nullptr;
+    }
+}
+
+void Joystick::_resetAxisActionData()
+{
+    for (AssignedAxisActions &axisActions : _assignedAxisActions) {
+        for (QString &action : axisActions.actions) {
+            action = _buttonActionNone;
+        }
+        axisActions.lastPosition = -1;
     }
 }
 
@@ -269,6 +285,66 @@ void Joystick::_loadButtonSettings()
             buttonSettings.remove(QString::fromLatin1(kButtonActionArrayGroup));
         }
     }
+}
+
+void Joystick::_loadAxisActionSettings()
+{
+    const QString lowKey = QString::fromLatin1(kAxisActionLowKey);
+    const QString midKey = QString::fromLatin1(kAxisActionMidKey);
+    const QString highKey = QString::fromLatin1(kAxisActionHighKey);
+
+    _resetAxisActionData();
+
+    QSettings axisActionSettings;
+    axisActionSettings.beginGroup(_joystickSettings.settingsGroup());
+
+    if (!axisActionSettings.childGroups().contains(QString::fromLatin1(kAxisActionArrayGroup))) {
+        axisActionSettings.endGroup();
+        return;
+    }
+
+    axisActionSettings.beginGroup(QString::fromLatin1(kAxisActionArrayGroup));
+    const QStringList axisGroups = axisActionSettings.childGroups();
+
+    qCDebug(JoystickLog) << "Axis Actions:";
+
+    const auto loadAction = [this](const QString &actionName) -> QString {
+        if (actionName.isEmpty() || actionName == _buttonActionNone) {
+            return _buttonActionNone;
+        }
+        if (_findAvailableButtonActionIndex(actionName) == -1) {
+            qCWarning(JoystickLog) << "Loaded axis action that is not currently assignable:" << actionName;
+        }
+        return actionName;
+    };
+
+    for (const QString &axisGroup : axisGroups) {
+        bool ok = false;
+        const int axis = axisGroup.toInt(&ok);
+        if (!ok || !_validAxis(axis)) {
+            qCWarning(JoystickLog) << "Ignoring invalid axis action index:" << axisGroup;
+            continue;
+        }
+
+        axisActionSettings.beginGroup(axisGroup);
+        _assignedAxisActions[axis].actions[AxisActionLow] = loadAction(axisActionSettings.value(lowKey).toString());
+        _assignedAxisActions[axis].actions[AxisActionMid] = loadAction(axisActionSettings.value(midKey).toString());
+        _assignedAxisActions[axis].actions[AxisActionHigh] = loadAction(axisActionSettings.value(highKey).toString());
+        _assignedAxisActions[axis].lastPosition = -1;
+        axisActionSettings.endGroup();
+
+        qCDebug(JoystickLog)
+            << "    "
+            << "axis:" << axis
+            << "low:" << _assignedAxisActions[axis].actions[AxisActionLow]
+            << "mid:" << _assignedAxisActions[axis].actions[AxisActionMid]
+            << "high:" << _assignedAxisActions[axis].actions[AxisActionHigh];
+    }
+
+    axisActionSettings.endGroup();
+    axisActionSettings.endGroup();
+
+    emit axisActionsChanged();
 }
 
 void Joystick::_foundInvalidAxisSettingsCleanup()
@@ -469,6 +545,7 @@ void Joystick::_loadFromSettingsIntoCalibrationData()
 
     _loadAxisSettings(calibrated, transmitterMode);
     _loadButtonSettings();
+    _loadAxisActionSettings();
 }
 
 void Joystick::_saveAxisSettings(int transmitterMode)
@@ -856,6 +933,62 @@ void Joystick::_handleButtons()
     }
 }
 
+void Joystick::_handleAxisActions(const QVector<float> &adjustedAxisValues)
+{
+    static constexpr float kLowThreshold = -0.5f;
+    static constexpr float kHighThreshold = 0.5f;
+
+    const int axisCount = std::min(_assignedAxisActions.count(), adjustedAxisValues.count());
+    for (int axis = 0; axis < axisCount; axis++) {
+        AssignedAxisActions &axisActions = _assignedAxisActions[axis];
+
+        const bool allDisabled =
+            axisActions.actions[AxisActionLow] == _buttonActionNone &&
+            axisActions.actions[AxisActionMid] == _buttonActionNone &&
+            axisActions.actions[AxisActionHigh] == _buttonActionNone;
+        if (allDisabled) {
+            axisActions.lastPosition = -1;
+            continue;
+        }
+
+        const float axisValue = adjustedAxisValues[axis];
+        int currentPosition = AxisActionMid;
+        if (axisValue <= kLowThreshold) {
+            currentPosition = AxisActionLow;
+        } else if (axisValue >= kHighThreshold) {
+            currentPosition = AxisActionHigh;
+        }
+
+        if (axisActions.lastPosition == -1) {
+            // Arm/mode axis actions should never fire just because QGC started
+            // while a physical switch was already in a non-neutral position.
+            axisActions.lastPosition = currentPosition;
+            continue;
+        }
+
+        if (axisActions.lastPosition == currentPosition) {
+            continue;
+        }
+
+        axisActions.lastPosition = currentPosition;
+
+        const QString action = axisActions.actions[currentPosition];
+        if (action.isEmpty() || action == _buttonActionNone) {
+            continue;
+        }
+
+        qCDebug(JoystickLog)
+            << "Axis action triggered - axis:position:action"
+            << axis
+            << currentPosition
+            << action;
+
+        QMetaObject::invokeMethod(this, [this, action]() {
+            _executeButtonAction(action, ButtonEventDownTransition);
+        }, Qt::QueuedConnection);
+    }
+}
+
 float Joystick::_adjustRange(int value, const AxisCalibration_t &calibration, bool withDeadbands)
 {
     float valueNormalized;
@@ -935,6 +1068,11 @@ void Joystick::_handleAxis()
         bool circleCorrection = _joystickSettings.circleCorrection()->rawValue().toBool();
         bool throttleSmoothing = _joystickSettings.throttleSmoothing()->rawValue().toBool();
         double exponentialPercent = _joystickSettings.exponentialPct()->rawValue().toDouble();
+
+        QVector<float> adjustedAxisValues(_axisCount);
+        for (int axis = 0; axis < _axisCount; axis++) {
+            adjustedAxisValues[axis] = _adjustRange(_getAxisValue(axis), _rgCalibration[axis], useDeadband);
+        }
 
         if (_getJoystickAxisForAxisFunction(rollFunction) == kJoystickAxisNotAssigned ||
             _getJoystickAxisForAxisFunction(pitchFunction) == kJoystickAxisNotAssigned ||
@@ -1093,6 +1231,7 @@ void Joystick::_handleAxis()
 
 
         vehicle->sendJoystickDataThreadSafe(roll, pitch, yaw, throttle, lowButtons, highButtons, pitchExtension, rollExtension, aux1, aux2, aux3, aux4, aux5, aux6);
+        _handleAxisActions(adjustedAxisValues);
     }
 }
 
@@ -1116,6 +1255,10 @@ void Joystick::_startPollingForVehicle(Vehicle &vehicle)
     }
 
     _pollingVehicle = &vehicle;
+
+    for (AssignedAxisActions &axisActions : _assignedAxisActions) {
+        axisActions.lastPosition = -1;
+    }
 
     _buildAvailableButtonsActionList(_pollingVehicle);
 
@@ -1487,6 +1630,82 @@ QStringList Joystick::buttonActions() const
             list << _assignedButtonActions[button]->actionName;
         } else {
             list << _buttonActionNone;
+        }
+    }
+
+    return list;
+}
+
+void Joystick::setAxisAction(int axis, int position, const QString &actionName)
+{
+    if (!_validAxis(axis) || position < AxisActionLow || position >= AxisActionPositionCount) {
+        return;
+    }
+
+    const QString savedAction = (actionName.isEmpty() || actionName == _buttonActionNone) ? QString(_buttonActionNone) : actionName;
+    if (savedAction != _buttonActionNone && _findAvailableButtonActionIndex(savedAction) == -1) {
+        qCWarning(JoystickLog) << "Unknown axis action:" << savedAction;
+        return;
+    }
+
+    qCDebug(JoystickLog) << "axis:position:actionName" << axis << position << savedAction;
+
+    _assignedAxisActions[axis].actions[position] = savedAction;
+    _assignedAxisActions[axis].lastPosition = -1;
+
+    QSettings settings;
+    settings.beginGroup(_joystickSettings.settingsGroup());
+    settings.beginGroup(QString::fromLatin1(kAxisActionArrayGroup));
+    settings.beginGroup(QString::number(axis));
+
+    static constexpr const char* keys[AxisActionPositionCount] = {
+        kAxisActionLowKey,
+        kAxisActionMidKey,
+        kAxisActionHighKey
+    };
+    settings.setValue(QString::fromLatin1(keys[position]), savedAction);
+
+    const bool allDisabled =
+        _assignedAxisActions[axis].actions[AxisActionLow] == _buttonActionNone &&
+        _assignedAxisActions[axis].actions[AxisActionMid] == _buttonActionNone &&
+        _assignedAxisActions[axis].actions[AxisActionHigh] == _buttonActionNone;
+
+    settings.endGroup();
+    if (allDisabled) {
+        settings.remove(QString::number(axis));
+    }
+    settings.endGroup();
+    settings.endGroup();
+
+    emit axisActionsChanged();
+}
+
+QString Joystick::getAxisAction(int axis, int position) const
+{
+    if ((axis >= 0) && (axis < _assignedAxisActions.count()) && (position >= AxisActionLow) && (position < AxisActionPositionCount)) {
+        const QString &action = _assignedAxisActions[axis].actions[position];
+        return action.isEmpty() ? QString(_buttonActionNone) : action;
+    }
+
+    return QString(_buttonActionNone);
+}
+
+QStringList Joystick::axisActionSummaries() const
+{
+    QStringList list;
+    list.reserve(_axisCount);
+
+    for (int axis = 0; axis < _axisCount; axis++) {
+        const AssignedAxisActions &axisActions = _assignedAxisActions[axis];
+        const bool allDisabled =
+            axisActions.actions[AxisActionLow] == _buttonActionNone &&
+            axisActions.actions[AxisActionMid] == _buttonActionNone &&
+            axisActions.actions[AxisActionHigh] == _buttonActionNone;
+        if (allDisabled) {
+            list << _buttonActionNone;
+        } else {
+            list << QStringLiteral("%1 | %2 | %3")
+                        .arg(axisActions.actions[AxisActionLow], axisActions.actions[AxisActionMid], axisActions.actions[AxisActionHigh]);
         }
     }
 

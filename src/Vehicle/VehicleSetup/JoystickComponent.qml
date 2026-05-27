@@ -150,6 +150,11 @@ SetupPage {
                                 }
 
                                 QGCTabButton {
+                                    text: qsTr("Axis Actions")
+                                    checked: false
+                                }
+
+                                QGCTabButton {
                                     text: qsTr("Settings")
                                     checked: false
                                 }
@@ -163,11 +168,18 @@ SetupPage {
                                 visible: tabBar.currentIndex === 0
                             }
 
+                            JoystickComponentAxisActions {
+                                id: joystickAxisActions
+                                Layout.fillWidth: true
+                                joystick: _activeJoystick
+                                visible: tabBar.currentIndex === 1
+                            }
+
                             JoystickComponentSettings {
                                 id: joystickSettings
                                 Layout.fillWidth: true
                                 joystick: _activeJoystick
-                                visible: tabBar.currentIndex === 1
+                                visible: tabBar.currentIndex === 2
                             }
                         }
                     }

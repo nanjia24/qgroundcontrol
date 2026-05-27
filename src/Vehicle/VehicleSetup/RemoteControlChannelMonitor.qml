@@ -25,6 +25,8 @@ GridLayout {
     required property int channelValueMax
 
     property bool twoColumn: false
+    property string monitorTitle: qsTr("Raw Channel Monitor")
+    property string valueLabelPrefix: ""
 
     /// Should be called by consumers whenever a raw channel value changes
     function rawChannelValueChanged(channel, channelValue) {
@@ -44,7 +46,7 @@ GridLayout {
 
     QGCLabel {
         Layout.columnSpan: parent.columns
-        text: qsTr("Raw Channel Monitor")
+        text: control.monitorTitle
     }
 
     Repeater {
@@ -58,7 +60,9 @@ GridLayout {
             property var _channelValueDisplayLoader: channelValueDisplayLoader
 
             QGCLabel {
-                text: index + 1
+                text: control.valueLabelPrefix.length ?
+                          qsTr("%1 %2").arg(control.valueLabelPrefix).arg(index + 1) :
+                          index + 1
             }
 
             Loader {

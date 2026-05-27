@@ -296,6 +296,8 @@ ColumnLayout {
                 channelCount: controller.channelCount
                 channelValueMin: controller.channelValueMin
                 channelValueMax: controller.channelValueMax
+                monitorTitle: controller.joystickMode ? qsTr("Raw Axis Monitor") : qsTr("Raw Channel Monitor")
+                valueLabelPrefix: controller.joystickMode ? qsTr("Axis") : ""
 
                 Connections {
                     target: controller

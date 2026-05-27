@@ -101,6 +101,7 @@ public:
     Q_PROPERTY(QStringList              assignableActionTitles  READ    assignableActionTitles                              NOTIFY assignableActionsChanged)
     Q_PROPERTY(QStringList              buttonActions           READ    buttonActions                                       NOTIFY buttonActionsChanged)
     Q_PROPERTY(QString                  buttonActionNone        READ    buttonActionNone                                    CONSTANT)
+    Q_PROPERTY(QStringList              axisActionSummaries     READ    axisActionSummaries                                 NOTIFY axisActionsChanged)
     Q_PROPERTY(QString                  linkedGroupId           READ    linkedGroupId           WRITE setLinkedGroupId      NOTIFY linkedGroupChanged)
     Q_PROPERTY(QString                  linkedGroupRole         READ    linkedGroupRole         WRITE setLinkedGroupRole    NOTIFY linkedGroupChanged)
 
@@ -199,6 +200,8 @@ public:
     Q_INVOKABLE bool getButtonRepeat(int button);
     Q_INVOKABLE void setButtonAction(int button, const QString &action);
     Q_INVOKABLE QString getButtonAction(int button) const;
+    Q_INVOKABLE void setAxisAction(int axis, int position, const QString &action);
+    Q_INVOKABLE QString getAxisAction(int axis, int position) const;
 
     JoystickSettings* settings() { return &_joystickSettings; }
     QString name() const { return _name; }
@@ -308,6 +311,7 @@ public:
     Q_INVOKABLE virtual bool setMapping(const QString &mapping) { Q_UNUSED(mapping); return false; }
 
     QStringList buttonActions() const;
+    QStringList axisActionSummaries() const;
     QString buttonActionNone() const { return _buttonActionNone; }
     QString disabledActionName() const { return _buttonActionNone; }
     const QmlObjectListModel *assignableActions() const { return _availableButtonActions; }
@@ -335,6 +339,7 @@ public:
 
 signals:
     void buttonActionsChanged();
+    void axisActionsChanged();
     void assignableActionsChanged();
     void playerIndexChanged();
     void batteryStateChanged();
@@ -425,10 +430,12 @@ private:
     void _resetAxisCalibrationData();
     void _resetButtonActionData();
     void _resetButtonEventStates();
+    void _resetAxisActionData();
 
     void _foundInvalidAxisSettingsCleanup();
 
     void _loadButtonSettings();
+    void _loadAxisActionSettings();
     void _loadAxisSettings(bool joystickCalibrated, int transmitterMode);
     void _saveButtonSettings();
     void _saveAxisSettings(int transmitterMode);
@@ -446,6 +453,7 @@ private:
     bool _validButton(int button) const;
     void _handleAxis();
     void _handleButtons();
+    void _handleAxisActions(const QVector<float> &adjustedAxisValues);
     void _buildAvailableButtonsActionList(Vehicle *vehicle);
     AxisFunction_t _getAxisFunctionForJoystickAxis(int joystickAxis) const;
     int _getJoystickAxisForAxisFunction(AxisFunction_t axisFunction) const;
@@ -458,9 +466,23 @@ private:
 
     int _hatButtonCount = 0;
     int _totalButtonCount = 0;
+
+    enum AxisActionPosition {
+        AxisActionLow = 0,
+        AxisActionMid,
+        AxisActionHigh,
+        AxisActionPositionCount
+    };
+
+    struct AssignedAxisActions {
+        QString actions[AxisActionPositionCount];
+        int lastPosition = -1;
+    };
+
     QVector<AxisCalibration_t> _rgCalibration;
     QVector<ButtonEvent_t> _buttonEventStates;
     QVector<AssignedButtonAction*> _assignedButtonActions;
+    QVector<AssignedAxisActions> _assignedAxisActions;
     MavlinkActionManager *_mavlinkActionManager = nullptr;
     QmlObjectListModel *_availableButtonActions = nullptr;
 
