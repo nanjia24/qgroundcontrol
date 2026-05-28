@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 288 288">
+    <defs>
+        <style>
+            .outline{stroke:#f2f2f2;stroke-width:5;stroke-linejoin:round;stroke-linecap:round}
+            .dark{fill:#171a1d;stroke:#050607;stroke-width:2;stroke-linejoin:round}
+            .rail{fill:#1b1f22;stroke:#f2f2f2;stroke-width:4;stroke-linejoin:round}
+            .green{fill:#58b947;stroke:#1a6b22;stroke-width:2}
+            .blue{fill:#45b9dc;stroke:#0d6e86;stroke-width:2}
+            .black{fill:#101214;stroke:#f2f2f2;stroke-width:3}
+            .white{fill:#e8e8e8;stroke:#303030;stroke-width:2}
+            .red{fill:#e91d24;stroke:#f2f2f2;stroke-width:4;stroke-linejoin:round}
+            .slot{fill:#050607}
+        </style>
+    </defs>
+
+    <!-- H-frame rails: side rails pass through wheel centers, middle beam connects them. -->
+    <path class="outline" d="M68 54v180M220 54v180M68 144h152"/>
+    <path class="rail" d="M58 54h20v180H58z"/>
+    <path class="rail" d="M210 54h20v180h-20z"/>
+    <path class="rail" d="M68 134h152v20H68z"/>
+
+    <!-- Wheel/rotor modules. -->
+    <g id="wheel">
+        <circle cx="0" cy="0" r="42" fill="#f2f2f2"/>
+        <circle cx="0" cy="0" r="38" class="green"/>
+        <circle cx="0" cy="0" r="30" class="black"/>
+        <circle cx="0" cy="0" r="24" class="blue"/>
+        <path class="black" d="M-4-27h8v54h-8zM-27-4h54v8h-54z" transform="rotate(45)"/>
+        <path fill="#0fd4ff" d="M-21-6 0-20 21-6 0 0z" opacity=".9"/>
+        <path fill="#0fd4ff" d="M21 6 0 20-21 6 0 0z" opacity=".9"/>
+        <circle cx="0" cy="0" r="11" class="dark"/>
+        <circle cx="0" cy="0" r="4" class="white"/>
+        <g fill="#f2f2f2" stroke="#303030" stroke-width="1.5">
+            <circle cx="0" cy="-34" r="3"/>
+            <circle cx="24" cy="-24" r="3"/>
+            <circle cx="34" cy="0" r="3"/>
+            <circle cx="24" cy="24" r="3"/>
+            <circle cx="0" cy="34" r="3"/>
+            <circle cx="-24" cy="24" r="3"/>
+            <circle cx="-34" cy="0" r="3"/>
+            <circle cx="-24" cy="-24" r="3"/>
+        </g>
+    </g>
+
+    <use href="#wheel" x="68" y="54"/>
+    <use href="#wheel" x="220" y="54"/>
+    <use href="#wheel" x="68" y="234"/>
+    <use href="#wheel" x="220" y="234"/>
+
+    <!-- Motor mount blocks on the wheel center rails. -->
+    <g class="white">
+        <rect x="52" y="92" width="32" height="28" rx="5"/>
+        <rect x="204" y="92" width="32" height="28" rx="5"/>
+        <rect x="52" y="168" width="32" height="28" rx="5"/>
+        <rect x="204" y="168" width="32" height="28" rx="5"/>
+    </g>
+
+    <!-- Rover-like slots along the side rails and center beam. -->
+    <g class="slot">
+        <rect x="64" y="121" width="8" height="18" rx="3"/>
+        <rect x="64" y="149" width="8" height="18" rx="3"/>
+        <rect x="216" y="121" width="8" height="18" rx="3"/>
+        <rect x="216" y="149" width="8" height="18" rx="3"/>
+        <rect x="91" y="140" width="28" height="8" rx="3"/>
+        <rect x="169" y="140" width="28" height="8" rx="3"/>
+    </g>
+
+    <!-- Central electronics/body. -->
+    <path class="outline" d="M124 99h40l14 14v62l-14 14h-40l-14-14v-62z"/>
+    <path class="dark" d="M124 99h40l14 14v62l-14 14h-40l-14-14v-62z"/>
+    <path fill="#24282b" stroke="#40464a" stroke-width="2" d="M132 108h24l9 9v52l-9 9h-24l-9-9v-52z"/>
+    <path class="red" d="M144 124 160 158h-32z"/>
+    <g stroke="#050607" stroke-width="4" stroke-linecap="round">
+        <path d="M134 116v12"/>
+        <path d="M144 116v12"/>
+        <path d="M154 116v12"/>
+        <path d="M136 169v10"/>
+        <path d="M144 169v10"/>
+        <path d="M152 169v10"/>
+    </g>
+</svg>
