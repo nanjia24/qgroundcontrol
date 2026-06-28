@@ -33,6 +33,9 @@ public:
     Q_INVOKABLE Vehicle *getVehicleById(int vehicleId) const;
     Q_INVOKABLE void      selectVehicle(int vehicleId);
     Q_INVOKABLE void    deselectVehicle(int vehicleId);
+    Q_INVOKABLE void      selectVehicleObject(Vehicle *vehicle);
+    Q_INVOKABLE void    deselectVehicleObject(Vehicle *vehicle);
+    Q_INVOKABLE bool    vehicleObjectSelected(Vehicle *vehicle) const;
     Q_INVOKABLE void    deselectAllVehicles();
     QmlObjectListModel *vehicles() const { return _vehicles; }
     QmlObjectListModel *selectedVehicles() const { return _selectedVehicles; }
@@ -53,10 +56,11 @@ private slots:
     void _setActiveVehiclePhase2(Vehicle *vehicle);
     void _vehicleParametersReadyChanged(bool parametersReady);
     void _sendGCSHeartbeat();
-    void _vehicleHeartbeatInfo(LinkInterface *link, int vehicleId, int componentId, int vehicleFirmwareType, int vehicleType);
+    void _vehicleHeartbeatInfo(LinkInterface *link, int vehicleId, int componentId, int vehicleFirmwareType, int vehicleType, const QString &sourceIdentity);
 
 private:
     bool _vehicleExists(int vehicleId);
+    Vehicle *_vehicleByIdAndSource(int vehicleId, const QString &sourceIdentity) const;
     bool _vehicleSelected(int vehicleId);
     void _setActiveVehicle(Vehicle *vehicle);
     bool _getActiveVehicleAvailable() const { return _activeVehicleAvailable; }

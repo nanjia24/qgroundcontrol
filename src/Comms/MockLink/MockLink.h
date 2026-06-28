@@ -167,7 +167,7 @@ signals:
 
 private slots:
     /// Called when QGC wants to write bytes to the MAV
-    void _writeBytes(const QByteArray &bytes) final;
+    void _writeBytes(const QByteArray &bytes, const QString &sourceIdentity = QString()) final;
     void _writeBytesQueued(const QByteArray &bytes);
 
 private:

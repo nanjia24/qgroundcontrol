@@ -108,12 +108,13 @@ public slots:
     void connectLink();
     void disconnectLink();
     void writeData(const QByteArray &data);
+    void writeDataToSource(const QByteArray &data, const QString &sourceIdentity);
 
 signals:
     void connected();
     void disconnected();
     void errorOccurred(const QString &errorString);
-    void dataReceived(const QByteArray &data);
+    void dataReceived(const QByteArray &data, const QString &sourceAddress, quint16 sourcePort);
     void dataSent(const QByteArray &data);
 
 private slots:
@@ -148,21 +149,25 @@ public:
     bool isConnected() const override;
     void disconnect() override;
     bool isSecureConnection() const override;
+    QString currentDataSourceAddress() const { return _currentDataSourceAddress; }
+    quint16 currentDataSourcePort() const { return _currentDataSourcePort; }
 
 protected:
     bool _connect() override;
 
 private slots:
-    void _writeBytes(const QByteArray &data) override;
+    void _writeBytes(const QByteArray &data, const QString &sourceIdentity = QString()) override;
     void _onConnected();
     void _onDisconnected();
     void _onErrorOccurred(const QString &errorString);
-    void _onDataReceived(const QByteArray &data);
+    void _onDataReceived(const QByteArray &data, const QString &sourceAddress, quint16 sourcePort);
     void _onDataSent(const QByteArray &data);
 
 private:
     const UDPConfiguration *_udpConfig = nullptr;
     UDPWorker *_worker = nullptr;
     QThread *_workerThread = nullptr;
+    QString _currentDataSourceAddress;
+    quint16 _currentDataSourcePort = 0;
     std::atomic<bool> _disconnectedEmitted{false};
 };

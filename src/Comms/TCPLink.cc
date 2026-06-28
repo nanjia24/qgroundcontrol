@@ -330,8 +330,10 @@ void TCPLink::_onDataSent(const QByteArray &data)
     emit bytesSent(this, data);
 }
 
-void TCPLink::_writeBytes(const QByteArray& bytes)
+void TCPLink::_writeBytes(const QByteArray& bytes, const QString &sourceIdentity)
 {
+    Q_UNUSED(sourceIdentity);
+
     (void) QMetaObject::invokeMethod(_worker, "writeData", Qt::QueuedConnection, Q_ARG(QByteArray, bytes));
 }
 

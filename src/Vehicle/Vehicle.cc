@@ -98,15 +98,34 @@ QGC_LOGGING_CATEGORY(VehicleLog, "Vehicle.Vehicle")
 
 const QString guided_mode_not_supported_by_vehicle = QObject::tr("Guided mode not supported by Vehicle.");
 
+namespace {
+
+QString sourceIdentityForLink(LinkInterface *link, const QString &sourceIdentity)
+{
+    if (!sourceIdentity.isEmpty()) {
+        return sourceIdentity;
+    }
+
+    if (!link || !link->linkConfiguration()) {
+        return QString();
+    }
+
+    return QStringLiteral("link:%1:%2").arg(QString::number(static_cast<int>(link->linkConfiguration()->type())), link->linkConfiguration()->name());
+}
+
+}
+
 // Standard connected vehicle
 Vehicle::Vehicle(LinkInterface*             link,
                  int                        vehicleId,
                  int                        defaultComponentId,
                  MAV_AUTOPILOT              firmwareType,
                  MAV_TYPE                   vehicleType,
-                 QObject*                   parent)
+                 QObject*                   parent,
+                 const QString&             sourceIdentity)
     : VehicleFactGroup              (parent)
     , _systemID                     (vehicleId)
+    , _sourceIdentity               (sourceIdentity)
     , _defaultComponentId           (defaultComponentId)
     , _firmwareType                 (firmwareType)
     , _vehicleType                  (vehicleType)
@@ -516,13 +535,17 @@ void Vehicle::resetCounters()
     _heardFrom          = false;
 }
 
-void Vehicle::_mavlinkMessageReceived(LinkInterface* link, mavlink_message_t message)
+void Vehicle::_mavlinkMessageReceived(LinkInterface* link, mavlink_message_t message, const QString& sourceIdentity)
 {
     if (message.sysid != _systemID && message.sysid != 0) {
         // We allow RADIO_STATUS messages which come from a link the vehicle is using to pass through and be handled
         if (!(message.msgid == MAVLINK_MSG_ID_RADIO_STATUS && _vehicleLinkManager->containsLink(link))) {
             return;
         }
+    }
+
+    if (!_sourceIdentity.isEmpty() && (sourceIdentityForLink(link, sourceIdentity) != _sourceIdentity)) {
+        return;
     }
 
     // Try to auto-detect signing key from incoming signed packets
@@ -1395,7 +1418,7 @@ bool Vehicle::sendMessageOnLinkThreadSafe(LinkInterface* link, mavlink_message_t
     uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
     int len = mavlink_msg_to_send_buffer(buffer, &message);
 
-    link->writeBytesThreadSafe((const char*)buffer, len);
+    link->writeBytesThreadSafe((const char*)buffer, len, _sourceIdentity);
     _messagesSent++;
     emit messagesSentChanged();
 

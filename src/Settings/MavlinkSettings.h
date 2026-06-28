@@ -23,6 +23,7 @@ public:
     DEFINE_SETTINGFACT(forwardMavlinkAPMSupportHostName)
     DEFINE_SETTINGFACT(sendGCSHeartbeat)
     DEFINE_SETTINGFACT(gcsMavlinkSystemID)
+    DEFINE_SETTINGFACT(enableDuplicateVehicleIdBySource)
 
     DEFINE_SETTINGFACT(noInitialDownloadWhenFlying)
 

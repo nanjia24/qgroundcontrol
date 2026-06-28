@@ -93,10 +93,10 @@ void LinkInterface::_freeMavlinkChannel()
     _mavlinkChannel = LinkManager::invalidMavlinkChannel();
 }
 
-void LinkInterface::writeBytesThreadSafe(const char *bytes, int length)
+void LinkInterface::writeBytesThreadSafe(const char *bytes, int length, const QString &sourceIdentity)
 {
     const QByteArray data(bytes, length);
-    (void) QMetaObject::invokeMethod(this, "_writeBytes", Qt::AutoConnection, data);
+    (void) QMetaObject::invokeMethod(this, "_writeBytes", Qt::AutoConnection, data, sourceIdentity);
 }
 
 void LinkInterface::removeVehicleReference()

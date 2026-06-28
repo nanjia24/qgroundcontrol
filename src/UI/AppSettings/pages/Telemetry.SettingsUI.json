@@ -13,6 +13,9 @@
                     "setting": "mavlinkSettings.sendGCSHeartbeat"
                 },
                 {
+                    "setting": "mavlinkSettings.enableDuplicateVehicleIdBySource"
+                },
+                {
                     "setting": "mavlinkSettings.noInitialDownloadWhenFlying"
                 }
             ]

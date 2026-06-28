@@ -4,12 +4,162 @@
 #include "LinkManager.h"
 #include "AppMessages.h"
 #include "AudioOutput.h"
+#include "TCPLink.h"
+#include "UDPLink.h"
 #ifndef QGC_NO_SERIAL_LINK
     #include "SerialLink.h"
 #endif
 #include "QGCLoggingCategory.h"
 
 QGC_LOGGING_CATEGORY(VehicleLinkManagerLog, "Vehicle.VehicleLinkManager")
+
+namespace {
+
+QString linkDetailsForConfig(const LinkConfiguration *config)
+{
+    if (!config) {
+        return QString();
+    }
+
+    switch (config->type()) {
+#ifndef QGC_NO_SERIAL_LINK
+    case LinkConfiguration::TypeSerial: {
+        const SerialConfiguration *const serialConfig = qobject_cast<const SerialConfiguration*>(config);
+        if (!serialConfig) {
+            break;
+        }
+
+        const QString portName = serialConfig->portDisplayName().isEmpty() ? serialConfig->portName() : serialConfig->portDisplayName();
+        return VehicleLinkManager::tr("Serial %1 @ %2").arg(portName, QString::number(serialConfig->baud()));
+    }
+#endif
+    case LinkConfiguration::TypeUdp: {
+        const UDPConfiguration *const udpConfig = qobject_cast<const UDPConfiguration*>(config);
+        if (!udpConfig) {
+            break;
+        }
+
+        const QStringList hosts = udpConfig->hostList();
+        if (!hosts.isEmpty()) {
+            return VehicleLinkManager::tr("UDP %1").arg(hosts.join(QStringLiteral(", ")));
+        }
+
+        return VehicleLinkManager::tr("UDP listening on port %1").arg(udpConfig->localPort());
+    }
+    case LinkConfiguration::TypeTcp: {
+        const TCPConfiguration *const tcpConfig = qobject_cast<const TCPConfiguration*>(config);
+        if (!tcpConfig) {
+            break;
+        }
+
+        return VehicleLinkManager::tr("TCP %1:%2").arg(tcpConfig->host(), QString::number(tcpConfig->port()));
+    }
+    case LinkConfiguration::TypeBluetooth:
+        return VehicleLinkManager::tr("Bluetooth %1").arg(config->name());
+    case LinkConfiguration::TypeLogReplay:
+        return VehicleLinkManager::tr("Log Replay %1").arg(config->name());
+#ifdef QT_DEBUG
+    case LinkConfiguration::TypeMock:
+        return VehicleLinkManager::tr("Mock %1").arg(config->name());
+#endif
+    case LinkConfiguration::TypeLast:
+    default:
+        break;
+    }
+
+    return config->name();
+}
+
+QString linkIdentifierForConfig(const LinkConfiguration *config)
+{
+    if (!config) {
+        return QString();
+    }
+
+    switch (config->type()) {
+#ifndef QGC_NO_SERIAL_LINK
+    case LinkConfiguration::TypeSerial: {
+        const SerialConfiguration *const serialConfig = qobject_cast<const SerialConfiguration*>(config);
+        if (!serialConfig) {
+            break;
+        }
+
+        return serialConfig->portDisplayName().isEmpty() ? serialConfig->portName() : serialConfig->portDisplayName();
+    }
+#endif
+    case LinkConfiguration::TypeUdp: {
+        const UDPConfiguration *const udpConfig = qobject_cast<const UDPConfiguration*>(config);
+        if (!udpConfig) {
+            break;
+        }
+
+        const QStringList hosts = udpConfig->hostList();
+        if (!hosts.isEmpty()) {
+            return hosts.first();
+        }
+
+        return VehicleLinkManager::tr("UDP:%1").arg(udpConfig->localPort());
+    }
+    case LinkConfiguration::TypeTcp: {
+        const TCPConfiguration *const tcpConfig = qobject_cast<const TCPConfiguration*>(config);
+        if (!tcpConfig) {
+            break;
+        }
+
+        return tcpConfig->host();
+    }
+    case LinkConfiguration::TypeBluetooth:
+    case LinkConfiguration::TypeLogReplay:
+#ifdef QT_DEBUG
+    case LinkConfiguration::TypeMock:
+#endif
+    case LinkConfiguration::TypeLast:
+    default:
+        break;
+    }
+
+    return config->name();
+}
+
+QString linkIdentifierForLink(const LinkInterface *link)
+{
+    if (!link) {
+        return QString();
+    }
+
+    const UDPLink *const udpLink = qobject_cast<const UDPLink*>(link);
+    if (udpLink && !udpLink->currentDataSourceAddress().isEmpty()) {
+        return udpLink->currentDataSourceAddress();
+    }
+
+    return linkIdentifierForConfig(link->linkConfiguration().get());
+}
+
+QString linkDetailsForLink(const LinkInterface *link)
+{
+    if (!link) {
+        return QString();
+    }
+
+    const UDPLink *const udpLink = qobject_cast<const UDPLink*>(link);
+    if (udpLink && !udpLink->currentDataSourceAddress().isEmpty() && (udpLink->currentDataSourcePort() != 0)) {
+        const UDPConfiguration *const udpConfig = qobject_cast<const UDPConfiguration*>(link->linkConfiguration().get());
+        const quint16 localPort = udpConfig ? udpConfig->localPort() : 0;
+        if (localPort != 0) {
+            return VehicleLinkManager::tr("UDP %1:%2 -> L:%3").arg(
+                udpLink->currentDataSourceAddress(),
+                QString::number(udpLink->currentDataSourcePort()),
+                QString::number(localPort)
+            );
+        }
+
+        return VehicleLinkManager::tr("UDP %1:%2").arg(udpLink->currentDataSourceAddress(), QString::number(udpLink->currentDataSourcePort()));
+    }
+
+    return linkDetailsForConfig(link->linkConfiguration().get());
+}
+
+}
 
 VehicleLinkManager::VehicleLinkManager(Vehicle *vehicle)
     : QObject(vehicle)
@@ -44,6 +194,15 @@ void VehicleLinkManager::mavlinkMessageReceived(LinkInterface *link, const mavli
     }
 
     LinkInfo_t &linkInfo = _rgLinkInfo[linkIndex];
+    const QString details = linkDetailsForLink(link);
+    if (linkInfo.details != details) {
+        const bool primaryLinkDetailsChanged = link == _primaryLink.lock().get();
+        linkInfo.details = details;
+        emit linkNamesChanged();
+        if (primaryLinkDetailsChanged) {
+            emit primaryLinkChanged();
+        }
+    }
     linkInfo.heartbeatElapsedTimer.restart();
     if (_rgLinkInfo[linkIndex].commLost) {
         _commRegainedOnLink(link);
@@ -165,7 +324,7 @@ void VehicleLinkManager::_commLostCheck()
     }
 }
 
-int VehicleLinkManager::_containsLinkIndex(const LinkInterface *link)
+int VehicleLinkManager::_containsLinkIndex(const LinkInterface *link) const
 {
     for (int i = 0; i < _rgLinkInfo.count(); i++) {
         if (_rgLinkInfo[i].link.get() == link) {
@@ -195,6 +354,7 @@ void VehicleLinkManager::_addLink(LinkInterface *link)
 
     LinkInfo_t linkInfo;
     linkInfo.link = sharedLink;
+    linkInfo.details = linkDetailsForLink(link);
     if (!link->linkConfiguration()->isHighLatency()) {
         linkInfo.heartbeatElapsedTimer.start();
     }
@@ -391,6 +551,30 @@ QString VehicleLinkManager::primaryLinkName() const
     return QString();
 }
 
+QString VehicleLinkManager::primaryLinkIdentifier() const
+{
+    if (!_primaryLink.expired()) {
+        return linkIdentifierForLink(_primaryLink.lock().get());
+    }
+
+    return QString();
+}
+
+QString VehicleLinkManager::primaryLinkDetails() const
+{
+    if (_primaryLink.expired()) {
+        return QString();
+    }
+
+    const SharedLinkInterfacePtr primaryLink = _primaryLink.lock();
+    const int linkIndex = _containsLinkIndex(primaryLink.get());
+    if (linkIndex != -1) {
+        return _rgLinkInfo[linkIndex].details;
+    }
+
+    return linkDetailsForLink(primaryLink.get());
+}
+
 void VehicleLinkManager::setPrimaryLinkByName(const QString &name)
 {
     for (const LinkInfo_t& linkInfo: _rgLinkInfo) {
@@ -410,6 +594,17 @@ QStringList VehicleLinkManager::linkNames() const
     }
 
     return rgNames;
+}
+
+QStringList VehicleLinkManager::linkDetails() const
+{
+    QStringList rgDetails;
+
+    for (const LinkInfo_t &linkInfo: _rgLinkInfo) {
+        rgDetails.append(linkInfo.details);
+    }
+
+    return rgDetails;
 }
 
 QStringList VehicleLinkManager::linkStatuses() const

@@ -84,6 +84,15 @@
             "keywords": "system id,mavlink id"
         },
         {
+            "name": "enableDuplicateVehicleIdBySource",
+            "shortDesc": "Allow vehicles with the same MAVLink system id to be separated by their connection source.",
+            "longDesc": "When enabled, QGC can create separate vehicles for duplicate MAVLink system ids if the packets arrive from different connection sources such as different UDP endpoints or serial ports. Reconnect vehicles after changing this setting.",
+            "type": "bool",
+            "default": false,
+            "label": "Separate duplicate vehicle IDs by source",
+            "keywords": "duplicate system id,source,udp,serial,mavlink id"
+        },
+        {
             "name": "noInitialDownloadWhenFlying",
             "shortDesc": "Skip downloading parameters and missions when connecting to a vehicle already in flight.",
             "longDesc": "When enabled, parameter and mission plan downloads are skipped when connecting to a vehicle that is already flying. This prevents bandwidth-heavy transfers from disrupting an active flight.",

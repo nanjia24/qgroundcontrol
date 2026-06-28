@@ -58,19 +58,19 @@ Item {
         return false
     }
 
-    function selectVehicle(vehicleId) {
-        QGroundControl.multiVehicleManager.selectVehicle(vehicleId)
+    function selectVehicle(vehicle) {
+        QGroundControl.multiVehicleManager.selectVehicleObject(vehicle)
     }
 
-    function deselectVehicle(vehicleId) {
-        QGroundControl.multiVehicleManager.deselectVehicle(vehicleId)
+    function deselectVehicle(vehicle) {
+        QGroundControl.multiVehicleManager.deselectVehicleObject(vehicle)
     }
 
-    function toggleSelect(vehicleId) {
-        if (!vehicleSelected(vehicleId)) {
-            selectVehicle(vehicleId)
+    function toggleSelect(vehicle) {
+        if (!vehicleSelected(vehicle)) {
+            selectVehicle(vehicle)
         } else {
-            deselectVehicle(vehicleId)
+            deselectVehicle(vehicle)
         }
     }
 
@@ -78,9 +78,8 @@ Item {
         var vehicles = QGroundControl.multiVehicleManager.vehicles
         for (var i = 0; i < vehicles.count; i++) {
             var vehicle = vehicles.get(i)
-            var vehicleId = vehicle.id
-            if (!vehicleSelected(vehicleId)) {
-                selectVehicle(vehicleId)
+            if (!vehicleSelected(vehicle)) {
+                selectVehicle(vehicle)
             }
         }
     }
@@ -89,14 +88,8 @@ Item {
         QGroundControl.multiVehicleManager.deselectAllVehicles()
     }
 
-    function vehicleSelected(vehicleId) {
-        for (var i = 0; i < selectedVehicles.count; i++ ) {
-            var currentId = selectedVehicles.get(i).id
-            if (vehicleId === currentId) {
-                return true
-            }
-        }
-        return false
+    function vehicleSelected(vehicle) {
+        return QGroundControl.multiVehicleManager.vehicleObjectSelected(vehicle)
     }
 
     QGCListView {
@@ -118,14 +111,14 @@ Item {
             height:         innerColumn.height + _margin * 2
             color:          QGroundControl.multiVehicleManager.activeVehicle == _vehicle ? _activeVehicleColor : qgcPal.button
             radius:         _margin
-            border.width:   _vehicle && vehicleSelected(_vehicle.id) ? 2 : 0
+            border.width:   _vehicle && vehicleSelected(_vehicle) ? 2 : 0
             border.color:   qgcPal.text
 
             property var    _vehicle:   object
 
             QGCMouseArea {
                 anchors.fill:       parent
-                onClicked:          toggleSelect(_vehicle.id)
+                onClicked:          toggleSelect(_vehicle)
             }
 
             Column {
@@ -187,6 +180,16 @@ Item {
                             color:                qgcPal.text
                         }
                     }
+                }
+
+                QGCLabel {
+                    anchors.horizontalCenter:   parent.horizontalCenter
+                    width:                      vehicleList.width - _margin * 4
+                    text:                       _vehicle ? _vehicle.vehicleLinkManager.primaryLinkDetails : ""
+                    color:                      qgcPal.text
+                    elide:                      Text.ElideMiddle
+                    font.pointSize:             ScreenTools.smallFontPointSize
+                    horizontalAlignment:        Text.AlignHCenter
                 }
 
                 QGCFlickable {

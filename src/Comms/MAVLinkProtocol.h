@@ -53,17 +53,17 @@ public:
 
 signals:
     /// Heartbeat received on link
-    void vehicleHeartbeatInfo(LinkInterface *link, int vehicleId, int componentId, int vehicleFirmwareType, int vehicleType);
+    void vehicleHeartbeatInfo(LinkInterface *link, int vehicleId, int componentId, int vehicleFirmwareType, int vehicleType, const QString &sourceIdentity);
 
     /// Message received and directly copied via signal
-    void messageReceived(LinkInterface *link, const mavlink_message_t &message);
+    void messageReceived(LinkInterface *link, const mavlink_message_t &message, const QString &sourceIdentity);
 
     void mavlinkMessageStatus(int sysid, uint64_t totalSent, uint64_t totalReceived, uint64_t totalLoss, float lossPercent);
 
 public slots:
     /// Receive bytes from a communication interface and constructs a MAVLink packet
     ///     @param link The interface to read from
-    void receiveBytes(LinkInterface *link, const QByteArray &data);
+    void receiveBytes(LinkInterface *link, const QByteArray &data, const QString &sourceIdentity = QString());
 
     /// Log bytes sent from a communication interface and logs a MAVLink packet.
     /// It can handle multiple links in parallel, as each link has it's own buffer/parsing state machine.
@@ -77,7 +77,7 @@ private slots:
     void _vehicleCountChanged();
 
 private:
-    void _logData(LinkInterface *link, const mavlink_message_t &message);
+    void _logData(LinkInterface *link, const mavlink_message_t &message, const QString &sourceIdentity);
     bool _closeLogFile();
     void _startLogging();
     void _stopLogging();
@@ -86,7 +86,7 @@ private:
     void _forwardSupport(const mavlink_message_t &message);
 
     void _updateCounters(uint8_t mavlinkChannel, const mavlink_message_t &message);
-    bool _updateStatus(LinkInterface *link, const SharedLinkInterfacePtr linkPtr, uint8_t mavlinkChannel, const mavlink_message_t &message);
+    bool _updateStatus(LinkInterface *link, const SharedLinkInterfacePtr linkPtr, uint8_t mavlinkChannel, const mavlink_message_t &message, const QString &sourceIdentity);
 
     void _saveTelemetryLog(const QString &tempLogfile);
     bool _checkTelemetrySavePath();

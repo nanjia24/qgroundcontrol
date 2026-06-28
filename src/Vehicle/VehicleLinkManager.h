@@ -18,7 +18,10 @@ class VehicleLinkManager : public QObject
     QML_UNCREATABLE("")
     Q_MOC_INCLUDE("Vehicle.h")
     Q_PROPERTY(QString      primaryLinkName             READ primaryLinkName            WRITE setPrimaryLinkByName          NOTIFY primaryLinkChanged)
+    Q_PROPERTY(QString      primaryLinkIdentifier       READ primaryLinkIdentifier                                        NOTIFY primaryLinkChanged)
+    Q_PROPERTY(QString      primaryLinkDetails          READ primaryLinkDetails                                             NOTIFY primaryLinkChanged)
     Q_PROPERTY(QStringList  linkNames                   READ linkNames                                                      NOTIFY linkNamesChanged)
+    Q_PROPERTY(QStringList  linkDetails                 READ linkDetails                                                    NOTIFY linkNamesChanged)
     Q_PROPERTY(QStringList  linkStatuses                READ linkStatuses                                                   NOTIFY linkStatusesChanged)
     Q_PROPERTY(bool         communicationLost           READ communicationLost                                              NOTIFY communicationLostChanged)
     Q_PROPERTY(bool         communicationLostEnabled    READ communicationLostEnabled   WRITE setCommunicationLostEnabled   NOTIFY communicationLostEnabledChanged)
@@ -37,7 +40,10 @@ public:
     bool containsLink(LinkInterface *link);
     WeakLinkInterfacePtr primaryLink() const { return _primaryLink; }
     QString primaryLinkName() const;
+    QString primaryLinkIdentifier() const;
+    QString primaryLinkDetails() const;
     QStringList linkNames() const;
+    QStringList linkDetails() const;
     QStringList linkStatuses() const;
     bool communicationLost() const { return _communicationLost; }
     bool communicationLostEnabled() const { return _communicationLostEnabled; }
@@ -58,7 +64,7 @@ private slots:
     void _commLostCheck();
 
 private:
-    int _containsLinkIndex(const LinkInterface *link);
+    int _containsLinkIndex(const LinkInterface *link) const;
     void _addLink(LinkInterface *link);
     void _removeLink(LinkInterface *link);
     void _linkDisconnected();
@@ -68,6 +74,7 @@ private:
 
     struct LinkInfo_t {
         SharedLinkInterfacePtr link;
+        QString details;
         bool commLost = false;
         QElapsedTimer heartbeatElapsedTimer;
     };

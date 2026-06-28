@@ -86,7 +86,7 @@ void MAVLinkProtocol::logSentBytes(const LinkInterface *link, const QByteArray &
     }
 }
 
-void MAVLinkProtocol::receiveBytes(LinkInterface *link, const QByteArray &data)
+void MAVLinkProtocol::receiveBytes(LinkInterface *link, const QByteArray &data, const QString &sourceIdentity)
 {
     const SharedLinkInterfacePtr linkPtr = LinkManager::instance()->sharedLinkInterfacePointerForLink(link);
     if (!linkPtr) {
@@ -116,9 +116,9 @@ void MAVLinkProtocol::receiveBytes(LinkInterface *link, const QByteArray &data)
             _forward(message);
             _forwardSupport(message);
         }
-        _logData(link, message);
+        _logData(link, message, sourceIdentity);
 
-        if (!_updateStatus(link, linkPtr, mavlinkChannel, message)) {
+        if (!_updateStatus(link, linkPtr, mavlinkChannel, message, sourceIdentity)) {
             break;
         }
     }
@@ -194,7 +194,7 @@ void MAVLinkProtocol::_forwardSupport(const mavlink_message_t &message)
     (void) forwardingSupportLink->writeBytesThreadSafe(reinterpret_cast<const char*>(buf), len);
 }
 
-void MAVLinkProtocol::_logData(LinkInterface *link, const mavlink_message_t &message)
+void MAVLinkProtocol::_logData(LinkInterface *link, const mavlink_message_t &message, const QString &sourceIdentity)
 {
     if (!_logSuspendError && !_logSuspendReplay && _tempLogFile->isOpen()) {
         const quint64 timestamp = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch() * 1000);
@@ -222,7 +222,7 @@ void MAVLinkProtocol::_logData(LinkInterface *link, const mavlink_message_t &mes
         _startLogging();
         mavlink_heartbeat_t heartbeat{};
         mavlink_msg_heartbeat_decode(&message, &heartbeat);
-        emit vehicleHeartbeatInfo(link, message.sysid, message.compid, heartbeat.autopilot, heartbeat.type);
+        emit vehicleHeartbeatInfo(link, message.sysid, message.compid, heartbeat.autopilot, heartbeat.type, sourceIdentity);
         break;
     }
     case MAVLINK_MSG_ID_HIGH_LATENCY: {
@@ -230,14 +230,14 @@ void MAVLinkProtocol::_logData(LinkInterface *link, const mavlink_message_t &mes
         mavlink_high_latency_t highLatency{};
         mavlink_msg_high_latency_decode(&message, &highLatency);
         // HIGH_LATENCY does not provide autopilot or type information, generic is our safest bet
-        emit vehicleHeartbeatInfo(link, message.sysid, message.compid, MAV_AUTOPILOT_GENERIC, MAV_TYPE_GENERIC);
+        emit vehicleHeartbeatInfo(link, message.sysid, message.compid, MAV_AUTOPILOT_GENERIC, MAV_TYPE_GENERIC, sourceIdentity);
         break;
     }
     case MAVLINK_MSG_ID_HIGH_LATENCY2: {
         _startLogging();
         mavlink_high_latency2_t highLatency2{};
         mavlink_msg_high_latency2_decode(&message, &highLatency2);
-        emit vehicleHeartbeatInfo(link, message.sysid, message.compid, highLatency2.autopilot, highLatency2.type);
+        emit vehicleHeartbeatInfo(link, message.sysid, message.compid, highLatency2.autopilot, highLatency2.type, sourceIdentity);
         break;
     }
     default:
@@ -245,14 +245,14 @@ void MAVLinkProtocol::_logData(LinkInterface *link, const mavlink_message_t &mes
     }
 }
 
-bool MAVLinkProtocol::_updateStatus(LinkInterface *link, const SharedLinkInterfacePtr linkPtr, uint8_t mavlinkChannel, const mavlink_message_t &message)
+bool MAVLinkProtocol::_updateStatus(LinkInterface *link, const SharedLinkInterfacePtr linkPtr, uint8_t mavlinkChannel, const mavlink_message_t &message, const QString &sourceIdentity)
 {
     if ((_totalReceiveCounter[mavlinkChannel] % 31) == 0) {
         const uint64_t totalSent = _totalReceiveCounter[mavlinkChannel] + _totalLossCounter[mavlinkChannel];
         emit mavlinkMessageStatus(message.sysid, totalSent, _totalReceiveCounter[mavlinkChannel], _totalLossCounter[mavlinkChannel], _runningLossPercent[mavlinkChannel]);
     }
 
-    emit messageReceived(link, message);
+    emit messageReceived(link, message, sourceIdentity);
 
     if (linkPtr.use_count() == 1) {
         return false;

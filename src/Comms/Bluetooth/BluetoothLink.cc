@@ -137,8 +137,10 @@ void BluetoothLink::_onRssiUpdated(qint16 rssi)
     }
 }
 
-void BluetoothLink::_writeBytes(const QByteArray &bytes)
+void BluetoothLink::_writeBytes(const QByteArray &bytes, const QString &sourceIdentity)
 {
+    Q_UNUSED(sourceIdentity);
+
     if (_worker) {
         (void) QMetaObject::invokeMethod(_worker.data(), "writeData", Qt::QueuedConnection, Q_ARG(QByteArray, bytes));
     }

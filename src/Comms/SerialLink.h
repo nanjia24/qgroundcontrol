@@ -163,7 +163,7 @@ private slots:
 
 private:
     bool _connect() override;
-    void _writeBytes(const QByteArray &data) override;
+    void _writeBytes(const QByteArray &data, const QString &sourceIdentity = QString()) override;
 
     const SerialConfiguration *_serialConfig = nullptr;
     SerialWorker *_worker = nullptr;

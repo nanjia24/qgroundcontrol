@@ -26,6 +26,23 @@ QGC_LOGGING_CATEGORY(MultiVehicleManagerLog, "Vehicle.MultiVehicleManager")
 
 Q_APPLICATION_STATIC(MultiVehicleManager, _multiVehicleManagerInstance);
 
+namespace {
+
+QString sourceIdentityForLink(LinkInterface *link, const QString &sourceIdentity)
+{
+    if (!sourceIdentity.isEmpty()) {
+        return sourceIdentity;
+    }
+
+    if (!link || !link->linkConfiguration()) {
+        return QString();
+    }
+
+    return QStringLiteral("link:%1:%2").arg(QString::number(static_cast<int>(link->linkConfiguration()->type())), link->linkConfiguration()->name());
+}
+
+}
+
 MultiVehicleManager::MultiVehicleManager(QObject *parent)
     : QObject(parent)
     , _gcsHeartbeatTimer(new QTimer(this))
@@ -63,7 +80,7 @@ void MultiVehicleManager::init()
     _initialized = true;
 }
 
-void MultiVehicleManager::_vehicleHeartbeatInfo(LinkInterface* link, int vehicleId, int componentId, int vehicleFirmwareType, int vehicleType)
+void MultiVehicleManager::_vehicleHeartbeatInfo(LinkInterface* link, int vehicleId, int componentId, int vehicleFirmwareType, int vehicleType, const QString &sourceIdentity)
 {
     if (componentId != MAV_COMP_ID_AUTOPILOT1) {
         // Don't create vehicles for components other than the autopilot
@@ -100,7 +117,10 @@ void MultiVehicleManager::_vehicleHeartbeatInfo(LinkInterface* link, int vehicle
         return;
     }
 
-    if (_ignoreVehicleIds.contains(vehicleId) || getVehicleById(vehicleId) || (vehicleId == 0)) {
+    const bool separateDuplicateIdsBySource = SettingsManager::instance()->mavlinkSettings()->enableDuplicateVehicleIdBySource()->rawValue().toBool();
+    const QString vehicleSourceIdentity = separateDuplicateIdsBySource ? sourceIdentityForLink(link, sourceIdentity) : QString();
+    const bool vehicleAlreadyExists = separateDuplicateIdsBySource ? _vehicleByIdAndSource(vehicleId, vehicleSourceIdentity) : getVehicleById(vehicleId);
+    if (_ignoreVehicleIds.contains(vehicleId) || vehicleAlreadyExists || (vehicleId == 0)) {
         return;
     }
 
@@ -115,7 +135,7 @@ void MultiVehicleManager::_vehicleHeartbeatInfo(LinkInterface* link, int vehicle
         QGC::showAppMessage(tr("Warning: A vehicle is using the same system id as %1: %2").arg(QCoreApplication::applicationName()).arg(vehicleId));
     }
 
-    Vehicle *const vehicle = new Vehicle(link, vehicleId, componentId, (MAV_AUTOPILOT)vehicleFirmwareType, (MAV_TYPE)vehicleType, this);
+    Vehicle *const vehicle = new Vehicle(link, vehicleId, componentId, (MAV_AUTOPILOT)vehicleFirmwareType, (MAV_TYPE)vehicleType, this, vehicleSourceIdentity);
     (void) connect(vehicle->vehicleLinkManager(), &VehicleLinkManager::allLinksRemoved, this, &MultiVehicleManager::_deleteVehiclePhase1);
     (void) connect(vehicle->parameterManager(), &ParameterManager::parametersReadyChanged, this, &MultiVehicleManager::_vehicleParametersReadyChanged);
 
@@ -164,7 +184,7 @@ void MultiVehicleManager::_deleteVehiclePhase1(Vehicle *vehicle)
         return;
     }
 
-    deselectVehicle(vehicle->id());
+    deselectVehicleObject(vehicle);
 
     _setActiveVehicleAvailable(false);
     _setParameterReadyVehicleAvailable(false);
@@ -304,7 +324,9 @@ void MultiVehicleManager::selectVehicle(int vehicleId)
 {
     if(!_vehicleSelected(vehicleId)) {
         Vehicle *const vehicle = getVehicleById(vehicleId);
-        _selectedVehicles->append(vehicle);
+        if (vehicle) {
+            _selectedVehicles->append(vehicle);
+        }
         return;
     }
 }
@@ -325,6 +347,41 @@ void MultiVehicleManager::deselectAllVehicles()
     _selectedVehicles->clear();
 }
 
+void MultiVehicleManager::selectVehicleObject(Vehicle *vehicle)
+{
+    if (vehicle && !vehicleObjectSelected(vehicle)) {
+        _selectedVehicles->append(vehicle);
+    }
+}
+
+void MultiVehicleManager::deselectVehicleObject(Vehicle *vehicle)
+{
+    if (!vehicle) {
+        return;
+    }
+
+    for (int i = 0; i < _selectedVehicles->count(); i++) {
+        if (_selectedVehicles->get(i) == vehicle) {
+            _selectedVehicles->removeAt(i);
+            return;
+        }
+    }
+}
+
+bool MultiVehicleManager::vehicleObjectSelected(Vehicle *vehicle) const
+{
+    if (!vehicle) {
+        return false;
+    }
+
+    for (int i = 0; i < _selectedVehicles->count(); i++) {
+        if (_selectedVehicles->get(i) == vehicle) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool MultiVehicleManager::_vehicleSelected(int vehicleId)
 {
     for (int i = 0; i < _selectedVehicles->count(); i++) {
@@ -341,6 +398,18 @@ Vehicle *MultiVehicleManager::getVehicleById(int vehicleId) const
     for (int i = 0; i < _vehicles->count(); i++) {
         Vehicle *const vehicle = qobject_cast<Vehicle*>(_vehicles->get(i));
         if (vehicle->id() == vehicleId) {
+            return vehicle;
+        }
+    }
+
+    return nullptr;
+}
+
+Vehicle *MultiVehicleManager::_vehicleByIdAndSource(int vehicleId, const QString &sourceIdentity) const
+{
+    for (int i = 0; i < _vehicles->count(); i++) {
+        Vehicle *const vehicle = qobject_cast<Vehicle*>(_vehicles->get(i));
+        if (vehicle && (vehicle->id() == vehicleId) && (vehicle->sourceIdentity() == sourceIdentity)) {
             return vehicle;
         }
     }

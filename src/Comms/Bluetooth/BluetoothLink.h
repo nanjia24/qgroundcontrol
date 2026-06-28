@@ -22,7 +22,7 @@ public:
     void disconnect() override;
 
 private slots:
-    void _writeBytes(const QByteArray &bytes) override;
+    void _writeBytes(const QByteArray &bytes, const QString &sourceIdentity = QString()) override;
     void _onConnected();
     void _onDisconnected();
     void _onErrorOccurred(const QString &errorString);

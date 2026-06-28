@@ -5,6 +5,7 @@
 #include "SettingsManager.h"
 
 #include <QtCore/QMutexLocker>
+#include <QtCore/QRegularExpression>
 #include <QtCore/QThread>
 #include <QtNetwork/QHostInfo>
 #include <QtNetwork/QNetworkDatagram>
@@ -27,6 +28,19 @@ namespace {
         }
 
         return false;
+    }
+
+    bool parseUdpSourceIdentity(const QString &sourceIdentity, QHostAddress &address, quint16 &localPort)
+    {
+        static const QRegularExpression re(QStringLiteral("^udp:(.+)@local:(\\d+)$"));
+        const QRegularExpressionMatch match = re.match(sourceIdentity);
+        if (!match.hasMatch()) {
+            return false;
+        }
+
+        address = QHostAddress(match.captured(1));
+        localPort = match.captured(2).toUShort();
+        return !address.isNull();
     }
 }
 
@@ -391,6 +405,44 @@ void UDPWorker::writeData(const QByteArray &data)
     emit dataSent(data);
 }
 
+void UDPWorker::writeDataToSource(const QByteArray &data, const QString &sourceIdentity)
+{
+    QHostAddress sourceAddress;
+    quint16 localPort = 0;
+    if (!parseUdpSourceIdentity(sourceIdentity, sourceAddress, localPort) || (localPort != _udpConfig->localPort())) {
+        writeData(data);
+        return;
+    }
+
+    if (!isConnected()) {
+        emit errorOccurred(tr("Could Not Send Data - Link is Disconnected!"));
+        return;
+    }
+
+    QMutexLocker locker(&_sessionTargetsMutex);
+
+    bool sent = false;
+    for (const std::shared_ptr<UDPClient> &target: _sessionTargets) {
+        if (target->address == sourceAddress) {
+            if (_socket->writeDatagram(data, target->address, target->port) < 0) {
+                qCWarning(UDPLinkLog) << "Could Not Send Data - Targeted Write Failed!";
+            } else {
+                sent = true;
+            }
+        }
+    }
+
+    locker.unlock();
+
+    if (!sent) {
+        qCWarning(UDPLinkLog) << "Could not find UDP source target, falling back to broadcast send:" << sourceIdentity;
+        writeData(data);
+        return;
+    }
+
+    emit dataSent(data);
+}
+
 void UDPWorker::_onSocketConnected()
 {
     qCDebug(UDPLinkLog) << "UDP connected to" << _udpConfig->localPort();
@@ -425,28 +477,40 @@ void UDPWorker::_onSocketReadyRead()
     QElapsedTimer timer;
     timer.start();
     bool received = false;
+    QString bufferSourceAddress;
+    quint16 bufferSourcePort = 0;
     while (_socket->hasPendingDatagrams()) {
         const QNetworkDatagram datagramIn = _socket->receiveDatagram();
         if (datagramIn.isNull() || datagramIn.data().isEmpty()) {
             continue;
         }
 
-        (void) buffer.append(datagramIn.data());
-
-        if ((buffer.size() > BUFFER_TRIGGER_SIZE) || (timer.elapsed() > RECEIVE_TIME_LIMIT_MS)) {
+        const bool ipLocal = datagramIn.senderAddress().isLoopback() || _localAddresses.contains(datagramIn.senderAddress());
+        const QHostAddress senderAddress = ipLocal ? QHostAddress(QHostAddress::SpecialAddress::LocalHost) : datagramIn.senderAddress();
+        const QString sourceAddress = senderAddress.toString();
+        const quint16 sourcePort = datagramIn.senderPort();
+        if (!buffer.isEmpty() && ((bufferSourceAddress != sourceAddress) || (bufferSourcePort != sourcePort))) {
             received = true;
-            emit dataReceived(buffer);
+            emit dataReceived(buffer, bufferSourceAddress, bufferSourcePort);
             buffer.clear();
             (void) timer.restart();
         }
 
-        const bool ipLocal = datagramIn.senderAddress().isLoopback() || _localAddresses.contains(datagramIn.senderAddress());
-        const QHostAddress senderAddress = ipLocal ? QHostAddress(QHostAddress::SpecialAddress::LocalHost) : datagramIn.senderAddress();
+        bufferSourceAddress = sourceAddress;
+        bufferSourcePort = sourcePort;
+        (void) buffer.append(datagramIn.data());
+
+        if ((buffer.size() > BUFFER_TRIGGER_SIZE) || (timer.elapsed() > RECEIVE_TIME_LIMIT_MS)) {
+            received = true;
+            emit dataReceived(buffer, bufferSourceAddress, bufferSourcePort);
+            buffer.clear();
+            (void) timer.restart();
+        }
 
         QMutexLocker locker(&_sessionTargetsMutex);
-        if (!containsTarget(_sessionTargets, senderAddress, datagramIn.senderPort())) {
-            qCDebug(UDPLinkLog) << "UDP Adding target:" << senderAddress << datagramIn.senderPort();
-            _sessionTargets.append(std::make_shared<UDPClient>(senderAddress, datagramIn.senderPort()));
+        if (!containsTarget(_sessionTargets, senderAddress, sourcePort)) {
+            qCDebug(UDPLinkLog) << "UDP Adding target:" << senderAddress << sourcePort;
+            _sessionTargets.append(std::make_shared<UDPClient>(senderAddress, sourcePort));
         }
         locker.unlock();
     }
@@ -456,7 +520,9 @@ void UDPWorker::_onSocketReadyRead()
         return;
     }
 
-    emit dataReceived(buffer);
+    if (!buffer.isEmpty()) {
+        emit dataReceived(buffer, bufferSourceAddress, bufferSourcePort);
+    }
 }
 
 void UDPWorker::_onSocketBytesWritten(qint64 bytes)
@@ -552,9 +618,12 @@ void UDPLink::_onErrorOccurred(const QString &errorString)
     emit communicationError(tr("UDP Link Error"), tr("Link %1: %2").arg(_udpConfig->name(), errorString));
 }
 
-void UDPLink::_onDataReceived(const QByteArray &data)
+void UDPLink::_onDataReceived(const QByteArray &data, const QString &sourceAddress, quint16 sourcePort)
 {
-    emit bytesReceived(this, data);
+    _currentDataSourceAddress = sourceAddress;
+    _currentDataSourcePort = sourcePort;
+    const QString sourceIdentity = QStringLiteral("udp:%1@local:%2").arg(sourceAddress, QString::number(_udpConfig->localPort()));
+    emit bytesReceived(this, data, sourceIdentity);
 }
 
 void UDPLink::_onDataSent(const QByteArray &data)
@@ -562,9 +631,13 @@ void UDPLink::_onDataSent(const QByteArray &data)
     emit bytesSent(this, data);
 }
 
-void UDPLink::_writeBytes(const QByteArray& bytes)
+void UDPLink::_writeBytes(const QByteArray& bytes, const QString &sourceIdentity)
 {
-    (void) QMetaObject::invokeMethod(_worker, "writeData", Qt::QueuedConnection, Q_ARG(QByteArray, bytes));
+    if (sourceIdentity.startsWith(QStringLiteral("udp:"))) {
+        (void) QMetaObject::invokeMethod(_worker, "writeDataToSource", Qt::QueuedConnection, Q_ARG(QByteArray, bytes), Q_ARG(QString, sourceIdentity));
+    } else {
+        (void) QMetaObject::invokeMethod(_worker, "writeData", Qt::QueuedConnection, Q_ARG(QByteArray, bytes));
+    }
 }
 
 bool UDPLink::isSecureConnection() const

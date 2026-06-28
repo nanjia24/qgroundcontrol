@@ -29,7 +29,7 @@ public:
     bool mavlinkChannelIsSet() const;
     bool decodedFirstMavlinkPacket() const { return _decodedFirstMavlinkPacket; }
     void setDecodedFirstMavlinkPacket(bool decodedFirstMavlinkPacket) { _decodedFirstMavlinkPacket = decodedFirstMavlinkPacket; }
-    void writeBytesThreadSafe(const char *bytes, int length);
+    void writeBytesThreadSafe(const char *bytes, int length, const QString &sourceIdentity = QString());
     void addVehicleReference() { ++_vehicleReferenceCount; }
     void removeVehicleReference();
     bool initMavlinkSigning();
@@ -37,7 +37,7 @@ public:
     void reportMavlinkV1Traffic();
 
 signals:
-    void bytesReceived(LinkInterface *link, const QByteArray &data);
+    void bytesReceived(LinkInterface *link, const QByteArray &data, const QString &sourceIdentity = QString());
     void bytesSent(LinkInterface *link, const QByteArray &data);
     void connected();
     void disconnected();
@@ -59,7 +59,7 @@ protected:
 
 private slots:
     /// Not thread safe if called directly, only writeBytesThreadSafe is thread safe
-    virtual void _writeBytes(const QByteArray &bytes) = 0;
+    virtual void _writeBytes(const QByteArray &bytes, const QString &sourceIdentity = QString()) = 0;
 
 private:
     /// connect is private since all links should be created through LinkManager::createConnectedLink calls

@@ -115,7 +115,8 @@ public:
             int                     defaultComponentId,
             MAV_AUTOPILOT           firmwareType,
             MAV_TYPE                vehicleType,
-            QObject*                parent = nullptr);
+            QObject*                parent = nullptr,
+            const QString&          sourceIdentity = QString());
 
     // Pass these into the offline constructor to create an offline vehicle which tracks the offline vehicle settings.
     // Keep these as valid enum values to avoid UBSan failures on enum loads/comparisons.
@@ -421,6 +422,7 @@ public:
 
     // Property accesors
     int id() const{ return _systemID; }
+    QString sourceIdentity() const { return _sourceIdentity; }
     int compId() const{ return _compID; }
     MAV_AUTOPILOT firmwareType() const { return _firmwareType; }
     MAV_TYPE vehicleType() const { return _vehicleType; }
@@ -820,7 +822,7 @@ signals:
     void logData                        (uint32_t ofs, uint16_t id, uint8_t count, const uint8_t* data);
 
 private slots:
-    void _mavlinkMessageReceived            (LinkInterface* link, mavlink_message_t message);
+    void _mavlinkMessageReceived            (LinkInterface* link, mavlink_message_t message, const QString& sourceIdentity);
     void _sendMessageMultipleNext           ();
     void _parametersReady                   (bool parametersReady);
     void _handleFlightModeChanged           (const QString& flightMode);
@@ -903,6 +905,7 @@ private:
     void _stopCommandProcessing();
 
     int     _systemID;                    ///< Mavlink system id
+    QString _sourceIdentity;
     int     _defaultComponentId;
     bool    _offlineEditingVehicle = false; ///< true: This Vehicle is a "disconnected" vehicle for ui use while offline editing
 

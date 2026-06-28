@@ -139,7 +139,7 @@ signals:
     void currentLogTimeSecs(uint32_t secs);
 
 private slots:
-    void _writeBytes(const QByteArray &bytes) override { Q_UNUSED(bytes); }
+    void _writeBytes(const QByteArray &bytes, const QString &sourceIdentity = QString()) override { Q_UNUSED(bytes); Q_UNUSED(sourceIdentity); }
     void _onConnected();
     void _onDisconnected();
     void _onErrorOccurred(const QString &errorString);

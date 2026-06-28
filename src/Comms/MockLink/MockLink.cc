@@ -571,8 +571,10 @@ void MockLink::respondWithMavlinkMessage(const mavlink_message_t &msg)
     }
 }
 
-void MockLink::_writeBytes(const QByteArray &bytes)
+void MockLink::_writeBytes(const QByteArray &bytes, const QString &sourceIdentity)
 {
+    Q_UNUSED(sourceIdentity);
+
     // This prevents the responses to mavlink messages from being sent until the _writeBytes returns.
     emit writeBytesQueuedSignal(bytes);
 }
