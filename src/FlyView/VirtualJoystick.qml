@@ -16,22 +16,79 @@ Item {
     property var   calibration:               false
     property real  uiTotalWidth:           0
     property real  uiRealX:                 0
+    property bool  _activeJoystickSending:  joystickManager.activeJoystick && joystickManager.activeJoystickEnabledForActiveVehicle
+    readonly property bool _centerThrottleDisplay: _activeVehicle && _activeVehicle.supports.throttleModeCenterZero &&
+                                                   (_activeVehicle.rover ||
+                                                    (_activeJoystickSending && joystickManager.activeJoystick && joystickManager.activeJoystick.settings.throttleModeCenterZero.rawValue))
+
+    function _clampAxis(axisValue) {
+        return Math.max(-1, Math.min(axisValue, 1))
+    }
+
+    function _clampPositiveAxis(axisValue) {
+        return Math.max(0, Math.min(axisValue, 1))
+    }
+
+    function _setStickAxes(stick, xValue, yValue, positiveRangeY) {
+        if (!stick || stick.width <= 0 || stick.height <= 0) {
+            return
+        }
+
+        const xAxis = _clampAxis(xValue)
+        const yAxis = positiveRangeY ? _clampPositiveAxis(yValue) : _clampAxis(yValue)
+        stick.stickPositionX = ((xAxis + 1) / 2) * stick.width
+        stick.stickPositionY = positiveRangeY ? (1 - yAxis) * stick.height : (1 - ((yAxis + 1) / 2)) * stick.height
+    }
+
+    function _setActiveJoystickDisplayValues(roll, pitch, yaw, throttle) {
+        const throttlePositiveRange = !_centerThrottleDisplay
+        if (leftHandedMode) {
+            _setStickAxes(leftStick, roll, pitch, false)
+            _setStickAxes(rightStick, yaw, throttle, throttlePositiveRange)
+            return
+        }
+        _setStickAxes(leftStick, yaw, throttle, throttlePositiveRange)
+        _setStickAxes(rightStick, roll, pitch, false)
+    }
+
+    function _restoreVirtualJoystickPositions() {
+        leftStick.reCenter()
+        rightStick.reCenter()
+        if (!leftStick.yAxisReCenter) {
+            leftStick.stickPositionY = leftStick.yAxisPositiveRangeOnly ? leftStick.height : leftStick.height / 2
+        }
+        leftYAxisValue = leftStick.yAxis
+    }
 
     Timer {
         interval:   40  // 25Hz, same as real joystick rate
         running:    QGroundControl.settingsManager.appSettings.virtualJoystick.value
         repeat:     true
         onTriggered: {
-            if (_activeVehicle && _initialConnectComplete) {
+            if (_activeVehicle && _initialConnectComplete && !virtualJoysticks._activeJoystickSending) {
                 leftHandedMode ? _activeVehicle.virtualTabletJoystickValue(leftStick.xAxis, leftStick.yAxis, rightStick.xAxis, rightStick.yAxis) : _activeVehicle.virtualTabletJoystickValue(rightStick.xAxis, rightStick.yAxis, leftStick.xAxis, leftStick.yAxis)
+                leftYAxisValue = leftStick.yAxis // We keep Y axis value from the throttle stick for using it while there is a resize
             }
-            leftYAxisValue = leftStick.yAxis // We keep Y axis value from the throttle stick for using it while there is a resize
+        }
+    }
+
+    Connections {
+        target: joystickManager.activeJoystick
+        enabled: virtualJoysticks._activeJoystickSending
+
+        function onAxisValues(roll, pitch, yaw, throttle) {
+            virtualJoysticks._setActiveJoystickDisplayValues(roll, pitch, yaw, throttle)
         }
     }
 
     onHeightChanged:        { keepYAxisWhileChanged() }
     onWidthChanged:         { keepXAxisWhileChanged() }
     onCalibrationChanged:   { calibration ? calibrateJoysticks() : undefined }
+    on_ActiveJoystickSendingChanged: {
+        if (!virtualJoysticks._activeJoystickSending) {
+            virtualJoysticks._restoreVirtualJoystickPositions()
+        }
+    }
 
     function calibrateJoysticks() {
         if( virtualJoysticks.visible ) {
@@ -62,8 +119,9 @@ Item {
         anchors.bottom:         parent.bottom
         width:                  parent.height
         height:                 parent.height
-        yAxisPositiveRangeOnly: _activeVehicle && !_activeVehicle.rover && !leftHandedMode
+        yAxisPositiveRangeOnly: _activeVehicle && !_activeVehicle.rover && !leftHandedMode && !_centerThrottleDisplay
         yAxisReCenter:          autoCenterThrottle
+        inputEnabled:           !virtualJoysticks._activeJoystickSending
     }
 
     JoystickThumbPad {
@@ -74,7 +132,8 @@ Item {
         anchors.bottom:         parent.bottom
         width:                  parent.height
         height:                 parent.height
-        yAxisPositiveRangeOnly: _activeVehicle && !_activeVehicle.rover && leftHandedMode
+        yAxisPositiveRangeOnly: _activeVehicle && !_activeVehicle.rover && leftHandedMode && !_centerThrottleDisplay
         yAxisReCenter:          true
+        inputEnabled:           !virtualJoysticks._activeJoystickSending
     }
 }

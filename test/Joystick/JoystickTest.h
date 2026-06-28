@@ -66,6 +66,7 @@ private slots:
 
     // Button action tests
     void _buttonActionAssignmentTest();
+    void _reservedControlAxesRejectAxisActionsTest();
 
     // Connection state tests
     void _connectionStateTest();

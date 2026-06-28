@@ -200,6 +200,7 @@ public:
     Q_INVOKABLE bool getButtonRepeat(int button);
     Q_INVOKABLE void setButtonAction(int button, const QString &action);
     Q_INVOKABLE QString getButtonAction(int button) const;
+    Q_INVOKABLE bool axisActionsAllowed(int axis) const;
     Q_INVOKABLE void setAxisAction(int axis, int position, const QString &action);
     Q_INVOKABLE QString getAxisAction(int axis, int position) const;
 
@@ -491,6 +492,7 @@ private:
 
     AxisFunctionMap_t _axisFunctionToJoystickAxisMap; ///< Map from AxisFunction_t to axis index, kJoystickAxisNotAssigned if not assigned
     static constexpr const int kJoystickAxisNotAssigned = -1;
+    static constexpr const int kFirstAssignableAxisActionIndex = 4;
 
     QElapsedTimer _axisElapsedTimer;
     QStringList _availableActionTitles;

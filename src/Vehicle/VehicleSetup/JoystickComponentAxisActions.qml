@@ -29,6 +29,7 @@ ColumnLayout {
                 spacing: ScreenTools.defaultFontPixelWidth
 
                 readonly property int axisIndex: index
+                readonly property bool axisActionsAllowed: joystick ? joystick.axisActionsAllowed(axisIndex) : false
 
                 function refresh() {
                     lowActionCombo.selectAssignedAction()
@@ -46,6 +47,7 @@ ColumnLayout {
                     Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 20
                     model: joystick.assignableActionTitles
                     sizeToContents: true
+                    enabled: axisActionRow.axisActionsAllowed
 
                     function selectAssignedAction() {
                         let actionIndex = find(joystick.getAxisAction(axisActionRow.axisIndex, 0))
@@ -61,6 +63,7 @@ ColumnLayout {
                     Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 20
                     model: joystick.assignableActionTitles
                     sizeToContents: true
+                    enabled: axisActionRow.axisActionsAllowed
 
                     function selectAssignedAction() {
                         let actionIndex = find(joystick.getAxisAction(axisActionRow.axisIndex, 1))
@@ -76,6 +79,7 @@ ColumnLayout {
                     Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 20
                     model: joystick.assignableActionTitles
                     sizeToContents: true
+                    enabled: axisActionRow.axisActionsAllowed
 
                     function selectAssignedAction() {
                         let actionIndex = find(joystick.getAxisAction(axisActionRow.axisIndex, 2))

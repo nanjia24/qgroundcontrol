@@ -703,6 +703,24 @@ void JoystickTest::_buttonActionAssignmentTest()
     QVERIFY(!js->getButtonRepeat(2));
 }
 
+void JoystickTest::_reservedControlAxesRejectAxisActionsTest()
+{
+    _mockJoystick = std::unique_ptr<MockJoystick>(MockJoystick::create(QStringLiteral("Axis Action Test"), 8, 16, 1));
+    QVERIFY(_mockJoystick->isValid());
+    _pumpEvents();
+    _discoveredJoysticks = JoystickSDL::discover();
+    JoystickSDL* js = _findJoystickByInstanceId(_mockJoystick->instanceId());
+    QVERIFY(js != nullptr);
+
+    for (int axis = 0; axis < 4; axis++) {
+        js->setAxisAction(axis, 0, QStringLiteral("Arm"));
+        QCOMPARE(js->getAxisAction(axis, 0), js->buttonActionNone());
+    }
+
+    js->setAxisAction(4, 0, QStringLiteral("Arm"));
+    QCOMPARE(js->getAxisAction(4, 0), QStringLiteral("Arm"));
+}
+
 //-----------------------------------------------------------------------------
 // Connection State Tests
 //-----------------------------------------------------------------------------

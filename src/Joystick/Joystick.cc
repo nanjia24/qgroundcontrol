@@ -325,6 +325,11 @@ void Joystick::_loadAxisActionSettings()
             qCWarning(JoystickLog) << "Ignoring invalid axis action index:" << axisGroup;
             continue;
         }
+        if (!axisActionsAllowed(axis)) {
+            qCWarning(JoystickLog) << "Ignoring axis action on reserved control axis:" << axis;
+            axisActionSettings.remove(axisGroup);
+            continue;
+        }
 
         axisActionSettings.beginGroup(axisGroup);
         _assignedAxisActions[axis].actions[AxisActionLow] = loadAction(axisActionSettings.value(lowKey).toString());
@@ -940,6 +945,11 @@ void Joystick::_handleAxisActions(const QVector<float> &adjustedAxisValues)
 
     const int axisCount = std::min(_assignedAxisActions.count(), adjustedAxisValues.count());
     for (int axis = 0; axis < axisCount; axis++) {
+        if (!axisActionsAllowed(axis)) {
+            _assignedAxisActions[axis].lastPosition = -1;
+            continue;
+        }
+
         AssignedAxisActions &axisActions = _assignedAxisActions[axis];
 
         const bool allDisabled =
@@ -1636,9 +1646,31 @@ QStringList Joystick::buttonActions() const
     return list;
 }
 
+bool Joystick::axisActionsAllowed(int axis) const
+{
+    return _validAxis(axis) && axis >= kFirstAssignableAxisActionIndex;
+}
+
 void Joystick::setAxisAction(int axis, int position, const QString &actionName)
 {
     if (!_validAxis(axis) || position < AxisActionLow || position >= AxisActionPositionCount) {
+        return;
+    }
+    if (!axisActionsAllowed(axis)) {
+        qCWarning(JoystickLog) << "Ignoring axis action on reserved control axis:" << axis;
+        _assignedAxisActions[axis].actions[AxisActionLow] = _buttonActionNone;
+        _assignedAxisActions[axis].actions[AxisActionMid] = _buttonActionNone;
+        _assignedAxisActions[axis].actions[AxisActionHigh] = _buttonActionNone;
+        _assignedAxisActions[axis].lastPosition = -1;
+
+        QSettings settings;
+        settings.beginGroup(_joystickSettings.settingsGroup());
+        settings.beginGroup(QString::fromLatin1(kAxisActionArrayGroup));
+        settings.remove(QString::number(axis));
+        settings.endGroup();
+        settings.endGroup();
+
+        emit axisActionsChanged();
         return;
     }
 
@@ -1682,6 +1714,10 @@ void Joystick::setAxisAction(int axis, int position, const QString &actionName)
 
 QString Joystick::getAxisAction(int axis, int position) const
 {
+    if (!axisActionsAllowed(axis)) {
+        return QString(_buttonActionNone);
+    }
+
     if ((axis >= 0) && (axis < _assignedAxisActions.count()) && (position >= AxisActionLow) && (position < AxisActionPositionCount)) {
         const QString &action = _assignedAxisActions[axis].actions[position];
         return action.isEmpty() ? QString(_buttonActionNone) : action;
@@ -1696,6 +1732,11 @@ QStringList Joystick::axisActionSummaries() const
     list.reserve(_axisCount);
 
     for (int axis = 0; axis < _axisCount; axis++) {
+        if (!axisActionsAllowed(axis)) {
+            list << _buttonActionNone;
+            continue;
+        }
+
         const AssignedAxisActions &axisActions = _assignedAxisActions[axis];
         const bool allDisabled =
             axisActions.actions[AxisActionLow] == _buttonActionNone &&

@@ -12,6 +12,7 @@ Item {
     property real   yAxis:                  0                   ///< Value range [-1,1], negative values down stick, positive values up stick
     property bool   yAxisPositiveRangeOnly: false               ///< true: value range [0,1], false: value range [-1,1]
     property bool   yAxisReCenter:          false               ///< true: snaps back to center on release, false: stays at current position on release
+    property bool   inputEnabled:           true                ///< true: touch input moves the stick
     property real   xPositionDelta:         0                   ///< Amount to move the control on x axis
     property real   yPositionDelta:         0                   ///< Amount to move the control on y axis
 
@@ -253,6 +254,7 @@ Item {
     MultiPointTouchArea {
         anchors.fill:           parent
         anchors.bottomMargin:   yAxisReCenter ? 0 : -_hatWidthHalf
+        enabled:                _joyRoot.inputEnabled
         minimumTouchPoints:     1
         maximumTouchPoints:     1
         touchPoints:            [ TouchPoint { id: touchPoint } ]
