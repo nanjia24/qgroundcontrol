@@ -52,3 +52,7 @@
 - Release generation truncates the long GStreamer root under `E:\Program Files` to `E:/Program`; use `E:\PROGRA~1\GSTREA~1\1.0\MSVC_X~1` in this environment.
 - Remove inherited `E:\msys64\mingw64\bin` only from the build subprocess PATH to prevent GNU/MinGW tool detection during the MSVC configuration.
 - Codex CLI full access does not imply Windows UAC elevation. The verified token was medium-integrity/non-administrator, and the symlink test remained failed.
+- The isolated `codex/windows-test-hardening` baseline reproduced the same 8 failing suites and 11 assertion failures after a clean Debug build.
+- `QGCFileHelper::isLocalPath` treats a Windows drive path such as `C:/...` as URL scheme `c`; this explains the empty archive path in `QGCArchiveModelTest` and is a production portability issue, not only a test assertion issue.
+- `PlatformTest` expects `QT_ASSUME_STDERR_HAS_CONSOLE` and `QT_FORCE_STDERR_LOGGING` on Windows although `Platform::initialize` sets them only under `Q_OS_UNIX`.
+- `JsonHelperTest` asserts untranslated English text while the production error is translated, making the test locale-dependent.

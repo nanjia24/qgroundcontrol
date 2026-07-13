@@ -18,3 +18,11 @@ Key constraint: do not modify business source code, do not commit, do not push, 
 - Release configure/build now succeeds in `build/windows-release`; the executable ran for a 20-second observation window with empty stdout/stderr.
 - NSIS 3.12 is available, but install/package generation was intentionally not run.
 - The 11 targeted classes were rerun under Codex full access with unchanged assertion patterns. The Windows token remained medium-integrity and non-administrator.
+
+## 2026-07-13 test-hardening branch
+
+- Worktree: `E:\workspace\QGC\qgroundcontrol-worktrees\windows-test-hardening`
+- Branch: `codex/windows-test-hardening`
+- Base feature commit: `daae3a37b`; `origin/codex/joystick-aux-px4` was fetched and had no newer commits.
+- Clean Debug test build completed in `build/windows-debug` with VS2022 v143 x64.
+- Targeted baseline reproduced 8 failing suites / 11 assertion failures; 3 suites pass individually.

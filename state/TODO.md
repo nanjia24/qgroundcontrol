@@ -65,3 +65,12 @@
 - [x] Compare full-access results with the prior run.
 - [ ] Fetch and fast-forward-check the integration branch before creating a separate test-hardening branch.
 - [ ] Keep Windows test fixes separate from joystick feature changes.
+
+## Test-hardening worktree
+
+- [x] Fetch and verify the feature branch is current with origin.
+- [x] Create `codex/windows-test-hardening` in an isolated worktree.
+- [x] Configure and build a clean Debug test baseline.
+- [x] Reproduce only the 11 previously failing test suites.
+- [ ] Approve the Windows test-hardening design and fix policy.
+- [ ] Write an implementation plan before changing tests or production behavior.
