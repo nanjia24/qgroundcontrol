@@ -74,5 +74,6 @@
 - [x] Reproduce only the 11 previously failing test suites.
 - [x] Approve the Windows test-hardening design and fix policy.
 - [x] Write and self-review the Windows test-hardening design specification.
-- [ ] Obtain final user review of the written specification.
-- [ ] Write an implementation plan before changing tests or production behavior.
+- [x] Obtain final user review of the written specification.
+- [x] Write the Phase 1 implementation plan before changing tests or production behavior.
+- [ ] Select the Phase 1 execution mode and execute the approved plan.
