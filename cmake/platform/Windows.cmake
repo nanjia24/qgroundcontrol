@@ -51,6 +51,8 @@ else()
 endif()
 
 if(MSVC)
+    add_compile_options(/Zc:preprocessor)
+    target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE /Zc:preprocessor)
     # qt_add_win_app_sdk(${CMAKE_PROJECT_NAME} PRIVATE)
 endif()
 
