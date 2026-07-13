@@ -72,5 +72,7 @@
 - [x] Create `codex/windows-test-hardening` in an isolated worktree.
 - [x] Configure and build a clean Debug test baseline.
 - [x] Reproduce only the 11 previously failing test suites.
-- [ ] Approve the Windows test-hardening design and fix policy.
+- [x] Approve the Windows test-hardening design and fix policy.
+- [x] Write and self-review the Windows test-hardening design specification.
+- [ ] Obtain final user review of the written specification.
 - [ ] Write an implementation plan before changing tests or production behavior.
