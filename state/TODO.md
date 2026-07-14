@@ -82,4 +82,7 @@
 - [ ] Investigate and design Phase 2 fixes for compression, cache, Mission logging, and CTest runner behavior.
 - [x] Confirm and write the Phase 2A compression hardening design.
 - [x] Obtain final user review of the written Phase 2A specification.
-- [ ] Write the Phase 2A implementation plan before changing code.
+- [x] Write the Phase 2A implementation plan before changing code.
+- [ ] Execute Phase 2A Task 1: real Windows directory-symlink capability probe.
+- [ ] Execute Phase 2A Task 2: Unicode libarchive output entry paths.
+- [ ] Execute Phase 2A Task 3: focused regressions, evidence, and delivery.
