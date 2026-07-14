@@ -94,5 +94,7 @@
 - [x] Execute Phase 2B Task 2: focused regressions, evidence, and delivery.
 - [x] Reproduce and separate the Phase 2C Mission editor font-environment root cause.
 - [x] Approve and write the Phase 2C font-environment design.
-- [ ] Obtain final user review of the written Phase 2C specification.
-- [ ] Write the Phase 2C implementation plan before changing CMake.
+- [x] Obtain final user review of the written Phase 2C specification.
+- [x] Write the Phase 2C implementation plan before changing CMake.
+- [ ] Execute Phase 2C Task 1: configure Windows offscreen fonts for CTest.
+- [ ] Execute Phase 2C Task 2: verification, evidence, and delivery.

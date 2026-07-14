@@ -1,6 +1,6 @@
 # Windows Mission Editor Test Font Environment Design
 
-**Status:** Approved in conversation on 2026-07-14; written specification pending final user review.
+**Status:** Written specification approved by the user on 2026-07-14.
 
 ## Goal
 
