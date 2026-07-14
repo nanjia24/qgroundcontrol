@@ -26,6 +26,17 @@ set(QGC_TEST_TIMEOUT_INTEGRATION 120 CACHE STRING "Timeout for integration tests
 set(QGC_TEST_TIMEOUT_SLOW 180 CACHE STRING "Timeout for slow tests (seconds)")
 set(QGC_TEST_TIMEOUT_DEFAULT 90 CACHE STRING "Default test timeout (seconds)")
 
+set(_qgc_test_windows_font_dir "")
+if(WIN32)
+    if(DEFINED ENV{WINDIR})
+        file(TO_CMAKE_PATH "$ENV{WINDIR}/Fonts" _qgc_test_windows_font_dir)
+    endif()
+
+    if(NOT IS_DIRECTORY "${_qgc_test_windows_font_dir}")
+        message(WARNING "Windows test font directory was not found through WINDIR; offscreen Qt tests may emit QFontDatabase warnings")
+    endif()
+endif()
+
 # ----------------------------------------------------------------------------
 # Convenience Targets
 # ----------------------------------------------------------------------------
@@ -134,6 +145,10 @@ function(add_qgc_test test_name)
     endif()
 
     set(_test_env "QT_QPA_PLATFORM=offscreen" "QT_LOGGING_RULES=*.debug=false")
+
+    if(WIN32 AND IS_DIRECTORY "${_qgc_test_windows_font_dir}")
+        list(APPEND _test_env "QT_QPA_FONTDIR=${_qgc_test_windows_font_dir}")
+    endif()
 
     # LSan's tracer process needs ptrace, which Yama (ptrace_scope>=1) blocks on
     # most dev/CI hosts — disable leak detection under ASan to avoid spurious
