@@ -76,5 +76,7 @@
 - [x] Write and self-review the Windows test-hardening design specification.
 - [x] Obtain final user review of the written specification.
 - [x] Write the Phase 1 implementation plan before changing tests or production behavior.
-- [ ] Select the Phase 1 execution mode and execute the approved plan.
-- [ ] Resolve subagent execution-channel blockage or explicitly switch Phase 1 to inline execution.
+- [x] Select subagent-driven execution and complete the approved Phase 1 plan.
+- [x] Recover from the transient subagent execution-channel/network blockage.
+- [x] Verify the Phase 1 focused set: 118 tests, 0 failures/errors/skips.
+- [ ] Investigate and design Phase 2 fixes for compression, cache, Mission logging, and CTest runner behavior.

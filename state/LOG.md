@@ -60,3 +60,7 @@
 2026-07-14:
 - SDD Task 1 was dispatched twice to fresh subagents. Both remained in `running` state without starting QGroundControl/Ninja/CMake, changing files, writing the required report, or responding to a status request; both were interrupted after bounded waits.
 - This is an agent execution-channel blocker, not evidence of a JsonHelper implementation or build failure. No Task 1 source change or commit was produced.
+- A third fresh dispatch succeeded after the suspected network fluctuation; subsequent SDD tasks completed with implementer and independent review gates.
+- Phase 1 fixed four confirmed root causes in focused commits: locale-dependent JSON text, Unix-only Platform assertions on Windows, GeoTag path/file semantics, and Windows absolute path recognition in `QGCFileHelper`.
+- Final Phase 1 focused regression parsed 118 tests across 5 suites with 0 failures, 0 errors, and 0 skips. Console logs contained only the expected QML debugging notice.
+- Phase 2 still has 4 failing suites / 6 assertions; Phase 1 did not suppress or skip them.

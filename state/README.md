@@ -26,3 +26,12 @@ Key constraint: do not modify business source code, do not commit, do not push, 
 - Base feature commit: `daae3a37b`; `origin/codex/joystick-aux-px4` was fetched and had no newer commits.
 - Clean Debug test build completed in `build/windows-debug` with VS2022 v143 x64.
 - Targeted baseline reproduced 8 failing suites / 11 assertion failures; 3 suites pass individually.
+
+## 2026-07-14 Phase 1 result
+
+- Fixed locale-sensitive JSON validation assertions.
+- Fixed Windows/Unix mismatch in Platform initialization expectations.
+- Fixed GeoTag test drive-letter comparison and read-only temporary resource cleanup.
+- Fixed production Windows drive/UNC path classification in `QGCFileHelper`; downstream archive URL handling now passes.
+- Phase 1 regression: 5 suites, 118 tests, 0 failures, 0 errors, 0 skips.
+- Remaining Phase 2 baseline: 4 suites / 6 failures (`ComponentInformationCacheTest`, two Mission suites, and `QGCCompressionTest`).
