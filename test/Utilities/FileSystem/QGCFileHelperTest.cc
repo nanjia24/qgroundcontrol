@@ -283,6 +283,14 @@ void QGCFileHelperTest::_testToLocalPathPlainPaths()
     QCOMPARE(QGCFileHelper::toLocalPath(""), QString(""));
     // Qt resource paths should pass through
     QCOMPARE(QGCFileHelper::toLocalPath(":/resource/path"), QString(":/resource/path"));
+#ifdef Q_OS_WIN
+    QCOMPARE(QGCFileHelper::toLocalPath(QStringLiteral("C:/Users/Test/file.txt")),
+             QStringLiteral("C:/Users/Test/file.txt"));
+    QCOMPARE(QGCFileHelper::toLocalPath(QStringLiteral("C:\\Users\\Test\\file.txt")),
+             QStringLiteral("C:\\Users\\Test\\file.txt"));
+    QCOMPARE(QGCFileHelper::toLocalPath(QStringLiteral("\\\\server\\share\\file.txt")),
+             QStringLiteral("\\\\server\\share\\file.txt"));
+#endif
 }
 
 void QGCFileHelperTest::_testToLocalPathFileUrls()
@@ -340,6 +348,11 @@ void QGCFileHelperTest::_testIsLocalPath()
     QVERIFY(QGCFileHelper::isLocalPath(":/resource/path"));
     QVERIFY(QGCFileHelper::isLocalPath("file:///path/to/file"));
     QVERIFY(QGCFileHelper::isLocalPath("qrc:/resource"));
+#ifdef Q_OS_WIN
+    QVERIFY(QGCFileHelper::isLocalPath(QStringLiteral("C:/Users/Test/file.txt")));
+    QVERIFY(QGCFileHelper::isLocalPath(QStringLiteral("C:\\Users\\Test\\file.txt")));
+    QVERIFY(QGCFileHelper::isLocalPath(QStringLiteral("\\\\server\\share\\file.txt")));
+#endif
     // Empty path
     QVERIFY(!QGCFileHelper::isLocalPath(""));
     // Network URLs (not local)

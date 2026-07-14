@@ -282,6 +282,12 @@ QString toLocalPath(const QString &urlOrPath)
         return urlOrPath;
     }
 
+#ifdef Q_OS_WIN
+    if (QDir::isAbsolutePath(urlOrPath)) {
+        return urlOrPath;
+    }
+#endif
+
     // Check if it's a URL (handles qrc:// -> :/ conversion)
     QUrl url(urlOrPath);
     if (url.isValid() && !url.scheme().isEmpty()) {
@@ -339,6 +345,12 @@ bool isLocalPath(const QString &urlOrPath)
     if (isQtResource(urlOrPath)) {
         return true;
     }
+
+#ifdef Q_OS_WIN
+    if (QDir::isAbsolutePath(urlOrPath)) {
+        return true;
+    }
+#endif
 
     // Check if it looks like a URL
     QUrl url(urlOrPath);
