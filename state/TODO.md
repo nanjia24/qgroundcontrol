@@ -92,3 +92,7 @@
 - [x] Write the Phase 2B implementation plan before changing test code.
 - [x] Execute Phase 2B Task 1: release cached file before fixture cleanup.
 - [x] Execute Phase 2B Task 2: focused regressions, evidence, and delivery.
+- [x] Reproduce and separate the Phase 2C Mission editor font-environment root cause.
+- [x] Approve and write the Phase 2C font-environment design.
+- [ ] Obtain final user review of the written Phase 2C specification.
+- [ ] Write the Phase 2C implementation plan before changing CMake.
