@@ -179,6 +179,7 @@ enabled: vehicle && vehicle.armed
 - `build/windows-debug-vs2022-zc-fixed` 已验证：不手动传 `-DCMAKE_CXX_FLAGS=/Zc:preprocessor` 也能完成全量 Debug 测试构建，原因是该选项已固化到 `cmake/platform/Windows.cmake`。
 - 11 个 Windows 单测失败在同环境 `origin/master` 对照 worktree 中复现；当前证据不支持将这些失败归因于 `codex/joystick-aux-px4` 的 joystick 改动。
 - 中文本地化 MSVC 的 `/showIncludes` 输出可能未被 Ninja 解析，已观察到 `QGCCompressionTest.cc.obj` 为 `#deps 0`；头文件改动后普通增量构建可能错误报告 `no work to do`。
+- Windows 上打开的 `QFile` 会阻止 `QDir::removeRecursively()` 删除对应文件；`ComponentInformationCacheTest` 曾因此只删除 `.meta` 而遗留 `.cache`，污染后续 LRU 测试。
 
 【项目规范区域】
 
@@ -186,3 +187,4 @@ enabled: vehicle && vehicle.armed
 - QGC Windows 单测采集详细结果时，使用 `--unittest-output:<xml> --log-output --logging:<rules>` 和 `QGC_TEST_VERBOSE=1`；不要传 `-- -v2`，当前 QGC 命令行解析会拒绝该 positional argument。
 - QGC unittest XML 会把 `Test.xml` 改写成 `Test-<QObjectName>.xml`，检查结果文件时必须匹配实际生成文件名。
 - 修改测试头文件后必须从构建日志确认受影响对象实际重编；若 Ninja 记录 `#deps 0`，先验证对象绝对路径位于目标 build 根目录，再仅删除该陈旧对象并重新构建。
+- Windows 测试在递归删除 fixture 目录前，必须通过 RAII 结束所有 `QFile`/流对象生命周期；不要依赖删除打开文件的 Unix 语义。

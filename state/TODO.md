@@ -86,3 +86,7 @@
 - [x] Execute Phase 2A Task 1: real Windows directory-symlink capability probe.
 - [x] Execute Phase 2A Task 2: Unicode libarchive output entry paths.
 - [x] Execute Phase 2A Task 3: focused regressions, evidence, and delivery.
+- [x] Reproduce and identify the Phase 2B component-cache test lifecycle root cause.
+- [x] Approve and write the Phase 2B test-only design.
+- [ ] Obtain final user review of the written Phase 2B specification.
+- [ ] Write the Phase 2B implementation plan before changing test code.
