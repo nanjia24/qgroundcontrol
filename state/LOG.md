@@ -64,3 +64,4 @@
 - Phase 1 fixed four confirmed root causes in focused commits: locale-dependent JSON text, Unix-only Platform assertions on Windows, GeoTag path/file semantics, and Windows absolute path recognition in `QGCFileHelper`.
 - Final Phase 1 focused regression parsed 118 tests across 5 suites with 0 failures, 0 errors, and 0 skips. Console logs contained only the expected QML debugging notice.
 - Phase 2 still has 4 failing suites / 6 assertions; Phase 1 did not suppress or skip them.
+- Final branch review found no code Critical/Important issues. State documentation was reconciled to distinguish the 4 assertion-failing suites from 3 CTest runner investigations and to remove obsolete branch/permission guidance.

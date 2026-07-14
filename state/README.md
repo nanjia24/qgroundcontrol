@@ -1,11 +1,12 @@
 ﻿# State README
 
-Project: QGroundControl Windows desktop environment setup.
-Repository: E:\workspace\QGC\qgroundcontrol.
-Target integration branch: codex/joystick-aux-px4.
-Local working branch for environment/report files: codex/windows-desktop-env-setup.
+Project: QGroundControl Windows Desktop test hardening.
+Primary repository: `E:\workspace\QGC\qgroundcontrol`.
+Active worktree: `E:\workspace\QGC\qgroundcontrol-worktrees\windows-test-hardening`.
+Base integration branch: `codex/joystick-aux-px4` at `daae3a37b`.
+Active local/remote branch: `codex/windows-test-hardening`.
 
-Key constraint: do not modify business source code, do not commit, do not push, and do not store credentials.
+Current constraints: production and test fixes, structured commits, and pushes are authorized only on `codex/windows-test-hardening`; do not force-push, update the integration branch, create a PR without explicit approval, or store credentials.
 
 
 ## 2026-07-13 status
@@ -34,4 +35,5 @@ Key constraint: do not modify business source code, do not commit, do not push, 
 - Fixed GeoTag test drive-letter comparison and read-only temporary resource cleanup.
 - Fixed production Windows drive/UNC path classification in `QGCFileHelper`; downstream archive URL handling now passes.
 - Phase 1 regression: 5 suites, 118 tests, 0 failures, 0 errors, 0 skips.
-- Remaining Phase 2 baseline: 4 suites / 6 failures (`ComponentInformationCacheTest`, two Mission suites, and `QGCCompressionTest`).
+- Remaining Phase 2 assertion baseline: 4 suites / 6 failures (`ComponentInformationCacheTest`, two Mission suites, and `QGCCompressionTest`).
+- Remaining runner investigation: `HashCheckTest`, `SigningTest`, and `RequestMetaDataTypeStateMachineTest` pass individually but previously failed or timed out through CTest.
