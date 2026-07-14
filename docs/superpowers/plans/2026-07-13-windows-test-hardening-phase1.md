@@ -53,7 +53,7 @@ The runner rewrites the output name to `<SuiteName>-<QObjectName>.xml`; parse th
 - Consumes: `JsonParsing::validateInternalQGCJsonFile(...)`
 - Produces: a test that proves rejection and verifies expected/actual type evidence without depending on translated prose
 
-- [ ] **Step 1: Record the existing RED result**
+- [x] **Step 1: Record the existing RED result**
 
 Run `JsonHelperTest` with the common command.
 
@@ -64,7 +64,7 @@ _validateInternalWrongFileType_test
 'errorString.contains("Incorrect file type")' returned FALSE
 ```
 
-- [ ] **Step 2: Replace the locale-sensitive assertion**
+- [x] **Step 2: Replace the locale-sensitive assertion**
 
 Keep the existing rejection assertion, and replace:
 
@@ -81,7 +81,7 @@ QVERIFY2(errorString.contains(QStringLiteral("WrongType")), qPrintable(errorStri
 
 This retains semantic coverage: the function must reject the object and identify both expected and actual types.
 
-- [ ] **Step 3: Incrementally rebuild**
+- [x] **Step 3: Incrementally rebuild**
 
 Run:
 
@@ -91,11 +91,11 @@ cmake --build build/windows-debug --parallel
 
 Expected: exit code 0 and updated `Debug/QGroundControl.exe`.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run `JsonHelperTest` again. Expected JUnit result: 19 tests, 0 failures, 0 errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add test/Utilities/Parsing/Json/JsonHelperTest.cc
@@ -114,7 +114,7 @@ git commit -m "test[json]: make file type validation locale-independent"
 - Consumes: `Platform::initialize(...)` platform contract
 - Produces: Unix-only stderr assertions and a cross-platform headless unit-test assertion
 
-- [ ] **Step 1: Record the existing RED result**
+- [x] **Step 1: Record the existing RED result**
 
 Run `PlatformTest` with the common command.
 
@@ -125,7 +125,7 @@ Actual QT_ASSUME_STDERR_HAS_CONSOLE: ""
 Expected: "1"
 ```
 
-- [ ] **Step 2: Guard Unix-only assertions**
+- [x] **Step 2: Guard Unix-only assertions**
 
 Replace the three unconditional comparisons after `Platform::initialize` with:
 
@@ -139,15 +139,15 @@ Replace the three unconditional comparisons after `Platform::initialize` with:
 
 Do not assert that the Unix variables are absent on Windows because callers may legitimately provide them before initialization.
 
-- [ ] **Step 3: Incrementally rebuild**
+- [x] **Step 3: Incrementally rebuild**
 
 Run `cmake --build build/windows-debug --parallel`. Expected: exit code 0.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run `PlatformTest`. Expected JUnit result: 5 tests, 0 failures, 0 errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add test/Utilities/Platform/PlatformTest.cc
@@ -167,7 +167,7 @@ git commit -m "test[platform]: use platform-specific environment expectations"
 - Consumes: `GeoTagController` path accessors and Qt resource copying
 - Produces: filesystem-appropriate path comparison and writable temporary image copies
 
-- [ ] **Step 1: Record both existing RED failures**
+- [x] **Step 1: Record both existing RED failures**
 
 Run `GeoTagControllerTest` with the common command.
 
@@ -178,7 +178,7 @@ _propertyAccessorsTest: drive-letter case differs (c:/ versus C:/)
 _calibrationMismatchTest: QTemporaryDir cannot remove read-only copied files
 ```
 
-- [ ] **Step 2: Add focused test helpers in the anonymous namespace**
+- [x] **Step 2: Add focused test helpers in the anonymous namespace**
 
 Add:
 
@@ -207,7 +207,7 @@ bool copyWritableResource(QFile &source, const QString &destination)
 
 If not already included, add `#include <QtCore/QFileInfo>`.
 
-- [ ] **Step 3: Use the helpers at the two affected boundaries**
+- [x] **Step 3: Use the helpers at the two affected boundaries**
 
 Replace local-path `QCOMPARE(QDir::cleanPath(...), QDir::cleanPath(...))` assertions in `_propertyAccessorsTest` with `compareLocalPaths(...)`.
 
@@ -218,15 +218,15 @@ const QString destination = imageDirPath + QStringLiteral("/geotag_temp_image_%1
 QVERIFY(copyWritableResource(file, destination));
 ```
 
-- [ ] **Step 4: Incrementally rebuild**
+- [x] **Step 4: Incrementally rebuild**
 
 Run `cmake --build build/windows-debug --parallel`. Expected: exit code 0.
 
-- [ ] **Step 5: Verify GREEN and strict cleanup**
+- [x] **Step 5: Verify GREEN and strict cleanup**
 
 Run `GeoTagControllerTest`. Expected JUnit result: 18 tests, 0 failures, 0 errors, and no `QTemporaryDir: Unable to remove` warning.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add test/AnalyzeView/GeoTag/GeoTagControllerTest.cc
@@ -248,7 +248,7 @@ git commit -m "test[geotag]: handle Windows path and file semantics"
 - Consumes: `QDir::isAbsolutePath`, `QGCFileHelper::toLocalPath`, `QGCFileHelper::isLocalPath`
 - Produces: correct classification of Windows drive/UNC paths before generic `QUrl` scheme parsing
 
-- [ ] **Step 1: Add Windows regression assertions**
+- [x] **Step 1: Add Windows regression assertions**
 
 Inside `_testToLocalPathPlainPaths`, add:
 
@@ -273,13 +273,13 @@ Inside `_testIsLocalPath`, add:
 #endif
 ```
 
-- [ ] **Step 2: Verify RED before production changes**
+- [x] **Step 2: Verify RED before production changes**
 
 Incrementally build and run `QGCFileHelperTest`.
 
 Expected: at least `isLocalPath("C:/Users/Test/file.txt")` fails because `QUrl` interprets `C` as a scheme. Confirm the failure is the new assertion, not a compile or fixture error.
 
-- [ ] **Step 3: Add the minimum Windows absolute-path guard**
+- [x] **Step 3: Add the minimum Windows absolute-path guard**
 
 In `toLocalPath(const QString &urlOrPath)`, after the existing empty/resource checks and before constructing `QUrl`, add:
 
@@ -303,15 +303,15 @@ In `isLocalPath(const QString &urlOrPath)`, after the empty/resource checks and 
 
 Do not special-case arbitrary one-letter URL schemes; use Qt's platform path semantics.
 
-- [ ] **Step 4: Verify helper GREEN**
+- [x] **Step 4: Verify helper GREEN**
 
 Incrementally build and run `QGCFileHelperTest`. Expected: all helper tests pass with no unexpected warnings.
 
-- [ ] **Step 5: Verify downstream archive regression GREEN**
+- [x] **Step 5: Verify downstream archive regression GREEN**
 
 Run `QGCArchiveModelTest`. Expected JUnit result: 26 tests, 0 failures, 0 errors; `_testArchiveUrl` retains the temporary file path instead of clearing it as unsupported.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add test/Utilities/FileSystem/QGCFileHelperTest.cc src/Utilities/FileSystem/QGCFileHelper.cc
@@ -332,7 +332,7 @@ git commit -m "fix[filesystem]: recognize Windows absolute paths"
 - Consumes: the four focused fixes
 - Produces: evidence-backed Phase 1 result and a reviewable remote branch
 
-- [ ] **Step 1: Run the Phase 1 focused set**
+- [x] **Step 1: Run the Phase 1 focused set**
 
 Run these suites individually with JUnit XML and console logs:
 
@@ -346,7 +346,7 @@ QGCArchiveModelTest
 
 Expected: all suites have 0 failures and 0 errors; capability skips are not expected in Phase 1.
 
-- [ ] **Step 2: Check source and repository hygiene**
+- [x] **Step 2: Check source and repository hygiene**
 
 Run:
 
@@ -358,7 +358,7 @@ git log --oneline origin/codex/joystick-aux-px4..HEAD
 
 Expected: only intentional state documentation changes remain; `.tmp/` stays untracked.
 
-- [ ] **Step 3: Update and commit state**
+- [x] **Step 3: Update and commit state**
 
 Record exact suite counts, build result, resolved root causes, and remaining Phase 2 failures in the three state files.
 
@@ -367,7 +367,7 @@ git add state/README.md state/TODO.md state/LOG.md
 git commit -m "docs[tests]: record Windows hardening phase 1"
 ```
 
-- [ ] **Step 4: Push only the new repair branch**
+- [x] **Step 4: Push only the new repair branch**
 
 ```powershell
 git push -u origin codex/windows-test-hardening

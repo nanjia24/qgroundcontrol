@@ -1,6 +1,6 @@
 # Windows Test Hardening Design
 
-**Status:** Approved in conversation on 2026-07-13; written specification pending final user review.
+**Status:** Approved in conversation on 2026-07-13; final user review approved on 2026-07-14.
 
 ## Goal
 
