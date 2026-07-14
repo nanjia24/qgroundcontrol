@@ -70,7 +70,7 @@ The runner appends the Qt object name to the requested XML basename; inspect the
 
 **Interfaces:**
 - Consumes: `QString targetPath`, `QString linkPath`, and caller-provided `QString skipReason`.
-- Produces: unchanged `void TempDirectoryTest::createSymlinkOrSkip(...)`; on Windows it creates a genuine directory symlink or records an evidence-bearing QtTest skip.
+- Produces: `bool TempDirectoryTest::createSymlinkOrSkip(...)`; `true` means a verified link exists, while `false` means the helper already recorded an evidence-bearing QtTest skip or failure and the caller must return immediately.
 
 - [ ] **Step 1: Record the existing RED result**
 
@@ -99,11 +99,13 @@ Also add the direct Qt dependency used for verification:
 #include <QtCore/QFileInfo>
 ```
 
-- [ ] **Step 3: Replace the Windows branch of `createSymlinkOrSkip`**
+- [ ] **Step 3: Change `createSymlinkOrSkip` to propagate its result**
 
-Keep the signature unchanged and replace its body with:
+Change the return type to `bool` and replace the function with:
 
 ```cpp
+    bool createSymlinkOrSkip(const QString& targetPath, const QString& linkPath,
+                             const QString& skipReason = QStringLiteral("Symlinks are not supported in this environment"))
     {
         (void) QFile::remove(linkPath);
 #ifdef Q_OS_WIN
@@ -116,7 +118,8 @@ Keep the signature unchanged and replace its body with:
                                            .arg(skipReason, QString::fromLocal8Bit(linkError.message()))
                                            .arg(linkError.value())
                                            .toLocal8Bit();
-            QSKIP(message.constData());
+            QTest::qSkip(message.constData(), __FILE__, __LINE__);
+            return false;
         }
 
         if (!QFileInfo(linkPath).isSymLink()) {
@@ -129,24 +132,51 @@ Keep the signature unchanged and replace its body with:
                                                .arg(cleanupDetail)
                                                .arg(cleanupError.value())
                                                .toLocal8Bit();
-                QFAIL(message.constData());
+                QTest::qFail(message.constData(), __FILE__, __LINE__);
+                return false;
             }
             const QByteArray message = QStringLiteral("%1: created path was not verified as a real directory symlink")
                                            .arg(skipReason)
                                            .toLocal8Bit();
-            QSKIP(message.constData());
+            QTest::qSkip(message.constData(), __FILE__, __LINE__);
+            return false;
         }
 #else
         if (!QFile::link(targetPath, linkPath)) {
-            QSKIP(qPrintable(skipReason));
+            const QByteArray message = skipReason.toLocal8Bit();
+            QTest::qSkip(message.constData(), __FILE__, __LINE__);
+            return false;
         }
 #endif
+        return true;
     }
 ```
 
-- [ ] **Step 4: Build and verify the capability result**
+- [ ] **Step 4: Return immediately from the test slot after a recorded skip or failure**
 
-Run the Common Build Command, then:
+Change the call in `QGCCompressionTest.cc` to:
+
+```cpp
+    if (!createSymlinkOrSkip(realOutputDir, symlinkOutputDir,
+                             QStringLiteral("Directory symlinks are not supported in this environment"))) {
+        return;
+    }
+```
+
+- [ ] **Step 5: Force the affected test object to rebuild and verify the capability result**
+
+Resolve and verify that this path is inside `build/windows-debug`, remove only the stale object, then run the Common Build Command:
+
+```powershell
+$objectPath = Resolve-Path 'build/windows-debug/CMakeFiles/QGroundControl.dir/test/Utilities/Compression/QGCCompressionTest.cc.obj'
+$buildRoot = (Resolve-Path 'build/windows-debug').Path
+if (-not $objectPath.Path.StartsWith($buildRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Refusing to remove object outside build root: $objectPath"
+}
+Remove-Item -LiteralPath $objectPath.Path
+```
+
+Confirm the build log contains compilation of `QGCCompressionTest.cc.obj`, then run:
 
 ```powershell
 Invoke-QgcSuite -SuiteName QGCCompressionTest -EvidenceName QGCCompressionTest.after-symlink
@@ -154,14 +184,14 @@ Invoke-QgcSuite -SuiteName QGCCompressionTest -EvidenceName QGCCompressionTest.a
 
 Expected on the current medium-integrity token: `_testExtractArchiveToSymlinkedOutputPath` is an explicit skip containing the Windows system error. If Windows permits symlink creation, the method passes all extraction assertions. It must not fail `isSymLink()` and must not create a `.lnk` or junction. `_testUnicodePaths` remains RED.
 
-- [ ] **Step 5: Review and commit the focused test-infrastructure change**
+- [ ] **Step 6: Review and commit the focused test-infrastructure change**
 
 Run:
 
 ```powershell
 git diff --check
-git diff -- test/UnitTestFramework/BaseClasses/TempDirectoryTest.h
-git add test/UnitTestFramework/BaseClasses/TempDirectoryTest.h
+git diff -- test/UnitTestFramework/BaseClasses/TempDirectoryTest.h test/Utilities/Compression/QGCCompressionTest.cc
+git add test/UnitTestFramework/BaseClasses/TempDirectoryTest.h test/Utilities/Compression/QGCCompressionTest.cc
 git commit -m "test[compression]: probe Windows directory symlinks"
 ```
 

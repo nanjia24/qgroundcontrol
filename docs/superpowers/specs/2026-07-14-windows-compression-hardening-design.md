@@ -34,6 +34,7 @@ Make `QGCCompressionTest` correctly exercise Windows directory symlink capabilit
 - If creation returns an error, call `QSKIP` with the caller-provided reason plus the system error message/code.
 - After reported success, require `QFileInfo(linkPath).isSymLink()` before running extraction assertions.
 - If verification fails, remove any created artifact and skip with an explicit verification reason.
+- Return a boolean result from the helper so callers immediately return after the helper records `QTest::qSkip` or `QTest::qFail`; a `QSKIP` macro inside a `void` helper does not stop the caller test slot.
 - On non-Windows platforms, keep the existing `QFile::link` path and verification behavior.
 - Do not enable Developer Mode, request UAC elevation, or silently replace a symlink with a junction/shortcut.
 
@@ -58,7 +59,7 @@ Make `QGCCompressionTest` correctly exercise Windows directory symlink capabilit
 1. Record the existing two-failure `QGCCompressionTest` JUnit result as RED.
 2. Implement and verify the symlink probe separately. On the current token, the expected result is one explicit skip; on a capable Windows environment, the full symlink extraction assertions must run and pass.
 3. Preserve `_testUnicodePaths` as the RED test for the wide pathname change.
-4. Incrementally rebuild with VS2022 amd64/amd64 developer environment.
+4. Incrementally rebuild with VS2022 amd64/amd64 developer environment. Verify that the affected test object is actually recompiled; localized MSVC `/showIncludes` output can leave Ninja with `#deps 0`, requiring safe removal of that single stale object before rebuilding.
 5. Run `QGCCompressionTest` with JUnit XML and console logs. Require zero failures/errors; at most one symlink capability skip; Unicode extraction must not skip.
 6. Run directly related archive/file-helper suites to detect path-handling regressions.
 7. Run `git diff --check`, review the focused diff, and commit each independent root cause separately.

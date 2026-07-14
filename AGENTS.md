@@ -178,9 +178,11 @@ enabled: vehicle && vehicle.armed
 - MSVC/QGC 全量 Debug 测试构建需要启用 `/Zc:preprocessor`；否则 VS2022 v143 下也会因 `__VA_OPT__` 触发 `warning C5109` 并在 warnings-as-errors 下导致 `C2146` 等编译失败。
 - `build/windows-debug-vs2022-zc-fixed` 已验证：不手动传 `-DCMAKE_CXX_FLAGS=/Zc:preprocessor` 也能完成全量 Debug 测试构建，原因是该选项已固化到 `cmake/platform/Windows.cmake`。
 - 11 个 Windows 单测失败在同环境 `origin/master` 对照 worktree 中复现；当前证据不支持将这些失败归因于 `codex/joystick-aux-px4` 的 joystick 改动。
+- 中文本地化 MSVC 的 `/showIncludes` 输出可能未被 Ninja 解析，已观察到 `QGCCompressionTest.cc.obj` 为 `#deps 0`；头文件改动后普通增量构建可能错误报告 `no work to do`。
 
 【项目规范区域】
 
 - Windows/MSVC 桌面构建优先使用 VS2022 v143 x64 + Ninja + CMake + Qt `msvc2022_64`，不要用 MinGW 或 qmake 替代。
 - QGC Windows 单测采集详细结果时，使用 `--unittest-output:<xml> --log-output --logging:<rules>` 和 `QGC_TEST_VERBOSE=1`；不要传 `-- -v2`，当前 QGC 命令行解析会拒绝该 positional argument。
 - QGC unittest XML 会把 `Test.xml` 改写成 `Test-<QObjectName>.xml`，检查结果文件时必须匹配实际生成文件名。
+- 修改测试头文件后必须从构建日志确认受影响对象实际重编；若 Ninja 记录 `#deps 0`，先验证对象绝对路径位于目标 build 根目录，再仅删除该陈旧对象并重新构建。
