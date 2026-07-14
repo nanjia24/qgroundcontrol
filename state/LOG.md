@@ -65,3 +65,6 @@
 - Final Phase 1 focused regression parsed 118 tests across 5 suites with 0 failures, 0 errors, and 0 skips. Console logs contained only the expected QML debugging notice.
 - Phase 2 still has 4 failing suites / 6 assertions; Phase 1 did not suppress or skip them.
 - Final branch review found no code Critical/Important issues. State documentation was reconciled to distinguish the 4 assertion-failing suites from 3 CTest runner investigations and to remove obsolete branch/permission guidance.
+- Phase 2A root cause: `QFile::link` is not a reliable Windows directory-symlink capability probe because it can create a shortcut rather than a real symlink.
+- Phase 2A root cause: extraction constructs a valid Unicode `QString` output path but passes it to Windows `archive_write_disk` through narrow UTF-8 `archive_entry_set_pathname`; libarchive exposes a wide pathname API for this boundary.
+- Phase 2A spec review clarified the symlink verification boundary: inability to verify a real link is an evidence-bearing environment skip after successful cleanup; inability to clean up the probe artifact remains a test failure.

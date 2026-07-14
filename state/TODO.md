@@ -80,3 +80,6 @@
 - [x] Recover from the transient subagent execution-channel/network blockage.
 - [x] Verify the Phase 1 focused set: 118 tests, 0 failures/errors/skips.
 - [ ] Investigate and design Phase 2 fixes for compression, cache, Mission logging, and CTest runner behavior.
+- [x] Confirm and write the Phase 2A compression hardening design.
+- [x] Obtain final user review of the written Phase 2A specification.
+- [ ] Write the Phase 2A implementation plan before changing code.
