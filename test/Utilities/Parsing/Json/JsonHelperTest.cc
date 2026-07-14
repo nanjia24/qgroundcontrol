@@ -69,7 +69,8 @@ void JsonHelperTest::_validateInternalWrongFileType_test()
     int version = 0;
     QString errorString;
     QVERIFY(!JsonParsing::validateInternalQGCJsonFile(obj, "TestType", 1, 3, version, errorString));
-    QVERIFY(errorString.contains("Incorrect file type"));
+    QVERIFY2(errorString.contains(QStringLiteral("TestType")), qPrintable(errorString));
+    QVERIFY2(errorString.contains(QStringLiteral("WrongType")), qPrintable(errorString));
 }
 
 void JsonHelperTest::_validateInternalMissingKeys_test()
