@@ -1,6 +1,7 @@
 #include "GeoTagControllerTest.h"
 
 #include <QtCore/QDir>
+#include <QtCore/QFileInfo>
 #include <QtCore/QUrl>
 #include <QtPositioning/QGeoCoordinate>
 #include <QtTest/QSignalSpy>
@@ -22,6 +23,27 @@ QString generateTestULogFile(const QString& directoryPath, int numEvents = 20)
         return QString();
     }
     return ulogPath;
+}
+
+void compareLocalPaths(const QString& actual, const QString& expected)
+{
+    const QString cleanActual = QDir::cleanPath(actual);
+    const QString cleanExpected = QDir::cleanPath(expected);
+#ifdef Q_OS_WIN
+    QCOMPARE(cleanActual.toCaseFolded(), cleanExpected.toCaseFolded());
+#else
+    QCOMPARE(cleanActual, cleanExpected);
+#endif
+}
+
+bool copyWritableResource(QFile& source, const QString& destination)
+{
+    if (!source.copy(destination)) {
+        return false;
+    }
+
+    const QFileDevice::Permissions permissions = QFileInfo(destination).permissions();
+    return QFile::setPermissions(destination, permissions | QFileDevice::WriteOwner);
 }
 
 // Helper functions for calibrator tests
@@ -66,7 +88,8 @@ void GeoTagControllerTest::_propertyAccessorsTest()
 
     QFile file(":/unittest/DSCN0010.jpg");
     for (int i = 0; i < 10; ++i) {
-        QVERIFY(file.copy(imageDirPath + QStringLiteral("/geotag_temp_image_%1.jpg").arg(i)));
+        const QString destination = imageDirPath + QStringLiteral("/geotag_temp_image_%1.jpg").arg(i);
+        QVERIFY(copyWritableResource(file, destination));
     }
 
     GeoTagController* const controller = new GeoTagController(this);
@@ -79,9 +102,9 @@ void GeoTagControllerTest::_propertyAccessorsTest()
     QVERIFY(!controller->imageDirectory().isEmpty());
     QVERIFY(!controller->saveDirectory().isEmpty());
 
-    QCOMPARE(QDir::cleanPath(controller->logFile()), QDir::cleanPath(ulogPath));
-    QCOMPARE(QDir::cleanPath(controller->imageDirectory()), QDir::cleanPath(imageDirPath));
-    QCOMPARE(QDir::cleanPath(controller->saveDirectory()), QDir::cleanPath(taggedDirPath));
+    compareLocalPaths(controller->logFile(), ulogPath);
+    compareLocalPaths(controller->imageDirectory(), imageDirPath);
+    compareLocalPaths(controller->saveDirectory(), taggedDirPath);
     QCOMPARE(controller->progress(), 0.0);
     QVERIFY(!controller->inProgress());
 
@@ -148,7 +171,8 @@ void GeoTagControllerTest::_calibrationMismatchTest()
     // Copy test images (same timestamp, so calibration will fail)
     QFile file(":/unittest/DSCN0010.jpg");
     for (int i = 0; i < numImages; ++i) {
-        QVERIFY(file.copy(imageDirPath + QStringLiteral("/geotag_temp_image_%1.jpg").arg(i)));
+        const QString destination = imageDirPath + QStringLiteral("/geotag_temp_image_%1.jpg").arg(i);
+        QVERIFY(copyWritableResource(file, destination));
     }
 
     GeoTagController* const controller = new GeoTagController(this);
