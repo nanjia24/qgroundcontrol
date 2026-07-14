@@ -1228,8 +1228,10 @@ void QGCCompressionTest::_testExtractArchiveToSymlinkedOutputPath()
     const QString realOutputDir = tempDir()->path() + "/symlink_real_output";
     const QString symlinkOutputDir = tempDir()->path() + "/symlink_alias_output";
     QVERIFY(QDir().mkpath(realOutputDir));
-    createSymlinkOrSkip(realOutputDir, symlinkOutputDir,
-                        QStringLiteral("Directory symlinks are not supported in this environment"));
+    if (!createSymlinkOrSkip(realOutputDir, symlinkOutputDir,
+                             QStringLiteral("Directory symlinks are not supported in this environment"))) {
+        return;
+    }
 
     QFileInfo symlinkInfo(symlinkOutputDir);
     QVERIFY(symlinkInfo.isSymLink());

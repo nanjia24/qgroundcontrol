@@ -1,7 +1,13 @@
 #pragma once
 
 #include <QtCore/QFile>
+#include <QtCore/QFileInfo>
 #include <QtCore/QTemporaryDir>
+
+#ifdef Q_OS_WIN
+#include <filesystem>
+#include <system_error>
+#endif
 
 #include <memory>
 
@@ -74,13 +80,51 @@ public:
     /// @param targetPath Existing target path
     /// @param linkPath Symlink path to create
     /// @param skipReason Optional skip reason
-    void createSymlinkOrSkip(const QString& targetPath, const QString& linkPath,
+    bool createSymlinkOrSkip(const QString& targetPath, const QString& linkPath,
                              const QString& skipReason = QStringLiteral("Symlinks are not supported in this environment"))
     {
         (void) QFile::remove(linkPath);
-        if (!QFile::link(targetPath, linkPath)) {
-            QSKIP(qPrintable(skipReason));
+#ifdef Q_OS_WIN
+        const std::filesystem::path target(targetPath.toStdWString());
+        const std::filesystem::path link(linkPath.toStdWString());
+        std::error_code linkError;
+        std::filesystem::create_directory_symlink(target, link, linkError);
+        if (linkError) {
+            const QByteArray message = QStringLiteral("%1: %2 (error %3)")
+                                           .arg(skipReason, QString::fromLocal8Bit(linkError.message()))
+                                           .arg(linkError.value())
+                                           .toLocal8Bit();
+            QTest::qSkip(message.constData(), __FILE__, __LINE__);
+            return false;
         }
+
+        if (!QFileInfo(linkPath).isSymLink()) {
+            std::error_code cleanupError;
+            const bool removed = std::filesystem::remove(link, cleanupError);
+            if (cleanupError || !removed) {
+                const QString cleanupDetail = cleanupError ? QString::fromLocal8Bit(cleanupError.message())
+                                                           : QStringLiteral("path was not removed");
+                const QByteArray message = QStringLiteral("Directory symlink verification failed and cleanup failed: %1 (error %2)")
+                                               .arg(cleanupDetail)
+                                               .arg(cleanupError.value())
+                                               .toLocal8Bit();
+                QTest::qFail(message.constData(), __FILE__, __LINE__);
+                return false;
+            }
+            const QByteArray message = QStringLiteral("%1: created path was not verified as a real directory symlink")
+                                           .arg(skipReason)
+                                           .toLocal8Bit();
+            QTest::qSkip(message.constData(), __FILE__, __LINE__);
+            return false;
+        }
+#else
+        if (!QFile::link(targetPath, linkPath)) {
+            const QByteArray message = skipReason.toLocal8Bit();
+            QTest::qSkip(message.constData(), __FILE__, __LINE__);
+            return false;
+        }
+#endif
+        return true;
     }
 
     /// Creates a file with the given content in the temp directory
