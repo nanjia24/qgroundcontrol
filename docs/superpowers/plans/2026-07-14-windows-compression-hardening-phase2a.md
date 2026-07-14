@@ -72,7 +72,7 @@ The runner appends the Qt object name to the requested XML basename; inspect the
 - Consumes: `QString targetPath`, `QString linkPath`, and caller-provided `QString skipReason`.
 - Produces: `bool TempDirectoryTest::createSymlinkOrSkip(...)`; `true` means a verified link exists, while `false` means the helper already recorded an evidence-bearing QtTest skip or failure and the caller must return immediately.
 
-- [ ] **Step 1: Record the existing RED result**
+- [x] **Step 1: Record the existing RED result**
 
 Run:
 
@@ -82,7 +82,7 @@ Invoke-QgcSuite -SuiteName QGCCompressionTest -EvidenceName QGCCompressionTest.b
 
 Expected: `_testExtractArchiveToSymlinkedOutputPath` fails at `QVERIFY(symlinkInfo.isSymLink())`; `_testUnicodePaths` remains the other failure.
 
-- [ ] **Step 2: Add the Windows-only standard-library includes**
+- [x] **Step 2: Add the Windows-only standard-library includes**
 
 Add these after the Qt includes in `TempDirectoryTest.h`:
 
@@ -99,7 +99,7 @@ Also add the direct Qt dependency used for verification:
 #include <QtCore/QFileInfo>
 ```
 
-- [ ] **Step 3: Change `createSymlinkOrSkip` to propagate its result**
+- [x] **Step 3: Change `createSymlinkOrSkip` to propagate its result**
 
 Change the return type to `bool` and replace the function with:
 
@@ -152,7 +152,7 @@ Change the return type to `bool` and replace the function with:
     }
 ```
 
-- [ ] **Step 4: Return immediately from the test slot after a recorded skip or failure**
+- [x] **Step 4: Return immediately from the test slot after a recorded skip or failure**
 
 Change the call in `QGCCompressionTest.cc` to:
 
@@ -163,7 +163,7 @@ Change the call in `QGCCompressionTest.cc` to:
     }
 ```
 
-- [ ] **Step 5: Force the affected test object to rebuild and verify the capability result**
+- [x] **Step 5: Force the affected test object to rebuild and verify the capability result**
 
 Resolve and verify that this path is inside `build/windows-debug`, remove only the stale object, then run the Common Build Command:
 
@@ -184,7 +184,7 @@ Invoke-QgcSuite -SuiteName QGCCompressionTest -EvidenceName QGCCompressionTest.a
 
 Expected on the current medium-integrity token: `_testExtractArchiveToSymlinkedOutputPath` is an explicit skip containing the Windows system error. If Windows permits symlink creation, the method passes all extraction assertions. It must not fail `isSymLink()` and must not create a `.lnk` or junction. `_testUnicodePaths` remains RED.
 
-- [ ] **Step 6: Review and commit the focused test-infrastructure change**
+- [x] **Step 6: Review and commit the focused test-infrastructure change**
 
 Run:
 
@@ -209,11 +209,11 @@ Expected: one focused commit; `.tmp/` remains untracked.
 - Consumes: the already validated final `QString outputPath` inside `extractArchiveEntries(...)`.
 - Produces: a copied Windows wide pathname in the current `archive_entry`; non-Windows behavior is unchanged.
 
-- [ ] **Step 1: Confirm the remaining RED boundary**
+- [x] **Step 1: Confirm the remaining RED boundary**
 
 Parse `QGCCompressionTest.after-symlink-*.xml` and confirm `_testUnicodePaths` fails because `manifest.json` is missing after extraction reports success. Do not modify archive input opening.
 
-- [ ] **Step 2: Add the explicit standard string include**
+- [x] **Step 2: Add the explicit standard string include**
 
 Add after the libarchive includes in `QGClibarchive.cc`:
 
@@ -221,7 +221,7 @@ Add after the libarchive includes in `QGClibarchive.cc`:
 #include <string>
 ```
 
-- [ ] **Step 3: Use the libarchive wide output-path API only on Windows**
+- [x] **Step 3: Use the libarchive wide output-path API only on Windows**
 
 Replace the narrow pathname assignment with:
 
@@ -236,7 +236,7 @@ Replace the narrow pathname assignment with:
 
 Do not change `currentFile`, output canonicalization, traversal checks, symlink checks, permission masking, or reader-opening APIs.
 
-- [ ] **Step 4: Build and verify GREEN compression behavior**
+- [x] **Step 4: Build and verify GREEN compression behavior**
 
 Run the Common Build Command, then:
 
@@ -246,7 +246,7 @@ Invoke-QgcSuite -SuiteName QGCCompressionTest -EvidenceName QGCCompressionTest.a
 
 Expected: 51 tests, zero failures, zero errors; `_testUnicodePaths` passes for Japanese, Chinese, Greek, accented Latin, and Cyrillic directories. The symlink test either passes or is the single evidence-bearing capability skip.
 
-- [ ] **Step 5: Review and commit the production boundary fix**
+- [x] **Step 5: Review and commit the production boundary fix**
 
 Run:
 
@@ -274,7 +274,7 @@ Expected: `rg` finds no `archive_read_open_filename_w`; the commit contains only
 - Consumes: the two reviewed implementation commits and `.tmp/phase2a` JUnit/console/build evidence.
 - Produces: a focused regression record and an updated Phase 2 status without claiming unrelated failing suites are fixed.
 
-- [ ] **Step 1: Run only directly related suites**
+- [x] **Step 1: Run only directly related suites**
 
 Run:
 
@@ -288,7 +288,7 @@ Invoke-QgcSuite -SuiteName QGCArchiveWatcherTest -EvidenceName focused.QGCArchiv
 
 Expected: all five suites have zero failures and zero errors. Only `QGCCompressionTest` may contain one directory-symlink capability skip.
 
-- [ ] **Step 2: Parse JUnit evidence and scan console errors**
+- [x] **Step 2: Parse JUnit evidence and scan console errors**
 
 Run:
 
@@ -315,7 +315,7 @@ Get-Content .tmp/phase2a/focused-error-scan.txt -TotalCount 40
 
 Expected: no failure/error totals and no Unicode output-write diagnostics. Any unexpected result stops delivery and returns to systematic debugging.
 
-- [ ] **Step 3: Update the environment report with measured results**
+- [x] **Step 3: Update the environment report with measured results**
 
 Append a `Phase 2A Windows compression hardening` section to `ENVIRONMENT_REPORT.md` containing:
 
@@ -327,11 +327,11 @@ Append a `Phase 2A Windows compression hardening` section to `ENVIRONMENT_REPORT
 - Confirmation that every existing Unicode case passed and `archive_read_open_filename_w` was not introduced.
 - Explicit statement that full CTest was not rerun by design and unrelated Phase 2 failures remain out of scope.
 
-- [ ] **Step 4: Reconcile state files**
+- [x] **Step 4: Reconcile state files**
 
 Mark the Phase 2A plan and implementation items complete in `state/TODO.md`. Add the measured build/test result, symlink capability outcome, and Unicode boundary conclusion to `state/LOG.md`. Do not mark broader Phase 2 complete.
 
-- [ ] **Step 5: Perform final verification before delivery**
+- [x] **Step 5: Perform final verification before delivery**
 
 Run:
 
@@ -344,7 +344,7 @@ git diff HEAD~2 -- test/UnitTestFramework/BaseClasses/TempDirectoryTest.h src/Ut
 
 Use `superpowers:verification-before-completion`, then request a fresh code review. Resolve any Critical or Important finding and rerun the affected focused tests.
 
-- [ ] **Step 6: Commit documentation and push the approved branch**
+- [x] **Step 6: Commit documentation and push the approved branch**
 
 Run:
 

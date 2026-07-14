@@ -83,6 +83,6 @@
 - [x] Confirm and write the Phase 2A compression hardening design.
 - [x] Obtain final user review of the written Phase 2A specification.
 - [x] Write the Phase 2A implementation plan before changing code.
-- [ ] Execute Phase 2A Task 1: real Windows directory-symlink capability probe.
-- [ ] Execute Phase 2A Task 2: Unicode libarchive output entry paths.
-- [ ] Execute Phase 2A Task 3: focused regressions, evidence, and delivery.
+- [x] Execute Phase 2A Task 1: real Windows directory-symlink capability probe.
+- [x] Execute Phase 2A Task 2: Unicode libarchive output entry paths.
+- [x] Execute Phase 2A Task 3: focused regressions, evidence, and delivery.

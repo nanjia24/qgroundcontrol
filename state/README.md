@@ -37,3 +37,11 @@ Current constraints: production and test fixes, structured commits, and pushes a
 - Phase 1 regression: 5 suites, 118 tests, 0 failures, 0 errors, 0 skips.
 - Remaining Phase 2 assertion baseline: 4 suites / 6 failures (`ComponentInformationCacheTest`, two Mission suites, and `QGCCompressionTest`).
 - Remaining runner investigation: `HashCheckTest`, `SigningTest`, and `RequestMetaDataTypeStateMachineTest` pass individually but previously failed or timed out through CTest.
+
+## 2026-07-14 Phase 2A result
+
+- Replaced the unreliable Windows `QFile::link` directory-symlink probe with a real nonthrowing `std::filesystem::create_directory_symlink` capability check.
+- A medium-integrity token without symlink privilege now produces one evidence-bearing error 1314 skip and does not continue into a false `isSymLink()` failure.
+- Fixed Windows Unicode extraction output paths at the libarchive entry boundary with `archive_entry_copy_pathname_w`; archive input handling was not changed.
+- Focused regression: 5 suites, 169 tests, 0 failures, 0 errors, 1 expected capability skip.
+- Remaining Phase 2 assertion baseline: 3 suites / 4 failures (`ComponentInformationCacheTest` and two Mission suites).

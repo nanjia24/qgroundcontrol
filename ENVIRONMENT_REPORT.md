@@ -533,3 +533,36 @@ Only the 11 previously failing test classes were run; full CTest was not repeate
 | RequestMetaDataTypeStateMachineTest | 0 failures | Same |
 
 The process identity was `CROCODILE\86178`, Windows Medium Mandatory Level (`S-1-16-8192`), with `is_admin_role=False`. Codex CLI full access removed workspace sandbox restrictions but did not grant a UAC-elevated token or Developer Mode symlink capability. The unchanged results do not support filesystem sandbox permissions as the cause of the original failures.
+
+## Phase 2A Windows compression hardening (2026-07-14)
+
+- Branch/worktree: `codex/windows-test-hardening` at `E:\workspace\QGC\qgroundcontrol-worktrees\windows-test-hardening`
+- Directory-symlink commit: `791125bb12a6ce90a863ee1374b97691c488f83d`
+- Unicode output-path commit: `5699430948c0ed78facd5e0807f175cfa07c75a1`
+- Compiler: VS2022 Community v143 Hostx64/x64, `cl.exe` 14.44.35207
+- Qt kit: `E:\Qt\6.10.3\msvc2022_64`
+- GStreamer root: `E:\PROGRA~1\GSTREA~1\1.0\MSVC_X~1`
+- Build directory: `build\windows-debug`
+
+The evidence-bearing build imported `D:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat` with `-arch=amd64 -host_arch=amd64`, prepended the confirmed Qt and GStreamer `bin` directories, and ran:
+
+```powershell
+cmake --build build/windows-debug --parallel
+```
+
+The first incremental invocation reported `ninja: no work to do` because localized MSVC `/showIncludes` output left stale dependency information. After verifying the exact object paths were inside `build/windows-debug`, only the affected objects were removed and rebuilt. The authoritative Unicode build exited `0` and logged compilation of `QGClibarchive.cc.obj`, linking of `Debug/lib/QGCCompression.lib`, and linking of `Debug/QGroundControl.exe`.
+
+| Focused suite | Tests | Failures | Errors | Skips | Process exit |
+|---|---:|---:|---:|---:|---:|
+| QGCCompressionTest | 51 | 0 | 0 | 1 | 0 |
+| QGCArchiveModelTest | 26 | 0 | 0 | 0 | 0 |
+| QGCStreamingDecompressionTest | 21 | 0 | 0 | 0 | 0 |
+| QGCFileHelperTest | 50 | 0 | 0 | 0 | 0 |
+| QGCArchiveWatcherTest | 21 | 0 | 0 | 0 | 0 |
+| **Total** | **169** | **0** | **0** | **1** | — |
+
+The sole skip is `_testExtractArchiveToSymlinkedOutputPath`: `Directory symlinks are not supported in this environment: A required privilege is not held by the client. (error 1314)`. It is now a skip-only result; the caller no longer continues to a false `isSymLink()` assertion. On a token capable of creating a real directory symlink, the existing extraction assertions still execute.
+
+`_testUnicodePaths` passed for the existing Japanese, Chinese, Greek, accented Latin, and Cyrillic output directories. Windows now copies the final libarchive output entry pathname through `archive_entry_copy_pathname_w`; non-Windows retains the narrow pathname call. No `archive_read_open_filename_w` usage was introduced, so Unicode archive input behavior remains outside this phase.
+
+All five console logs contained only the expected `QML debugging is enabled. Only use this in a safe environment.` notice. The scan found no archive-header write failure, missing DLL/plugin failure, fatal assertion, or crash marker. Full CTest was intentionally not rerun; remaining cache, Mission logging, and CTest-runner investigations are outside Phase 2A. Evidence is stored under `.tmp\phase2a\` and remains untracked.
