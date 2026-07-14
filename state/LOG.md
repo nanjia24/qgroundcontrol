@@ -56,3 +56,7 @@
 - `QGCFileHelper::isLocalPath` treats a Windows drive path such as `C:/...` as URL scheme `c`; this explains the empty archive path in `QGCArchiveModelTest` and is a production portability issue, not only a test assertion issue.
 - `PlatformTest` expects `QT_ASSUME_STDERR_HAS_CONSOLE` and `QT_FORCE_STDERR_LOGGING` on Windows although `Platform::initialize` sets them only under `Q_OS_UNIX`.
 - `JsonHelperTest` asserts untranslated English text while the production error is translated, making the test locale-dependent.
+
+2026-07-14:
+- SDD Task 1 was dispatched twice to fresh subagents. Both remained in `running` state without starting QGroundControl/Ninja/CMake, changing files, writing the required report, or responding to a status request; both were interrupted after bounded waits.
+- This is an agent execution-channel blocker, not evidence of a JsonHelper implementation or build failure. No Task 1 source change or commit was produced.

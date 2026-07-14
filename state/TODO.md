@@ -77,3 +77,4 @@
 - [x] Obtain final user review of the written specification.
 - [x] Write the Phase 1 implementation plan before changing tests or production behavior.
 - [ ] Select the Phase 1 execution mode and execute the approved plan.
+- [ ] Resolve subagent execution-channel blockage or explicitly switch Phase 1 to inline execution.
