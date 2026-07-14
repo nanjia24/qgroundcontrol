@@ -9,6 +9,8 @@
 #include <archive.h>
 #include <archive_entry.h>
 
+#include <string>
+
 #include "QGCFileHelper.h"
 #include "QGCLoggingCategory.h"
 
@@ -467,7 +469,12 @@ bool extractArchiveEntries(struct archive* a, const QString& outputDirectoryPath
         }
         // Note: symlinks don't have meaningful permissions on most systems
 
+#ifdef Q_OS_WIN
+        const std::wstring wideOutputPath = outputPath.toStdWString();
+        archive_entry_copy_pathname_w(entry, wideOutputPath.c_str());
+#else
         archive_entry_set_pathname(entry, outputPath.toUtf8().constData());
+#endif
 
         // Create parent directories and track newly created ones
         trackAndCreateParentDirs(outputPath, canonicalOutputDir, existingDirs, createdDirs);
