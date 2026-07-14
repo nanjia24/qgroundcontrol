@@ -61,8 +61,10 @@ void PlatformTest::_testInitializeSetsUnitTestEnvironment()
     const std::optional<int> initResult = Platform::initialize(1, argv, args);
 
     QVERIFY(!initResult.has_value());
+#if defined(Q_OS_UNIX) && !defined(Q_OS_ANDROID)
     QCOMPARE(qgetenv("QT_ASSUME_STDERR_HAS_CONSOLE"), QByteArray("1"));
     QCOMPARE(qgetenv("QT_FORCE_STDERR_LOGGING"), QByteArray("1"));
+#endif
     QCOMPARE(qgetenv("QT_QPA_PLATFORM"), QByteArray("offscreen"));
 }
 #endif
