@@ -88,5 +88,7 @@
 - [x] Execute Phase 2A Task 3: focused regressions, evidence, and delivery.
 - [x] Reproduce and identify the Phase 2B component-cache test lifecycle root cause.
 - [x] Approve and write the Phase 2B test-only design.
-- [ ] Obtain final user review of the written Phase 2B specification.
-- [ ] Write the Phase 2B implementation plan before changing test code.
+- [x] Obtain final user review of the written Phase 2B specification.
+- [x] Write the Phase 2B implementation plan before changing test code.
+- [ ] Execute Phase 2B Task 1: release cached file before fixture cleanup.
+- [ ] Execute Phase 2B Task 2: focused regressions, evidence, and delivery.
