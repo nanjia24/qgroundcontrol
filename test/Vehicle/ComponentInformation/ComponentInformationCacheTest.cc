@@ -58,10 +58,12 @@ void ComponentInformationCacheTest::_basic_test()
     QVERIFY(QFile(_tmpFiles[0].cachedPath).exists());
     QVERIFY(!QFile(_tmpFiles[0].path).exists());
     QVERIFY(cache.access(_tmpFiles[0].cacheTag) == _tmpFiles[0].cachedPath);
-    QFile f(_tmpFiles[0].cachedPath);
-    QVERIFY(f.open(QFile::ReadOnly | QFile::Text));
-    QTextStream in(&f);
-    QVERIFY(in.readAll() == _tmpFiles[0].content);
+    {
+        QFile f(_tmpFiles[0].cachedPath);
+        QVERIFY(f.open(QFile::ReadOnly | QFile::Text));
+        QTextStream in(&f);
+        QVERIFY(in.readAll() == _tmpFiles[0].content);
+    }
     _cleanup();
 }
 
