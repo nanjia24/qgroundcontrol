@@ -85,13 +85,13 @@ The runner appends the Qt object name to the requested XML basename. Parse the g
 - Consumes: the cached path returned by `ComponentInformationCache::insert`.
 - Produces: no new interface; the existing local `QFile` and `QTextStream` are destroyed before `_cleanup()`.
 
-- [ ] **Step 1: Confirm the preserved RED evidence**
+- [x] **Step 1: Confirm the preserved RED evidence**
 
 Parse `.tmp/phase2b/baseline-ComponentInformationCacheTest.xml`.
 
 Expected: 5 tests, 2 failures, 0 errors, 0 skips; `_lru_test` and `_multi_test` fail after `_basic_test` leaves an open-file orphan.
 
-- [ ] **Step 2: Apply the minimal RAII lifetime change**
+- [x] **Step 2: Apply the minimal RAII lifetime change**
 
 Replace the cached-file verification block in `_basic_test` with:
 
@@ -107,7 +107,7 @@ Replace the cached-file verification block in `_basic_test` with:
 
 Do not change any assertion or any other test method.
 
-- [ ] **Step 3: Build and prove the test object recompiled**
+- [x] **Step 3: Build and prove the test object recompiled**
 
 Run the Common Build Command. Require the log to contain compilation of:
 
@@ -128,7 +128,7 @@ Remove-Item -LiteralPath $objectPath.Path
 
 Then rerun the Common Build Command and confirm the object compilation and `Debug/QGroundControl.exe` link.
 
-- [ ] **Step 4: Run the focused GREEN test and verify fixture removal**
+- [x] **Step 4: Run the focused GREEN test and verify fixture removal**
 
 Run:
 
@@ -145,7 +145,7 @@ if ($cacheDirs -or $sourceDirs) {
 
 Expected: process exit 0; generated JUnit contains 5 tests, 0 failures, 0 errors, 0 skips; neither unique fixture directory remains.
 
-- [ ] **Step 5: Review and commit the one-file test fix**
+- [x] **Step 5: Review and commit the one-file test fix**
 
 Run:
 
@@ -173,7 +173,7 @@ Expected: one focused test commit; `.tmp/` remains untracked and no production f
 - Consumes: the reviewed Task 1 test commit and its JUnit/build evidence.
 - Produces: focused regression evidence and an updated remaining Phase 2 baseline without closing Mission or CTest-runner work.
 
-- [ ] **Step 1: Run the two-suite final focused regression**
+- [x] **Step 1: Run the two-suite final focused regression**
 
 Run:
 
@@ -184,7 +184,7 @@ Invoke-QgcSuite -SuiteName RequestMetaDataTypeStateMachineTest -EvidenceName foc
 
 Expected: both processes exit 0 and both JUnit files contain zero failures/errors/skips.
 
-- [ ] **Step 2: Parse JUnit and scan console evidence**
+- [x] **Step 2: Parse JUnit and scan console evidence**
 
 Run:
 
@@ -211,17 +211,17 @@ Get-Content .tmp/phase2b/focused-error-scan.txt -TotalCount 20
 
 Expected: zero failures/errors/skips and no failure-pattern matches. The known QML debugging notice may appear separately.
 
-- [ ] **Step 3: Update report and state with measured evidence**
+- [x] **Step 3: Update report and state with measured evidence**
 
 Append a Phase 2B section to `ENVIRONMENT_REPORT.md` containing the exact test commit, toolchain, build command/exit code, object compilation evidence, per-suite JUnit totals, process exit codes, fixture-directory result, and console scan. State explicitly that production cache code and full CTest were not changed or run.
 
 Update `state/README.md`, `state/TODO.md`, and `state/LOG.md` with the measured result. Keep broader Phase 2 open and reduce the remaining assertion baseline only if fresh evidence supports it.
 
-- [ ] **Step 4: Complete independent review and final verification**
+- [x] **Step 4: Complete independent review and final verification**
 
 Run `superpowers:verification-before-completion`, then request a fresh task review and a whole-Phase-2B review. Resolve every Critical or Important finding and rerun only affected focused tests.
 
-- [ ] **Step 5: Commit documentation and push the approved branch**
+- [x] **Step 5: Commit documentation and push the approved branch**
 
 Run:
 

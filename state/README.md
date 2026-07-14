@@ -45,3 +45,12 @@ Current constraints: production and test fixes, structured commits, and pushes a
 - Fixed Windows Unicode extraction output paths at the libarchive entry boundary with `archive_entry_copy_pathname_w`; archive input handling was not changed.
 - Focused regression: 5 suites, 169 tests, 0 failures, 0 errors, 1 expected capability skip.
 - Remaining Phase 2 assertion baseline: 3 suites / 4 failures (`ComponentInformationCacheTest` and two Mission suites).
+
+## 2026-07-14 Phase 2B result
+
+- Fixed the Windows-only test contamination caused by `_basic_test` recursively deleting its fixture while a cached-data `QFile` remained open.
+- The correction is an inner RAII scope in `ComponentInformationCacheTest`; production cache behavior was not changed.
+- Focused regression: 2 suites, 14 tests, 0 failures, 0 errors, 0 skips.
+- The component test left zero PID-specific cache/source fixture directories.
+- Remaining Phase 2 assertion baseline: 2 suites / 2 failures (the two Mission suites).
+- `RequestMetaDataTypeStateMachineTest` passed independently in 100.437 seconds; its CTest runner/timeout investigation remains open.

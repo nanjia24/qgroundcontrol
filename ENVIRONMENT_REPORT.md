@@ -566,3 +566,32 @@ The sole skip is `_testExtractArchiveToSymlinkedOutputPath`: `Directory symlinks
 `_testUnicodePaths` passed for the existing Japanese, Chinese, Greek, accented Latin, and Cyrillic output directories. Windows now copies the final libarchive output entry pathname through `archive_entry_copy_pathname_w`; non-Windows retains the narrow pathname call. No `archive_read_open_filename_w` usage was introduced, so Unicode archive input behavior remains outside this phase.
 
 All five console logs contained only the expected `QML debugging is enabled. Only use this in a safe environment.` notice. The scan found no archive-header write failure, missing DLL/plugin failure, fatal assertion, or crash marker. Full CTest was intentionally not rerun; remaining cache, Mission logging, and CTest-runner investigations are outside Phase 2A. Evidence is stored under `.tmp\phase2a\` and remains untracked.
+
+## Phase 2B Windows component-cache test lifecycle (2026-07-14)
+
+- Branch/worktree: `codex/windows-test-hardening` at `E:\workspace\QGC\qgroundcontrol-worktrees\windows-test-hardening`
+- Test fix commit: `22d923c592d3dac1f29aaa0b20cc63dff6a05156`
+- Compiler: VS2022 Community v143 Hostx64/x64, `cl.exe` 14.44.35207
+- Qt kit: `E:\Qt\6.10.3\msvc2022_64`
+- GStreamer root: `E:\PROGRA~1\GSTREA~1\1.0\MSVC_X~1`
+- Build directory: `build\windows-debug`
+
+Root-cause evidence came from a fresh 5-test/2-failure baseline plus a Windows filesystem event trace. `_basic_test` called `_cleanup()` while its cached-data `QFile` was still open. Windows deleted the `.meta` file but retained the open `.cache` file; `_lru_test` and `_multi_test` then reused that orphan entry. The fix is test-only: an inner RAII scope destroys `QTextStream` and `QFile` before `_cleanup()`. No `ComponentInformationCache` production file changed.
+
+The confirmed VS2022 x64 build ran:
+
+```powershell
+cmake --build build\windows-debug --target QGroundControl --parallel
+```
+
+Build exit code was `0`. The log explicitly contains compilation of `ComponentInformationCacheTest.cc.obj` and linking of `Debug\QGroundControl.exe`.
+
+| Focused suite | Tests | Failures | Errors | Skips | XML time | Process exit |
+|---|---:|---:|---:|---:|---:|---:|
+| ComponentInformationCacheTest | 5 | 0 | 0 | 0 | 0.381 s | 0 |
+| RequestMetaDataTypeStateMachineTest | 9 | 0 | 0 | 0 | 100.437 s | 0 |
+| **Total** | **14** | **0** | **0** | **0** | N/A | N/A |
+
+The component test process was PID 18980. Immediately after exit, both `QGCCacheTest_18980_*` and `QGCTestFiles_18980_*` directory counts were zero. Console scans found no cache miss, directory-creation failure, missing DLL/plugin, fatal assertion, or crash marker; each console contained only the expected QML debugging notice.
+
+Full CTest was intentionally not rerun. `RequestMetaDataTypeStateMachineTest` passed independently but took 100.437 seconds, so its existing CTest runner/timeout investigation remains open. Evidence is under `.tmp\phase2b\` and remains untracked.

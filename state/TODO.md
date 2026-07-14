@@ -90,5 +90,5 @@
 - [x] Approve and write the Phase 2B test-only design.
 - [x] Obtain final user review of the written Phase 2B specification.
 - [x] Write the Phase 2B implementation plan before changing test code.
-- [ ] Execute Phase 2B Task 1: release cached file before fixture cleanup.
-- [ ] Execute Phase 2B Task 2: focused regressions, evidence, and delivery.
+- [x] Execute Phase 2B Task 1: release cached file before fixture cleanup.
+- [x] Execute Phase 2B Task 2: focused regressions, evidence, and delivery.
