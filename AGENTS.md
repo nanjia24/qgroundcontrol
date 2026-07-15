@@ -183,6 +183,7 @@ enabled: vehicle && vehicle.armed
 - Windows offscreen Qt tests require `QT_QPA_FONTDIR` pointing to the existing `%WINDIR%\Fonts` directory; otherwise `MissionCommandTreeEditorTest` captures an uncategorized `QFontDatabase` missing-font warning.
 - `MissionCommandTreeEditorTest` has verified Windows offscreen runtimes above 180 seconds (197.590 and 209.797 seconds); its registered Windows CTest timeout must be 360 seconds while unrelated tests retain their existing timeouts.
 - `InitialConnectTest` has a verified Windows offscreen runtime near 185 seconds after its teardown correction; its registered Windows CTest timeout must be 360 seconds while other platforms retain the integration default.
+- `VehicleCameraControlTest` has a verified Windows offscreen runtime of 161.519 seconds and `MissionControllerTreeTest` has a verified runtime of 123.426 seconds; their default 120-second integration registration is insufficient on this environment.
 
 【项目规范区域】
 

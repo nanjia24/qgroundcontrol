@@ -102,6 +102,13 @@ Current constraints: production and test fixes, structured commits, and pushes a
 - The generated CTest entry passed 1/1 in 182.73 seconds with its Windows-only 360-second timeout; no access violation or teardown failure was present.
 - A completion-capable full 186-test CTest run remains the final gate before downstream development branches are created.
 
+## 2026-07-15 Completion-capable full CTest
+
+- The background-controlled run completed all 186 registrations in 1936.82 seconds: 182 passed and 4 failed.
+- `VehicleCameraControlTest` and `MissionControllerTreeTest` timed out at 120 seconds, then passed direct JUnit with 15/15 in 161.519 seconds and 11/11 in 123.426 seconds respectively.
+- `ParameterManagerTest` reproduced 3 progress-signal wait failures at the 1-second bound; `VehicleLinkManagerTest` reproduced 3 initial-connect wait failures at the 5-second bound.
+- Downstream development branches remain blocked until scoped fixes pass focused CTest and a new full run is 186/186.
+
 ## 2026-07-15 Timeout diagnosis design
 
 - A reversible CTest metadata probe proved `MissionControllerTest` is slow rather than stalled: it passed in 133.82 seconds with a 360-second probe limit.

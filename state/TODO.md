@@ -123,6 +123,11 @@
   - 2026-07-15: direct JUnit passed 24/24 in 184.833 s; generated CTest passed 1/1 in 182.73 s with no crash or failure.
 - [ ] Re-run full CTest and create downstream branches.
 - [ ] Re-run full CTest to completion after the two timeout results are resolved; only then create the requested downstream development branches.
+- [x] Complete the first interruption-safe 186-test CTest run.
+  - 2026-07-15: 182 passed, 4 failed in 1936.82 s.
+- [ ] Correct and focus-verify the two scoped Windows CTest timeout registrations.
+- [ ] Correct and focus-verify ParameterManager and VehicleLinkManager test wait bounds.
+- [ ] Re-run all 186 tests; require 186/186 before creating downstream branches.
 - [x] Confirm and write the Windows controller/initial-connect timeout design.
 - [x] Obtain final user review of the written timeout specification.
 - [x] Write the timeout implementation and localization plan before changing source/CMake input.

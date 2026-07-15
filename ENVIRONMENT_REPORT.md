@@ -761,3 +761,25 @@ the direct and CTest logs found no `0xc0000005`, `FAIL!`, segmentation-fault,
 assertion, or `LinkManager::_linkDisconnected` teardown evidence. Artifacts are
 under `.tmp\phase4\initial-connect-final`. A fresh full 186-test CTest run is
 still required before downstream branches can be delivered.
+
+## 2026-07-15 Completion-capable full CTest result
+
+An interruption-safe background wrapper allowed CTest to finish every
+registration. The run exited 8 after 1936.82 seconds with 182/186 passing.
+
+| Test | Full-run result | Focused direct JUnit evidence | Classification |
+|---|---|---|---|
+| `VehicleCameraControlTest` | timeout at 120.05 s | 15/15 passed in 161.519 s | Windows registration timeout too short |
+| `ParameterManagerTest` | failed in 109.43 s | 3/14 failed in 71.447 s | three 1 s progress-signal waits expired |
+| `MissionControllerTreeTest` | timeout at 120.048 s | 11/11 passed in 123.426 s | Windows registration timeout too short |
+| `VehicleLinkManagerTest` | failed in 46.458 s | 3/7 failed in 38.719 s | three 5 s initial-connect waits expired |
+
+The Parameter failures are `_noFailure`, `_requestListMissingParamSuccess`,
+and `_requestListMissingParamFail`, each waiting for `loadProgressChanged` with
+`TestTimeout::shortMs()` (1,000 ms). The Vehicle Link failures are
+`_simpleLinkTest`, `_simpleCommLossTest`, and `_multiLinkSingleVehicleTest`;
+Qt reported that 6,100, 9,950, and 10,050 ms would have been sufficient.
+All four test source files are identical to `origin/master`, so these are not
+joystick feature-branch regressions. Downstream development branches have not
+been created because the required 186/186 gate is not yet met. Evidence is in
+`.tmp\phase4\full-ctest` and `.tmp\phase4\full-failures`.
