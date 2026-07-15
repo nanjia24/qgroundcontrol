@@ -110,3 +110,6 @@
   - 2026-07-15: all passed through CTest (124.14 s, 1.18 s, and 99.63 s respectively) with no JUnit failure/error node; no code or timeout change is needed.
 - [ ] Diagnose `MissionControllerTest` and `InitialConnectTest` full-CTest 120-second timeouts without changing shared timeout policy blindly.
 - [ ] Re-run full CTest to completion after the two timeout results are resolved; only then create the requested downstream development branches.
+- [x] Confirm and write the Windows controller/initial-connect timeout design.
+- [ ] Obtain final user review of the written timeout specification.
+- [ ] Write the timeout implementation and localization plan before changing source/CMake input.

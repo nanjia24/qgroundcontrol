@@ -83,3 +83,9 @@ Current constraints: production and test fixes, structured commits, and pushes a
 - A fresh VS2022 x64 Debug rebuild passed after loading `VsDevCmd`; a shell with only `cl.exe` on `PATH` is insufficient because it lacks the MSVC `INCLUDE` environment.
 - The attempted full 186-test CTest run is not a passing baseline: `MissionControllerTest` and `InitialConnectTest` each timed out at 120.06 seconds before the outer execution limit interrupted the run during test 182.
 - Do not branch downstream from this hardening branch as a verified development baseline until the two timeout failures are diagnosed and a full CTest run completes.
+
+## 2026-07-15 Timeout diagnosis design
+
+- A reversible CTest metadata probe proved `MissionControllerTest` is slow rather than stalled: it passed in 133.82 seconds with a 360-second probe limit.
+- `InitialConnectTest` still timed out at 360.04 seconds, so increasing its timeout without function/data-row localization is prohibited.
+- Approved direction: Windows-only 180 seconds for `MissionControllerTest`; temporary uncommitted QTest function/data-row selection for Initial Connect localization; evidence-driven durable correction; full CTest before downstream branching.
