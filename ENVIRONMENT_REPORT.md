@@ -661,3 +661,22 @@ direct-run artifacts were generated concurrently and are not acceptance
 evidence. Full CTest remains intentionally unrun; the separate `HashCheckTest`,
 `SigningTest`, and `RequestMetaDataTypeStateMachineTest` runner investigations
 remain open.
+
+## 2026-07-15 Remaining runner verification
+
+The three runner investigations were then repeated one at a time through the
+generated CTest registrations in the same VS2022 x64/Qt/GStreamer environment.
+All commands used `--output-on-failure` and `--output-junit`; each JUnit file
+is relative to `build\windows-debug` and has no failure or error node.
+
+| Test | CTest result | Duration | JUnit failure/error nodes |
+|---|---|---:|---|
+| `HashCheckTest` | 1/1 passed | 124.14 s | none |
+| `SigningTest` | 1/1 passed | 1.18 s | none |
+| `RequestMetaDataTypeStateMachineTest` | 1/1 passed | 99.63 s | none |
+
+`HashCheckTest` exceeded the historical 120-second observation but did not
+timeout in its current registered CTest configuration. No code or timeout
+change is justified by these runs. The known focused Windows test failures are
+therefore closed; full CTest remains intentionally unrun after Phase 2D and is
+the remaining broader regression check.

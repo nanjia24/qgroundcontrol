@@ -79,7 +79,7 @@
 - [x] Select subagent-driven execution and complete the approved Phase 1 plan.
 - [x] Recover from the transient subagent execution-channel/network blockage.
 - [x] Verify the Phase 1 focused set: 118 tests, 0 failures/errors/skips.
-- [ ] Investigate and design Phase 2 fixes for compression, cache, Mission logging, and CTest runner behavior.
+- [x] Investigate and design Phase 2 fixes for compression, cache, Mission logging, and CTest runner behavior.
 - [x] Confirm and write the Phase 2A compression hardening design.
 - [x] Obtain final user review of the written Phase 2A specification.
 - [x] Write the Phase 2A implementation plan before changing code.
@@ -106,4 +106,5 @@
 - [x] Apply the Phase 2D Simplified Chinese placeholder correction and rebuild `QGroundControl`.
 - [x] Verify `MissionManagerTest` in the generated CTest environment and capture authoritative JUnit/console evidence.
   - 2026-07-15: CTest 1/1 passed in 30.24 seconds; the build-relative CTest JUnit has one testcase and no failure/error node.
-- [ ] Reproduce the exact single-test CTest behavior of `HashCheckTest`, `SigningTest`, and `RequestMetaDataTypeStateMachineTest` before changing their code or timeouts.
+- [x] Reproduce the exact single-test CTest behavior of `HashCheckTest`, `SigningTest`, and `RequestMetaDataTypeStateMachineTest` before changing their code or timeouts.
+  - 2026-07-15: all passed through CTest (124.14 s, 1.18 s, and 99.63 s respectively) with no JUnit failure/error node; no code or timeout change is needed.

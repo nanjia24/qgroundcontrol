@@ -75,4 +75,5 @@ Current constraints: production and test fixes, structured commits, and pushes a
 - Rebuilt `QGroundControl` successfully under VS2022/Qt with `--parallel 2` after an initial parallel C1060 heap exhaustion.
 - The generated CTest registration passed 1/1 in 30.24 seconds with the configured offscreen, logging, and font environment; its build-relative JUnit has one testcase and no failure/error node.
 - Earlier direct-run artifacts were concurrent/non-equivalent evidence and are superseded by the CTest result.
-- Open work: separately verify the `HashCheckTest`, `SigningTest`, and `RequestMetaDataTypeStateMachineTest` runner/timeout reports.
+- The three remaining runner checks also passed individually through CTest: `HashCheckTest` in 124.14 seconds, `SigningTest` in 1.18 seconds, and `RequestMetaDataTypeStateMachineTest` in 99.63 seconds, all with no JUnit failure/error node.
+- No known focused Windows test failure remains. Full CTest has not been rerun after Phase 2D and remains the broader regression check.
