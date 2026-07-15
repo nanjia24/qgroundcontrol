@@ -84,6 +84,12 @@ Current constraints: production and test fixes, structured commits, and pushes a
 - The attempted full 186-test CTest run is not a passing baseline: `MissionControllerTest` and `InitialConnectTest` each timed out at 120.06 seconds before the outer execution limit interrupted the run during test 182.
 - Do not branch downstream from this hardening branch as a verified development baseline until the two timeout failures are diagnosed and a full CTest run completes.
 
+## 2026-07-15 InitialConnect localization result
+
+- The temporary selector was removed after running all 22 functions/data rows and rebuilding the uninstrumented runner.
+- 21 selectors passed. `_boardVendorProductId` alone failed after 13.60 seconds with Windows access violation `0xc0000005` during `LinkManager::_linkDisconnected` / `MockLink` teardown.
+- No individual selector timed out; the class-level 360-second timeout is therefore not an acceptable fix. The teardown/lifecycle crash needs its own design and focused correction before full CTest.
+
 ## 2026-07-15 Timeout diagnosis design
 
 - A reversible CTest metadata probe proved `MissionControllerTest` is slow rather than stalled: it passed in 133.82 seconds with a 360-second probe limit.

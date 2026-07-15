@@ -707,3 +707,27 @@ baseline or create a downstream development branch; first reproduce the two
 timeouts individually, determine whether their registered timeouts are
 incorrect or the tests are stalled, then run a completion-capable full CTest
 session.
+
+## 2026-07-15 InitialConnect selector localization
+
+The temporary, uncommitted `QGC_TEST_FUNCTION` selector was built only into
+the Debug test runner, used to execute every Initial Connect function/data row,
+and then removed. The restored runner rebuilt successfully and both temporary
+test files have no Git diff.
+
+| Selector group | Count | Result |
+|---|---:|---|
+| `_performTestCases` data rows | 3 | 3 passed (10.51-16.54 s) |
+| Independent functions | 6 | 5 passed; `_boardVendorProductId` crashed |
+| `_stateTimeoutFallsThrough` data rows | 5 | 5 passed (3.12-16.21 s) |
+| `_stateRunMatrix` data rows | 8 | 8 passed (2.63-11.91 s) |
+
+The only failure was `_boardVendorProductId`: CTest exited with code 8 after
+13.60 seconds and classified it as `SEGFAULT`. The Windows exception code was
+`0xc0000005`; the captured stack runs through
+`LinkManager::_linkDisconnected`, `MockLink::~MockLink`, and
+`LinkManager::~LinkManager` during teardown. No selector timed out, so the
+class-level 360-second timeout is caused by aggregate/order-dependent behavior
+or teardown state, not a single slow row. Evidence is under
+`.tmp\phase3-plan\InitialConnect-selector-results.csv` and the corresponding
+selector logs/JUnit files; those generated files remain untracked.
