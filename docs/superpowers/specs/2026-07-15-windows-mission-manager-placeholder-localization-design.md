@@ -49,7 +49,8 @@ logging enabled:
 
 ```powershell
 $env:QGC_TEST_VERBOSE = '1'
-& .\build\windows-debug-vs2022-zc-fixed\Debug\MissionManagerTest.exe `
+& .\build\windows-debug\Debug\QGroundControl.exe `
+  --unittest:MissionManagerTest --allow-multiple `
   --unittest-output:.tmp\phase2d\MissionManagerTest.xml `
   --log-output `
   --logging:default

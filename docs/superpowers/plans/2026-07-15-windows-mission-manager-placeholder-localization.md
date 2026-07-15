@@ -27,7 +27,7 @@
 - Modify: `state/README.md`
 - Modify: `state/TODO.md`
 - Modify: `state/LOG.md`
-- Test: `build/windows-debug-vs2022-zc-fixed/Debug/MissionManagerTest.exe`
+- Test: `build/windows-debug/Debug/QGroundControl.exe --unittest:MissionManagerTest --allow-multiple`
 
 **Interfaces:**
 - Consumes: `PlanManager.cc` source key `Frame: %1` and its existing `.arg(item->frame())` argument contract.
@@ -41,7 +41,8 @@ Run from the VS2022 x64 developer environment:
 $env:Path = 'E:\Qt\6.10.3\msvc2022_64\bin;E:\PROGRA~1\GSTREA~1\1.0\MSVC_X~1\bin;' + $env:Path
 $env:QGC_TEST_VERBOSE = '1'
 New-Item -ItemType Directory -Force .tmp\phase2d | Out-Null
-& .\build\windows-debug-vs2022-zc-fixed\Debug\MissionManagerTest.exe `
+& .\build\windows-debug\Debug\QGroundControl.exe `
+  --unittest:MissionManagerTest --allow-multiple `
   --unittest-output:.tmp\phase2d\MissionManagerTest-red.xml `
   --log-output --logging:default *> .tmp\phase2d\MissionManagerTest-red.log
 $exitCode = $LASTEXITCODE
@@ -74,7 +75,7 @@ Do not change the source key, neighbouring messages, or any C++/test file.
 
 ```powershell
 $env:Path = 'E:\Qt\6.10.3\msvc2022_64\bin;E:\PROGRA~1\GSTREA~1\1.0\MSVC_X~1\bin;' + $env:Path
-cmake --build .\build\windows-debug-vs2022-zc-fixed --parallel *> .tmp\phase2d\MissionManagerTest-build.log
+cmake --build .\build\windows-debug --target QGroundControl --parallel *> .tmp\phase2d\MissionManagerTest-build.log
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 rg -n 'qgc_source_zh_CN|lrelease|MissionManagerTest|QGroundControl' .tmp\phase2d\MissionManagerTest-build.log
 ```
@@ -88,7 +89,8 @@ perform a normal CMake regeneration rather than deleting unrelated artifacts.
 ```powershell
 $env:Path = 'E:\Qt\6.10.3\msvc2022_64\bin;E:\PROGRA~1\GSTREA~1\1.0\MSVC_X~1\bin;' + $env:Path
 $env:QGC_TEST_VERBOSE = '1'
-& .\build\windows-debug-vs2022-zc-fixed\Debug\MissionManagerTest.exe `
+& .\build\windows-debug\Debug\QGroundControl.exe `
+  --unittest:MissionManagerTest --allow-multiple `
   --unittest-output:.tmp\phase2d\MissionManagerTest-green.xml `
   --log-output --logging:default *> .tmp\phase2d\MissionManagerTest-green.log
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

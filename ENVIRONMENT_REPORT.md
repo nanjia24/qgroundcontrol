@@ -628,12 +628,13 @@ The final scans found zero `QFontDatabase`, `Cannot find font directory`, defaul
 
 ## 2026-07-15 Phase 2D pause
 
-The approved catalogue-only correction was not applied. The Task 1 RED command
-could not start because this linked worktree does not contain the planned
-`build\windows-debug-vs2022-zc-fixed` directory or any
-`MissionManagerTest.exe`; the only matching build directory is
-`build\windows-debug`. Consequently, no JUnit XML, console log, build, GREEN
-run, source change, correction commit, or correction push was produced. The
-next session must first identify or recreate a valid VS2022 x64 Debug test
-build, then restart Phase 2D at the mandatory pre-change RED test rather than
-editing the translation without that evidence.
+The approved catalogue-only correction was not applied during the first Task 1
+attempt. The initial plan incorrectly expected a standalone
+`MissionManagerTest.exe` in `build\windows-debug-vs2022-zc-fixed`; this linked
+worktree instead has a valid VS2022 x64 test-enabled `build\windows-debug`
+configuration. Generated CTest metadata proves that `MissionManagerTest` is
+linked into `build\windows-debug\Debug\QGroundControl.exe` and must be run as
+`--unittest:MissionManagerTest --allow-multiple`. No translation change,
+JUnit XML, GREEN run, correction commit, or correction push was produced by
+the failed command. The plan was corrected before restarting the mandatory
+pre-change RED test.
