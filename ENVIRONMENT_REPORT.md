@@ -731,3 +731,14 @@ class-level 360-second timeout is caused by aggregate/order-dependent behavior
 or teardown state, not a single slow row. Evidence is under
 `.tmp\phase3-plan\InitialConnect-selector-results.csv` and the corresponding
 selector logs/JUnit files; those generated files remain untracked.
+
+## 2026-07-15 Board wait follow-up
+
+The cleanup change was applied in the working tree for diagnosis but is not yet
+committed. It removed the previous access violation; the direct QGC JUnit then
+reported 24 cases with one failure in `_boardVendorProductId`. The exact
+failure was a 5,000 ms `TestTimeout::mediumMs()` wait for
+`initialConnectComplete`, while Qt reported that 9,950 ms would have been
+sufficient. The next approved design is limited to using the existing bounded
+`TestTimeout::longMs()` for this one wait; no code commit or full CTest run is
+valid until that follow-up is reviewed and verified.

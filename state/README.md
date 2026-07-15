@@ -95,6 +95,11 @@ Current constraints: production and test fixes, structured commits, and pushes a
 - Approved direction: assign the custom board-test MockLink to the existing `_mockLink` fixture member and use `_disconnectMockLink()` for the established vehicle-removal and event-loop cleanup.
 - Production `LinkManager` changes, arbitrary delays, timeout inflation, warning whitelists, and skipped rows are out of scope.
 
+## 2026-07-15 Board wait follow-up
+
+- The cleanup path no longer crashes, but `_boardVendorProductId` still fails because its 5-second `mediumMs()` initial-connect wait is too short; the observed requirement was 9.95 seconds.
+- The pending correction is limited to `TestTimeout::longMs()` for that one wait. The cleanup and wait changes remain uncommitted pending the follow-up design review.
+
 ## 2026-07-15 Timeout diagnosis design
 
 - A reversible CTest metadata probe proved `MissionControllerTest` is slow rather than stalled: it passed in 133.82 seconds with a 360-second probe limit.

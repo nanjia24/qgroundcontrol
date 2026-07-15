@@ -115,7 +115,10 @@
 - [x] Write the dedicated board teardown fix design.
 - [x] Obtain final user review of the board teardown fix specification.
 - [x] Write the board teardown implementation plan before changing the test.
-- [ ] Implement the fixture cleanup fix and re-run Initial Connect/full CTest.
+- [x] Apply the fixture cleanup change for diagnosis; it removed the teardown crash.
+- [x] Diagnose the remaining `_boardVendorProductId` initial-connect wait failure.
+- [ ] Review and implement the scoped `mediumMs()` to `longMs()` wait correction.
+- [ ] Re-run Initial Connect/full CTest and create downstream branches.
 - [ ] Re-run full CTest to completion after the two timeout results are resolved; only then create the requested downstream development branches.
 - [x] Confirm and write the Windows controller/initial-connect timeout design.
 - [x] Obtain final user review of the written timeout specification.
