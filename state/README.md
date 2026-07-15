@@ -63,3 +63,8 @@ Current constraints: production and test fixes, structured commits, and pushes a
 - Mission source/tests/translations were unchanged.
 - Remaining Phase 2 assertion baseline: 1 suite / 1 failure (`MissionManagerTest`, Simplified Chinese placeholder defect).
 - Remaining runner investigations: `HashCheckTest`, `SigningTest`, and `RequestMetaDataTypeStateMachineTest`.
+
+## 2026-07-15 Phase 2D design
+
+- Approved scope: correct the Simplified Chinese `Frame: %1` translation so it retains the `%1` placeholder, then verify the existing `MissionManagerTest` in the established Windows Debug environment.
+- Out of scope: production Mission code, test expectations/whitelists, English-locale forcing, and the unrelated CTest runner investigations.
