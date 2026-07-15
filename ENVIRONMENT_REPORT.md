@@ -680,3 +680,30 @@ timeout in its current registered CTest configuration. No code or timeout
 change is justified by these runs. The known focused Windows test failures are
 therefore closed; full CTest remains intentionally unrun after Phase 2D and is
 the remaining broader regression check.
+
+## 2026-07-15 Full CTest baseline attempt
+
+After a fresh Debug build completed with VS2022 x64 `VsDevCmd` loaded and
+`--parallel 2`, a full 186-test CTest run was started with JUnit and console
+output redirected under `.tmp\final-validation`. The shell used only the
+compiler path at first and failed to find the MSVC standard header
+`type_traits`; loading `VsDevCmd.bat -arch=x64 -host_arch=x64` corrected that
+environment issue and the rebuild then exited `0`.
+
+The full CTest run is not a passing baseline. Before the outer 30-minute
+execution limit interrupted the run during test 182, CTest completed 181 test
+result lines and recorded these failures:
+
+| Test | Result | Duration |
+|---|---|---:|
+| `MissionControllerTest` | timeout | 120.06 s |
+| `InitialConnectTest` | timeout | 120.06 s |
+
+`MissionManagerTest`, `MissionCommandTreeEditorTest`, and
+`ComponentInformationCacheTest` passed within the same full run. The remaining
+tests from `RequestMetaDataTypeStateMachineTest` onward have no final result
+from this attempt. Do not use this run to claim a complete Windows test
+baseline or create a downstream development branch; first reproduce the two
+timeouts individually, determine whether their registered timeouts are
+incorrect or the tests are stalled, then run a completion-capable full CTest
+session.

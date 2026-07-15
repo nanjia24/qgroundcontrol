@@ -77,3 +77,9 @@ Current constraints: production and test fixes, structured commits, and pushes a
 - Earlier direct-run artifacts were concurrent/non-equivalent evidence and are superseded by the CTest result.
 - The three remaining runner checks also passed individually through CTest: `HashCheckTest` in 124.14 seconds, `SigningTest` in 1.18 seconds, and `RequestMetaDataTypeStateMachineTest` in 99.63 seconds, all with no JUnit failure/error node.
 - No known focused Windows test failure remains. Full CTest has not been rerun after Phase 2D and remains the broader regression check.
+
+## 2026-07-15 Full CTest status
+
+- A fresh VS2022 x64 Debug rebuild passed after loading `VsDevCmd`; a shell with only `cl.exe` on `PATH` is insufficient because it lacks the MSVC `INCLUDE` environment.
+- The attempted full 186-test CTest run is not a passing baseline: `MissionControllerTest` and `InitialConnectTest` each timed out at 120.06 seconds before the outer execution limit interrupted the run during test 182.
+- Do not branch downstream from this hardening branch as a verified development baseline until the two timeout failures are diagnosed and a full CTest run completes.
