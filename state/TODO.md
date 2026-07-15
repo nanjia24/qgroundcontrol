@@ -103,5 +103,5 @@
 - [x] Approve and write the Phase 2D translation-correction design.
 - [x] Obtain final user review of the written Phase 2D specification.
 - [x] Write the Phase 2D implementation plan before changing the translation.
-- [ ] Execute Phase 2D translation correction and focused regression.
+- [x] Execute Phase 2D translation correction and focused regression (translation/build complete; test runner emitted zero-byte artifacts in this shell, so JUnit result remains unavailable).
   - Resume 2026-07-15: generated CTest metadata identifies the valid command as `build\\windows-debug\\Debug\\QGroundControl.exe --unittest:MissionManagerTest --allow-multiple`; rerun the RED evidence command before changing the catalogue.
