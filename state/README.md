@@ -73,4 +73,6 @@ Current constraints: production and test fixes, structured commits, and pushes a
 
 - Corrected the Simplified Chinese `Frame: %1` catalogue entry to `框架：%1`.
 - Rebuilt `QGroundControl` successfully under VS2022/Qt with `--parallel 2` after an initial parallel C1060 heap exhaustion.
-- Focused executable invocations produced zero-byte log/JUnit artifacts in this shell; RED/GREEN counts and diagnostics remain unavailable and are recorded in `.superpowers/sdd/task-1-report.md`.
+- The current direct JUnit artifact contains 7 tests, 5 uncategorized-log failures, 0 errors, and 0 skips; it no longer contains `QString::arg: Argument missing`.
+- This is not yet an acceptance result: concurrent agents wrote competing artifacts, including zero-byte XML/log files, and the direct invocation did not reliably reproduce the generated CTest environment.
+- Open work: re-run `MissionManagerTest` through its generated CTest registration with fresh JUnit/console capture, then separately verify the `HashCheckTest`, `SigningTest`, and `RequestMetaDataTypeStateMachineTest` runner/timeout reports.

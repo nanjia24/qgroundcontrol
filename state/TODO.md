@@ -103,5 +103,7 @@
 - [x] Approve and write the Phase 2D translation-correction design.
 - [x] Obtain final user review of the written Phase 2D specification.
 - [x] Write the Phase 2D implementation plan before changing the translation.
-- [x] Execute Phase 2D translation correction and focused regression (translation/build complete; test runner emitted zero-byte artifacts in this shell, so JUnit result remains unavailable).
-  - Resume 2026-07-15: generated CTest metadata identifies the valid command as `build\\windows-debug\\Debug\\QGroundControl.exe --unittest:MissionManagerTest --allow-multiple`; rerun the RED evidence command before changing the catalogue.
+- [x] Apply the Phase 2D Simplified Chinese placeholder correction and rebuild `QGroundControl`.
+- [ ] Verify `MissionManagerTest` in the generated CTest environment and capture authoritative JUnit/console evidence.
+  - The latest direct artifact has 7 tests / 5 uncategorized-log failures, though it no longer contains `QString::arg: Argument missing`; concurrent agents also created zero-byte artifacts, so this is not an acceptance result.
+- [ ] Reproduce the exact single-test CTest behavior of `HashCheckTest`, `SigningTest`, and `RequestMetaDataTypeStateMachineTest` before changing their code or timeouts.
