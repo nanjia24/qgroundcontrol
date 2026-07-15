@@ -188,7 +188,15 @@ endif()
 add_qgc_test(MissionCommandTreeEditorTest LABELS Integration MissionManager TIMEOUT ${_mission_command_tree_editor_timeout})
 add_qgc_test(MissionCommandTreeTest LABELS Unit MissionManager)
 # MissionControllerManagerTest: base class only (used by MissionControllerTest, MissionManagerTest, etc.)
-add_qgc_test(MissionControllerTest LABELS Integration MissionManager RESOURCE_LOCK MockLink)
+set(_mission_controller_timeout ${QGC_TEST_TIMEOUT_INTEGRATION})
+if(WIN32)
+    set(_mission_controller_timeout ${QGC_TEST_TIMEOUT_EXTENDED})
+endif()
+add_qgc_test(MissionControllerTest
+    LABELS Integration MissionManager
+    RESOURCE_LOCK MockLink
+    TIMEOUT ${_mission_controller_timeout}
+)
 add_qgc_test(MissionControllerTreeTest LABELS Integration MissionManager RESOURCE_LOCK MockLink)
 add_qgc_test(MissionItemTest LABELS Unit MissionManager)
 add_qgc_test(MissionManagerTest LABELS Integration MissionManager SERIAL)
