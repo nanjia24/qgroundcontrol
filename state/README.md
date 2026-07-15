@@ -116,6 +116,13 @@ Current constraints: production and test fixes, structured commits, and pushes a
 - The wrapper ran from 18:43:37 to 18:56:15 Asia/Shanghai. Stderr was empty and the actionable failure/crash/timeout scan had zero matches.
 - The Windows Debug environment is ready for downstream development branch delivery after final diff review and record push.
 
+## 2026-07-15 Development branch delivery
+
+- Final whole-phase review passed with no remaining Critical, Important, or Minor findings.
+- `codex/joystick-aux-px4-development` was created and pushed from the verified hardening head.
+- Delivery-time `git describe --tags --always` returned `2cda0d3cf`; `change1_crocodile_2cda0d3cf` was created from the development branch and pushed.
+- `codex/joystick-aux-px4` remained unchanged at `daae3a37bbdd186ac42958be06567c342e4a0a5b`; no PR or force-push was used.
+
 ## 2026-07-15 Timeout diagnosis design
 
 - A reversible CTest metadata probe proved `MissionControllerTest` is slow rather than stalled: it passed in 133.82 seconds with a 360-second probe limit.

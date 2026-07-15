@@ -121,7 +121,9 @@
 - [x] Write the board wait implementation plan.
 - [x] Implement and verify the board wait correction.
   - 2026-07-15: direct JUnit passed 24/24 in 184.833 s; generated CTest passed 1/1 in 182.73 s with no crash or failure.
-- [ ] Create and verify the requested downstream branches.
+- [x] Create and verify the requested downstream branches.
+  - `codex/joystick-aux-px4-development`
+  - `change1_crocodile_2cda0d3cf`
 - [x] Re-run full CTest to completion after resolving the timeout results.
 - [x] Complete the first interruption-safe 186-test CTest run.
   - 2026-07-15: 182 passed, 4 failed in 1936.82 s.

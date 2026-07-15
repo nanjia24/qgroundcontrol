@@ -812,3 +812,17 @@ satisfies the Windows Debug build/test gate for downstream development. The
 Release build environment remains available with the previously verified
 Qt, GStreamer, MSVC, Ninja, and NSIS paths; installer generation itself was
 not run in this phase.
+
+## 2026-07-15 Development branch delivery
+
+The final whole-phase review passed with no remaining Critical, Important, or
+Minor findings. The following remote branches were created with ordinary
+fast-forward-capable pushes; no force-push or pull request was used:
+
+- `codex/joystick-aux-px4-development`
+- `change1_crocodile_2cda0d3cf`
+
+The final name was derived at delivery time from
+`git describe --tags --always`, which returned `2cda0d3cf`. The protected
+`origin/codex/joystick-aux-px4` ref remained unchanged at
+`daae3a37bbdd186ac42958be06567c342e4a0a5b`.
