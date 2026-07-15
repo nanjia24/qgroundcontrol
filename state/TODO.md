@@ -119,8 +119,9 @@
 - [x] Diagnose the remaining `_boardVendorProductId` initial-connect wait failure.
 - [x] Review the scoped `mediumMs()` to `longMs()` wait correction.
 - [x] Write the board wait implementation plan.
-- [ ] Implement and verify the board wait correction.
-- [ ] Re-run Initial Connect/full CTest and create downstream branches.
+- [x] Implement and verify the board wait correction.
+  - 2026-07-15: direct JUnit passed 24/24 in 184.833 s; generated CTest passed 1/1 in 182.73 s with no crash or failure.
+- [ ] Re-run full CTest and create downstream branches.
 - [ ] Re-run full CTest to completion after the two timeout results are resolved; only then create the requested downstream development branches.
 - [x] Confirm and write the Windows controller/initial-connect timeout design.
 - [x] Obtain final user review of the written timeout specification.

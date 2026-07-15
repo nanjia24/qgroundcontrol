@@ -70,7 +70,9 @@ void InitialConnectTest::_boardVendorProductId()
     const uint16_t mockProduct = 5678;
     mockConfig->setBoardVendorProduct(mockVendor, mockProduct);
     SharedLinkConfigurationPtr linkConfig = mockConfig;
-    LinkManager::instance()->createConnectedLink(linkConfig);
+    QVERIFY(LinkManager::instance()->createConnectedLink(linkConfig));
+    _mockLink = qobject_cast<MockLink*>(linkConfig->link());
+    QVERIFY(_mockLink);
     QVERIFY_SIGNAL_WAIT(activeVehicleSpy, TestTimeout::mediumMs());
     auto* vehicle = mvm->activeVehicle();
     QVERIFY(vehicle);
@@ -78,12 +80,10 @@ void InitialConnectTest::_boardVendorProductId()
     // Both ends of mocklink (and the initial connect state machine?) operate on
     // a different thread. The initial connection may already be complete.
     QVERIFY_TRUE_WAIT(initialConnectCompleteSpy.count() > 0 || vehicle->isInitialConnectComplete(),
-                      TestTimeout::mediumMs());
+                      TestTimeout::longMs());
     QCOMPARE(vehicle->firmwareBoardVendorId(), mockVendor);
     QCOMPARE(vehicle->firmwareBoardProductId(), mockProduct);
-    LinkManager::instance()->disconnectAll();
-    QSignalSpy vehicleRemovedSpy{mvm, &MultiVehicleManager::activeVehicleChanged};
-    QVERIFY_SIGNAL_WAIT(vehicleRemovedSpy, TestTimeout::mediumMs());
+    _disconnectMockLink();
 }
 
 void InitialConnectTest::_progressTracking()

@@ -97,8 +97,10 @@ Current constraints: production and test fixes, structured commits, and pushes a
 
 ## 2026-07-15 Board wait follow-up
 
-- The cleanup path no longer crashes, but `_boardVendorProductId` still fails because its 5-second `mediumMs()` initial-connect wait is too short; the observed requirement was 9.95 seconds.
-- The pending correction is limited to `TestTimeout::longMs()` for that one wait. The cleanup and wait changes remain uncommitted pending the follow-up design review.
+- The fixture-owned cleanup and bounded wait correction are implemented and focused verification is complete.
+- Direct QGC JUnit passed all 24 cases with 0 failures/errors in 184.833 seconds and process exit code 0.
+- The generated CTest entry passed 1/1 in 182.73 seconds with its Windows-only 360-second timeout; no access violation or teardown failure was present.
+- A completion-capable full 186-test CTest run remains the final gate before downstream development branches are created.
 
 ## 2026-07-15 Timeout diagnosis design
 

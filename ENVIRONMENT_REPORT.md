@@ -742,3 +742,22 @@ failure was a 5,000 ms `TestTimeout::mediumMs()` wait for
 sufficient. The next approved design is limited to using the existing bounded
 `TestTimeout::longMs()` for this one wait; no code commit or full CTest run is
 valid until that follow-up is reviewed and verified.
+
+## 2026-07-15 InitialConnect final focused verification
+
+The approved test-only correction now tracks the custom board MockLink through
+the existing `VehicleTest` fixture cleanup path and gives only the
+`initialConnectComplete` wait the existing `TestTimeout::longMs()` bound. The
+CTest registration uses 360 seconds on Windows while retaining the integration
+default on other platforms.
+
+| Verification | Result | Runtime |
+|---|---|---:|
+| Direct QGC JUnit | exit 0; 24 tests, 0 failures, 0 errors, 0 skipped | 184.833 s |
+| Generated CTest entry | exit 0; 1/1 passed, 0 failed | 182.73 s |
+
+The direct stderr contains only the expected QML debugging notice. Scans of
+the direct and CTest logs found no `0xc0000005`, `FAIL!`, segmentation-fault,
+assertion, or `LinkManager::_linkDisconnected` teardown evidence. Artifacts are
+under `.tmp\phase4\initial-connect-final`. A fresh full 186-test CTest run is
+still required before downstream branches can be delivered.

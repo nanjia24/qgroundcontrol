@@ -182,6 +182,7 @@ enabled: vehicle && vehicle.armed
 - Windows 上打开的 `QFile` 会阻止 `QDir::removeRecursively()` 删除对应文件；`ComponentInformationCacheTest` 曾因此只删除 `.meta` 而遗留 `.cache`，污染后续 LRU 测试。
 - Windows offscreen Qt tests require `QT_QPA_FONTDIR` pointing to the existing `%WINDIR%\Fonts` directory; otherwise `MissionCommandTreeEditorTest` captures an uncategorized `QFontDatabase` missing-font warning.
 - `MissionCommandTreeEditorTest` has verified Windows offscreen runtimes above 180 seconds (197.590 and 209.797 seconds); its registered Windows CTest timeout must be 360 seconds while unrelated tests retain their existing timeouts.
+- `InitialConnectTest` has a verified Windows offscreen runtime near 185 seconds after its teardown correction; its registered Windows CTest timeout must be 360 seconds while other platforms retain the integration default.
 
 【项目规范区域】
 
@@ -192,3 +193,4 @@ enabled: vehicle && vehicle.armed
 - Windows 测试在递归删除 fixture 目录前，必须通过 RAII 结束所有 `QFile`/流对象生命周期；不要依赖删除打开文件的 Unix 语义。
 - Windows CTest environment paths must derive from `%WINDIR%`, normalize with CMake, and never hard-code `C:\Windows` or whitelist the resulting font warning.
 - Long-test timeout corrections must be scoped to the proven test/platform pair; do not raise shared timeout variables to mask one Windows offscreen runtime.
+- Custom MockLinks created by `VehicleTest` cases must be assigned to the fixture `_mockLink` member and disconnected through `_disconnectMockLink()` so vehicle removal and event-loop cleanup finish before local link configuration objects are released.
