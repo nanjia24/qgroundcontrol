@@ -206,11 +206,11 @@ Append a Phase 2C section to `ENVIRONMENT_REPORT.md` with the exact CMake commit
 
 Update the three state files with measured evidence. Keep broader Phase 2 and the separate runner investigations open.
 
-- [ ] **Step 3: Complete verification and independent review**
+- [x] **Step 3: Complete verification and independent review**
 
 Use `superpowers:verification-before-completion`, obtain task-scoped and whole-Phase-2C reviews, and resolve every Critical or Important finding. Do not rerun the 200-second suite for documentation-only changes.
 
-- [ ] **Step 4: Commit documentation and push**
+- [x] **Step 4: Commit documentation and push**
 
 Run:
 
