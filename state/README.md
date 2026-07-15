@@ -90,6 +90,11 @@ Current constraints: production and test fixes, structured commits, and pushes a
 - 21 selectors passed. `_boardVendorProductId` alone failed after 13.60 seconds with Windows access violation `0xc0000005` during `LinkManager::_linkDisconnected` / `MockLink` teardown.
 - No individual selector timed out; the class-level 360-second timeout is therefore not an acceptable fix. The teardown/lifecycle crash needs its own design and focused correction before full CTest.
 
+## 2026-07-15 Board teardown fix design
+
+- Approved direction: assign the custom board-test MockLink to the existing `_mockLink` fixture member and use `_disconnectMockLink()` for the established vehicle-removal and event-loop cleanup.
+- Production `LinkManager` changes, arbitrary delays, timeout inflation, warning whitelists, and skipped rows are out of scope.
+
 ## 2026-07-15 Timeout diagnosis design
 
 - A reversible CTest metadata probe proved `MissionControllerTest` is slow rather than stalled: it passed in 133.82 seconds with a 360-second probe limit.

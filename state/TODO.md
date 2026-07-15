@@ -111,7 +111,11 @@
 - [x] Diagnose `MissionControllerTest` and `InitialConnectTest` full-CTest 120-second timeouts without changing shared timeout policy blindly.
 - [x] Localize `InitialConnectTest` by function/data row and restore the temporary selector instrumentation.
   - 2026-07-15: 21/22 selectors passed; `_boardVendorProductId` crashed in `LinkManager::_linkDisconnected` / `MockLink` teardown with Windows access violation `0xc0000005`.
-- [ ] Design and fix the `_boardVendorProductId` teardown/lifecycle crash, then re-run the full Initial Connect suite.
+- [x] Diagnose the `_boardVendorProductId` teardown/lifecycle crash.
+- [x] Write the dedicated board teardown fix design.
+- [ ] Obtain final user review of the board teardown fix specification.
+- [ ] Write the board teardown implementation plan before changing the test.
+- [ ] Implement the fixture cleanup fix and re-run Initial Connect/full CTest.
 - [ ] Re-run full CTest to completion after the two timeout results are resolved; only then create the requested downstream development branches.
 - [x] Confirm and write the Windows controller/initial-connect timeout design.
 - [x] Obtain final user review of the written timeout specification.
