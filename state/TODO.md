@@ -104,3 +104,4 @@
 - [x] Obtain final user review of the written Phase 2D specification.
 - [x] Write the Phase 2D implementation plan before changing the translation.
 - [ ] Execute Phase 2D translation correction and focused regression.
+  - Blocked 2026-07-15: planned `build\\windows-debug-vs2022-zc-fixed\\Debug\\MissionManagerTest.exe` is absent; resume with a valid VS2022 x64 Debug test build and rerun the RED evidence command first.

@@ -625,3 +625,15 @@ TIMEOUT=360.0
 | Direct QGC JUnit | 3 tests, 0 failures/errors/skips | 209.797 s | 0 |
 
 The final scans found zero `QFontDatabase`, `Cannot find font directory`, default-category, missing DLL/plugin, fatal assertion, or crash matches. Mission source, Mission tests, and translations were unchanged. Full CTest was intentionally not run. `MissionManagerTest` remains RED at 7 tests / 1 failure because the Simplified Chinese translation `Frame: %1` is currently `框架1`; that independent defect is reserved for Phase 2D. Evidence is under `.tmp\phase2c\` and remains untracked.
+
+## 2026-07-15 Phase 2D pause
+
+The approved catalogue-only correction was not applied. The Task 1 RED command
+could not start because this linked worktree does not contain the planned
+`build\windows-debug-vs2022-zc-fixed` directory or any
+`MissionManagerTest.exe`; the only matching build directory is
+`build\windows-debug`. Consequently, no JUnit XML, console log, build, GREEN
+run, source change, correction commit, or correction push was produced. The
+next session must first identify or recreate a valid VS2022 x64 Debug test
+build, then restart Phase 2D at the mandatory pre-change RED test rather than
+editing the translation without that evidence.
