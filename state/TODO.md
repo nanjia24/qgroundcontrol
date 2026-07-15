@@ -104,6 +104,6 @@
 - [x] Obtain final user review of the written Phase 2D specification.
 - [x] Write the Phase 2D implementation plan before changing the translation.
 - [x] Apply the Phase 2D Simplified Chinese placeholder correction and rebuild `QGroundControl`.
-- [ ] Verify `MissionManagerTest` in the generated CTest environment and capture authoritative JUnit/console evidence.
-  - The latest direct artifact has 7 tests / 5 uncategorized-log failures, though it no longer contains `QString::arg: Argument missing`; concurrent agents also created zero-byte artifacts, so this is not an acceptance result.
+- [x] Verify `MissionManagerTest` in the generated CTest environment and capture authoritative JUnit/console evidence.
+  - 2026-07-15: CTest 1/1 passed in 30.24 seconds; the build-relative CTest JUnit has one testcase and no failure/error node.
 - [ ] Reproduce the exact single-test CTest behavior of `HashCheckTest`, `SigningTest`, and `RequestMetaDataTypeStateMachineTest` before changing their code or timeouts.

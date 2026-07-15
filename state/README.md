@@ -73,6 +73,6 @@ Current constraints: production and test fixes, structured commits, and pushes a
 
 - Corrected the Simplified Chinese `Frame: %1` catalogue entry to `框架：%1`.
 - Rebuilt `QGroundControl` successfully under VS2022/Qt with `--parallel 2` after an initial parallel C1060 heap exhaustion.
-- The current direct JUnit artifact contains 7 tests, 5 uncategorized-log failures, 0 errors, and 0 skips; it no longer contains `QString::arg: Argument missing`.
-- This is not yet an acceptance result: concurrent agents wrote competing artifacts, including zero-byte XML/log files, and the direct invocation did not reliably reproduce the generated CTest environment.
-- Open work: re-run `MissionManagerTest` through its generated CTest registration with fresh JUnit/console capture, then separately verify the `HashCheckTest`, `SigningTest`, and `RequestMetaDataTypeStateMachineTest` runner/timeout reports.
+- The generated CTest registration passed 1/1 in 30.24 seconds with the configured offscreen, logging, and font environment; its build-relative JUnit has one testcase and no failure/error node.
+- Earlier direct-run artifacts were concurrent/non-equivalent evidence and are superseded by the CTest result.
+- Open work: separately verify the `HashCheckTest`, `SigningTest`, and `RequestMetaDataTypeStateMachineTest` runner/timeout reports.

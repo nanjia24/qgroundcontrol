@@ -638,3 +638,26 @@ linked into `build\windows-debug\Debug\QGroundControl.exe` and must be run as
 JUnit XML, GREEN run, correction commit, or correction push was produced by
 the failed command. The plan was corrected before restarting the mandatory
 pre-change RED test.
+
+## 2026-07-15 Phase 2D authoritative verification
+
+The Simplified Chinese catalogue correction `框架：%1` was verified through the
+generated CTest registration rather than an ad hoc executable invocation.
+With Qt and GStreamer on `PATH`, `QGC_TEST_VERBOSE=1`, and CTest-provided
+`QT_QPA_PLATFORM=offscreen`, `QT_LOGGING_RULES=*.debug=false`, and
+`QT_QPA_FONTDIR=C:/WINDOWS/Fonts`, the command below exited `0`:
+
+```powershell
+ctest --test-dir build\windows-debug -R '^MissionManagerTest$' --output-on-failure --output-junit .tmp\phase2d\ctest-authoritative\MissionManagerTest.xml
+```
+
+CTest reported `1/1` passed in 30.24 seconds (32.38 seconds real time). Its
+JUnit file is relative to the CTest build directory at
+`build\windows-debug\.tmp\phase2d\ctest-authoritative\MissionManagerTest.xml`
+and contains one `MissionManagerTest` testcase with no failure or error node.
+The CTest console scan found no `QString::arg: Argument missing`,
+uncategorized-log, missing DLL/plugin, fatal, or failed-test match. Earlier
+direct-run artifacts were generated concurrently and are not acceptance
+evidence. Full CTest remains intentionally unrun; the separate `HashCheckTest`,
+`SigningTest`, and `RequestMetaDataTypeStateMachineTest` runner investigations
+remain open.
