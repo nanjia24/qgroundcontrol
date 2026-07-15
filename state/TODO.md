@@ -111,5 +111,5 @@
 - [ ] Diagnose `MissionControllerTest` and `InitialConnectTest` full-CTest 120-second timeouts without changing shared timeout policy blindly.
 - [ ] Re-run full CTest to completion after the two timeout results are resolved; only then create the requested downstream development branches.
 - [x] Confirm and write the Windows controller/initial-connect timeout design.
-- [ ] Obtain final user review of the written timeout specification.
-- [ ] Write the timeout implementation and localization plan before changing source/CMake input.
+- [x] Obtain final user review of the written timeout specification.
+- [x] Write the timeout implementation and localization plan before changing source/CMake input.
