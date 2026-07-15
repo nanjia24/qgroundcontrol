@@ -788,7 +788,8 @@ been created because the required 186/186 gate is not yet met. Evidence is in
 
 The approved scoped corrections were rebuilt with VS2022 v143 Hostx64/x64.
 The build logs explicitly show the affected test objects compiling and
-`QGroundControl.exe` relinking.
+`QGroundControl.exe` relinking. The validated implementation head was
+`63187d4ae`.
 
 | Focused verification | Result |
 |---|---|
