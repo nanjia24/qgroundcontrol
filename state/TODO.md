@@ -101,6 +101,6 @@
 - [x] Execute Phase 2C Task 2: verification, evidence, and delivery.
 - [x] Diagnose the Phase 2D `MissionManagerTest` Simplified Chinese placeholder failure.
 - [x] Approve and write the Phase 2D translation-correction design.
-- [ ] Obtain final user review of the written Phase 2D specification.
-- [ ] Write the Phase 2D implementation plan before changing the translation.
+- [x] Obtain final user review of the written Phase 2D specification.
+- [x] Write the Phase 2D implementation plan before changing the translation.
 - [ ] Execute Phase 2D translation correction and focused regression.
