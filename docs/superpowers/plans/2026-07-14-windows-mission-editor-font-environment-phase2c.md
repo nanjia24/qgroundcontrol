@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Configure all Windows `add_qgc_test` CTest entries with the operating-system font directory so offscreen Qt does not emit an uncategorized missing-font warning.
+**Goal:** Configure Windows CTest entries with the operating-system font directory and give `MissionCommandTreeEditorTest` a Windows-specific timeout that covers its verified runtime.
 
 **Architecture:** Resolve `%WINDIR%\Fonts` once when `QGCTest.cmake` is loaded, normalize it to a CMake path, and append it to each Windows test's existing environment. Keep Mission source, test assertions, translation data, and application runtime untouched.
 
@@ -12,9 +12,10 @@
 
 - Work only in `E:\workspace\QGC\qgroundcontrol-worktrees\windows-test-hardening` on `codex/windows-test-hardening`.
 - Use VS2022 Community v143 Hostx64/x64, Qt `E:\Qt\6.10.3\msvc2022_64`, and GStreamer `E:\PROGRA~1\GSTREA~1\1.0\MSVC_X~1`.
-- Modify only `cmake/QGCTest.cmake` for the implementation.
+- Modify only `cmake/QGCTest.cmake` and `test/CMakeLists.txt` for the implementation.
 - Derive the font directory from configure-time `ENV{WINDIR}` and normalize it with `file(TO_CMAKE_PATH)`.
 - Resolve and validate the Windows font directory once at module scope; do not emit one warning per registered test.
+- Set only the Windows `MissionCommandTreeEditorTest` timeout to 360 seconds; do not increase global or unrelated test timeouts.
 - Do not hard-code `C:\Windows`, modify Mission source/tests/translations, whitelist the font warning, skip, retry, delay, or suppress unrelated warnings.
 - Preserve the existing `QT_QPA_PLATFORM=offscreen` and `QT_LOGGING_RULES=*.debug=false` entries.
 - Do not run full CTest and do not use `-- -v2`.
@@ -60,11 +61,12 @@ $env:QT_LOGGING_RULES = '*.debug=false'
 
 **Files:**
 - Modify: `cmake/QGCTest.cmake:20-28,136-145`
+- Modify: `test/CMakeLists.txt:184`
 - Test: registered CTest entry `MissionCommandTreeEditorTest`
 
 **Interfaces:**
 - Consumes: configure-time `ENV{WINDIR}` and the existing `_test_env` list.
-- Produces: module-scope `_qgc_test_windows_font_dir` and a Windows-only `QT_QPA_FONTDIR=<normalized path>` CTest environment entry.
+- Produces: module-scope `_qgc_test_windows_font_dir`, a Windows-only `QT_QPA_FONTDIR=<normalized path>` CTest environment entry, and a Windows-only 360-second editor-test timeout.
 
 - [ ] **Step 1: Confirm preserved RED and hypothesis evidence**
 
@@ -102,7 +104,20 @@ Immediately after the existing `_test_env` initialization inside `add_qgc_test`,
 
 Do not change the existing environment entries.
 
-- [ ] **Step 4: Reconfigure and inspect the generated CTest property**
+- [ ] **Step 4: Give only the Windows editor test a 360-second timeout**
+
+Immediately before the existing `MissionCommandTreeEditorTest` registration in `test/CMakeLists.txt`, add:
+
+```cmake
+set(_mission_command_tree_editor_timeout ${QGC_TEST_TIMEOUT_EXTENDED})
+if(WIN32)
+    set(_mission_command_tree_editor_timeout 360)
+endif()
+```
+
+Change only that registration to use `TIMEOUT ${_mission_command_tree_editor_timeout}`. Do not modify global timeout variables or other test registrations.
+
+- [ ] **Step 5: Reconfigure and inspect the generated CTest properties**
 
 Run the Common Configure Command, then:
 
@@ -115,15 +130,19 @@ from pathlib import Path
 data = json.loads(Path('.tmp/phase2c/ctest-show-only.json').read_text(encoding='utf-8-sig'))
 test = next(item for item in data['tests'] if item['name'] == 'MissionCommandTreeEditorTest')
 environment = next(prop['value'] for prop in test['properties'] if prop['name'] == 'ENVIRONMENT')
+timeout = next(prop['value'] for prop in test['properties'] if prop['name'] == 'TIMEOUT')
 print(environment)
+print(f'TIMEOUT={timeout}')
 if not any(value.replace('\\', '/').lower().endswith('/windows/fonts') and value.startswith('QT_QPA_FONTDIR=') for value in environment):
     raise SystemExit('QT_QPA_FONTDIR is missing from MissionCommandTreeEditorTest')
+if float(timeout) != 360:
+    raise SystemExit(f'Unexpected MissionCommandTreeEditorTest timeout: {timeout}')
 '@ | python - > .tmp/phase2c/ctest-environment-check.txt
 ```
 
-Expected: configure exit 0 and the test environment contains normalized `QT_QPA_FONTDIR` pointing to the current `%WINDIR%\Fonts` directory.
+Expected: configure exit 0; the environment contains normalized `QT_QPA_FONTDIR`; the editor test timeout is 360 seconds.
 
-- [ ] **Step 5: Run the registered CTest entry**
+- [ ] **Step 6: Run the registered CTest entry**
 
 Run with output redirected because the suite takes about 200 seconds:
 
@@ -135,41 +154,30 @@ $LASTEXITCODE | Set-Content .tmp/phase2c/ctest-editor.exit.txt
 
 Expected: exit 0 and `100% tests passed, 0 tests failed out of 1`.
 
-- [ ] **Step 6: Run the direct JUnit entry with the same font environment**
+- [ ] **Step 7: Reuse and verify the fresh direct JUnit GREEN evidence**
 
-After applying the Direct Test Environment, run:
+Do not repeat the 200-second direct run after the timeout-only change. Parse the already generated files:
 
-```powershell
-$arguments = @(
-    '--unittest:MissionCommandTreeEditorTest',
-    '--allow-multiple',
-    '--unittest-output:.tmp/phase2c/editor-after-cmake.xml',
-    '--log-output',
-    '--logging:*.debug=true',
-    '--no-windows-assert-ui'
-)
-$process = Start-Process -FilePath 'build\windows-debug\Debug\QGroundControl.exe' `
-    -ArgumentList $arguments `
-    -RedirectStandardOutput '.tmp\phase2c\editor-after-cmake.stdout.log' `
-    -RedirectStandardError '.tmp\phase2c\editor-after-cmake.console.log' `
-    -PassThru -Wait -WindowStyle Hidden
-$process.ExitCode | Set-Content '.tmp\phase2c\editor-after-cmake.exit.txt'
+```text
+.tmp/phase2c/editor-after-cmake-MissionCommandTreeEditorTest.xml
+.tmp/phase2c/editor-after-cmake.exit.txt
+.tmp/phase2c/editor-after-cmake-check.txt
 ```
 
 Expected: process exit 0; actual JUnit file reports 3 tests, 0 failures/errors/skips; no QFontDatabase missing-font warning or uncategorized default-category message.
 
-- [ ] **Step 7: Review and commit the one-file CMake change**
+- [ ] **Step 8: Review and commit the timeout change**
 
 Run:
 
 ```powershell
 git diff --check
-git diff -- cmake/QGCTest.cmake
-git add cmake/QGCTest.cmake
-git commit -m "test[cmake]: configure Windows offscreen fonts"
+git diff -- test/CMakeLists.txt
+git add test/CMakeLists.txt
+git commit -m "test[mission]: extend Windows editor timeout"
 ```
 
-Expected: one focused CMake test-infrastructure commit; no Mission, test-source, or translation file is staged.
+Expected: the existing font-environment commit remains focused and the new timeout commit contains only `test/CMakeLists.txt`; no Mission source, test-source, or translation file is staged.
 
 ---
 

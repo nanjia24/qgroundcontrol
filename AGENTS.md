@@ -181,6 +181,7 @@ enabled: vehicle && vehicle.armed
 - 中文本地化 MSVC 的 `/showIncludes` 输出可能未被 Ninja 解析，已观察到 `QGCCompressionTest.cc.obj` 为 `#deps 0`；头文件改动后普通增量构建可能错误报告 `no work to do`。
 - Windows 上打开的 `QFile` 会阻止 `QDir::removeRecursively()` 删除对应文件；`ComponentInformationCacheTest` 曾因此只删除 `.meta` 而遗留 `.cache`，污染后续 LRU 测试。
 - Windows offscreen Qt tests require `QT_QPA_FONTDIR` pointing to the existing `%WINDIR%\Fonts` directory; otherwise `MissionCommandTreeEditorTest` captures an uncategorized `QFontDatabase` missing-font warning.
+- `MissionCommandTreeEditorTest` has verified Windows offscreen runtimes above 180 seconds (197.590 and 209.797 seconds); its registered Windows CTest timeout must be 360 seconds while unrelated tests retain their existing timeouts.
 
 【项目规范区域】
 
@@ -190,3 +191,4 @@ enabled: vehicle && vehicle.armed
 - 修改测试头文件后必须从构建日志确认受影响对象实际重编；若 Ninja 记录 `#deps 0`，先验证对象绝对路径位于目标 build 根目录，再仅删除该陈旧对象并重新构建。
 - Windows 测试在递归删除 fixture 目录前，必须通过 RAII 结束所有 `QFile`/流对象生命周期；不要依赖删除打开文件的 Unix 语义。
 - Windows CTest environment paths must derive from `%WINDIR%`, normalize with CMake, and never hard-code `C:\Windows` or whitelist the resulting font warning.
+- Long-test timeout corrections must be scoped to the proven test/platform pair; do not raise shared timeout variables to mask one Windows offscreen runtime.
