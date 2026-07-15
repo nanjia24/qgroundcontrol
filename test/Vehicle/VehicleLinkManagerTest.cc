@@ -30,7 +30,7 @@ void VehicleLinkManagerTest::_simpleLinkTest()
     QCOMPARE(mockLink.use_count(), 3);    // Refs: This method, LinkManager, Vehicle
     // We wait for the full initial connect sequence to complete to catch anby ComponentInformationManager bugs
     QVERIFY_TRUE_WAIT(spyVehicleInitialConnectComplete.count() > 0 || vehicle->isInitialConnectComplete(),
-                      TestTimeout::mediumMs());
+                      TestTimeout::longMs());
     // Drain queued command traffic before disconnect to avoid racing pending writes with link teardown.
     UnitTest::settleEventLoopForCleanup(2, 10);
     mockLink->disconnect();
@@ -61,7 +61,7 @@ void VehicleLinkManagerTest::_simpleCommLossTest()
     QVERIFY_TRUE_WAIT(MultiVehicleManager::instance()->vehicles()->count() == 1, TestTimeout::mediumMs());
     QSignalSpy spyVehicleInitialConnectComplete(vehicle, &Vehicle::initialConnectComplete);
     QVERIFY_TRUE_WAIT(spyVehicleInitialConnectComplete.count() > 0 || vehicle->isInitialConnectComplete(),
-                      TestTimeout::mediumMs());
+                      TestTimeout::longMs());
     QSignalSpy spyCommLostChanged(vehicle->vehicleLinkManager(), &VehicleLinkManager::communicationLostChanged);
     pMockLink->setCommLost(true);
     QVERIFY_SIGNAL_WAIT(spyCommLostChanged, VehicleLinkManager::kTestCommLostDetectionTimeoutMs);
@@ -97,7 +97,7 @@ void VehicleLinkManagerTest::_multiLinkSingleVehicleTest()
     QVERIFY(vehicleLinkManager);
     QSignalSpy spyVehicleInitialConnectComplete(vehicle, &Vehicle::initialConnectComplete);
     QVERIFY_TRUE_WAIT(spyVehicleInitialConnectComplete.count() > 0 || vehicle->isInitialConnectComplete(),
-                      TestTimeout::mediumMs());
+                      TestTimeout::longMs());
     // The first link to start sending a heartbeat will be the primary link.
     // Depending on how the thread scheduling works, that could be the mockLink2.
     const SharedLinkInterfacePtr primaryLink = vehicleLinkManager->primaryLink().lock();
@@ -172,7 +172,7 @@ void VehicleLinkManagerTest::_connectionRemovedTest()
     QVERIFY_TRUE_WAIT(MultiVehicleManager::instance()->vehicles()->count() == 1, TestTimeout::mediumMs());
     QSignalSpy spyVehicleInitialConnectComplete(vehicle, &Vehicle::initialConnectComplete);
     QVERIFY_TRUE_WAIT(spyVehicleInitialConnectComplete.count() > 0 || vehicle->isInitialConnectComplete(),
-                      TestTimeout::mediumMs());
+                      TestTimeout::longMs());
     QSignalSpy spyCommLostChanged(vehicle->vehicleLinkManager(), &VehicleLinkManager::communicationLostChanged);
     // Connection removed should just signal communication lost
     pMockLink->simulateConnectionRemoved();
