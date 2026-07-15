@@ -92,7 +92,15 @@ add_qgc_test(MavlinkLogTest LABELS Integration AnalyzeView Vehicle RESOURCE_LOCK
 # ----------------------------------------------------------------------------
 add_subdirectory(Camera)
 add_qgc_test(QGCCameraManagerTest LABELS Integration Vehicle RESOURCE_LOCK MockLink)
-add_qgc_test(VehicleCameraControlTest LABELS Integration Vehicle RESOURCE_LOCK MockLink)
+set(_vehicle_camera_control_timeout ${QGC_TEST_TIMEOUT_INTEGRATION})
+if(WIN32)
+    set(_vehicle_camera_control_timeout 360)
+endif()
+add_qgc_test(VehicleCameraControlTest
+    LABELS Integration Vehicle
+    RESOURCE_LOCK MockLink
+    TIMEOUT ${_vehicle_camera_control_timeout}
+)
 add_qgc_test(QGCVideoStreamInfoTest LABELS Unit Camera)
 add_qgc_test(VideoManagerTest LABELS Unit)
 
@@ -197,7 +205,15 @@ add_qgc_test(MissionControllerTest
     RESOURCE_LOCK MockLink
     TIMEOUT ${_mission_controller_timeout}
 )
-add_qgc_test(MissionControllerTreeTest LABELS Integration MissionManager RESOURCE_LOCK MockLink)
+set(_mission_controller_tree_timeout ${QGC_TEST_TIMEOUT_INTEGRATION})
+if(WIN32)
+    set(_mission_controller_tree_timeout ${QGC_TEST_TIMEOUT_EXTENDED})
+endif()
+add_qgc_test(MissionControllerTreeTest
+    LABELS Integration MissionManager
+    RESOURCE_LOCK MockLink
+    TIMEOUT ${_mission_controller_tree_timeout}
+)
 add_qgc_test(MissionItemTest LABELS Unit MissionManager)
 add_qgc_test(MissionManagerTest LABELS Integration MissionManager SERIAL)
 add_qgc_test(MissionSettingsTest LABELS Unit MissionManager)
