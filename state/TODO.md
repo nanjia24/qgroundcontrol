@@ -113,8 +113,8 @@
   - 2026-07-15: 21/22 selectors passed; `_boardVendorProductId` crashed in `LinkManager::_linkDisconnected` / `MockLink` teardown with Windows access violation `0xc0000005`.
 - [x] Diagnose the `_boardVendorProductId` teardown/lifecycle crash.
 - [x] Write the dedicated board teardown fix design.
-- [ ] Obtain final user review of the board teardown fix specification.
-- [ ] Write the board teardown implementation plan before changing the test.
+- [x] Obtain final user review of the board teardown fix specification.
+- [x] Write the board teardown implementation plan before changing the test.
 - [ ] Implement the fixture cleanup fix and re-run Initial Connect/full CTest.
 - [ ] Re-run full CTest to completion after the two timeout results are resolved; only then create the requested downstream development branches.
 - [x] Confirm and write the Windows controller/initial-connect timeout design.
