@@ -783,3 +783,31 @@ All four test source files are identical to `origin/master`, so these are not
 joystick feature-branch regressions. Downstream development branches have not
 been created because the required 186/186 gate is not yet met. Evidence is in
 `.tmp\phase4\full-ctest` and `.tmp\phase4\full-failures`.
+
+## 2026-07-15 Final Windows Debug validation
+
+The approved scoped corrections were rebuilt with VS2022 v143 Hostx64/x64.
+The build logs explicitly show the affected test objects compiling and
+`QGroundControl.exe` relinking.
+
+| Focused verification | Result |
+|---|---|
+| Camera and Mission Tree generated CTest | 2/2 passed (169.52 s and 124.10 s) |
+| `ParameterManagerTest` direct JUnit | 14/14, 0 failures/errors |
+| `ParameterManagerTest` generated CTest | 1/1 passed |
+| `VehicleLinkManagerTest` direct JUnit | 7/7, 0 failures/errors |
+| `VehicleLinkManagerTest` generated CTest | 1/1 passed |
+
+The final interruption-safe CTest ran from
+`2026-07-15T18:43:37.6962316+08:00` through
+`2026-07-15T18:56:15.1411818+08:00`. It completed in 757.36 seconds with
+exit code 0 and JUnit totals of 186 tests, 0 failures, 0 disabled, and 0
+skipped. Stderr was empty. The only raw timeout-pattern matches were the name
+of the passing `TimeoutTransitionTest`; the actionable crash, assertion,
+failure, and timeout scan had zero matches.
+
+Authoritative artifacts are under `.tmp\phase4\final-full-ctest`. This result
+satisfies the Windows Debug build/test gate for downstream development. The
+Release build environment remains available with the previously verified
+Qt, GStreamer, MSVC, Ninja, and NSIS paths; installer generation itself was
+not run in this phase.

@@ -109,6 +109,13 @@ Current constraints: production and test fixes, structured commits, and pushes a
 - `ParameterManagerTest` reproduced 3 progress-signal wait failures at the 1-second bound; `VehicleLinkManagerTest` reproduced 3 initial-connect wait failures at the 5-second bound.
 - Downstream development branches remain blocked until scoped fixes pass focused CTest and a new full run is 186/186.
 
+## 2026-07-15 Final Windows Debug gate
+
+- The scoped corrections passed their focused direct JUnit and generated CTest entries.
+- A fresh interruption-safe run completed all 186 CTest registrations with exit code 0: 186 passed, 0 failed, 0 skipped in 757.36 seconds.
+- The wrapper ran from 18:43:37 to 18:56:15 Asia/Shanghai. Stderr was empty and the actionable failure/crash/timeout scan had zero matches.
+- The Windows Debug environment is ready for downstream development branch delivery after final diff review and record push.
+
 ## 2026-07-15 Timeout diagnosis design
 
 - A reversible CTest metadata probe proved `MissionControllerTest` is slow rather than stalled: it passed in 133.82 seconds with a 360-second probe limit.
