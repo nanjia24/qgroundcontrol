@@ -595,3 +595,33 @@ Build exit code was `0`. The log explicitly contains compilation of `ComponentIn
 The component test process was PID 18980. Immediately after exit, both `QGCCacheTest_18980_*` and `QGCTestFiles_18980_*` directory counts were zero. Console scans found no cache miss, directory-creation failure, missing DLL/plugin, fatal assertion, or crash marker; each console contained only the expected QML debugging notice.
 
 Full CTest was intentionally not rerun. `RequestMetaDataTypeStateMachineTest` passed independently but took 100.437 seconds, so its existing CTest runner/timeout investigation remains open. Evidence is under `.tmp\phase2b\` and remains untracked.
+
+## Phase 2C Windows Mission editor font environment (2026-07-15)
+
+- Branch/worktree: `codex/windows-test-hardening` at `E:\workspace\QGC\qgroundcontrol-worktrees\windows-test-hardening`
+- Font environment commit: `589306c81dcc0d745d9962d6d1fbca312c4e2435`
+- Windows timeout commit: `a7f5b7a08558e43480d11c4d7cc3e89dd17f9677`
+- Compiler: VS2022 Community v143 Hostx64/x64, `cl.exe` 14.44.35207
+- Qt kit: `E:\Qt\6.10.3\msvc2022_64`
+- GStreamer root: `E:\PROGRA~1\GSTREA~1\1.0\MSVC_X~1`
+- Build directory: `build\windows-debug`
+
+Fresh RED evidence showed `MissionCommandTreeEditorTest` at 3 tests, 1 failure, 0 errors, and 0 skips. The only uncategorized message was Qt's missing-font warning for the absent Qt SDK `lib/fonts` directory. Supplying only `QT_QPA_FONTDIR=%WINDIR%\Fonts` produced a direct 3/0/0/0 run with no font/default-category warning, proving the failure was the Windows offscreen test environment.
+
+`cmake/QGCTest.cmake` now resolves `%WINDIR%\Fonts` once, normalizes it, warns once if unavailable, and appends the validated path to Windows CTest environments. `test/CMakeLists.txt` retains existing non-Windows/global timeout policies and gives only the Windows `MissionCommandTreeEditorTest` a 360-second timeout. Fresh successful direct runs took 197.590 and 209.797 seconds, while the previous registered 180-second timeout stopped CTest at 180.06 seconds.
+
+The final VS2022 x64/Qt configure exited `0`. Generated CTest properties were:
+
+```text
+QT_QPA_PLATFORM=offscreen
+QT_LOGGING_RULES=*.debug=false
+QT_QPA_FONTDIR=C:/WINDOWS/Fonts
+TIMEOUT=360.0
+```
+
+| Entry | Result | Duration/Time | Exit |
+|---|---|---:|---:|
+| CTest `MissionCommandTreeEditorTest` | 1/1 passed | 186.68 s | 0 |
+| Direct QGC JUnit | 3 tests, 0 failures/errors/skips | 209.797 s | 0 |
+
+The final scans found zero `QFontDatabase`, `Cannot find font directory`, default-category, missing DLL/plugin, fatal assertion, or crash matches. Mission source, Mission tests, and translations were unchanged. Full CTest was intentionally not run. `MissionManagerTest` remains RED at 7 tests / 1 failure because the Simplified Chinese translation `Frame: %1` is currently `框架1`; that independent defect is reserved for Phase 2D. Evidence is under `.tmp\phase2c\` and remains untracked.

@@ -18,7 +18,7 @@ Make Windows offscreen Qt tests discover the operating-system font directory thr
 
 ## Scope
 
-- Modify only `cmake/QGCTest.cmake` and `test/CMakeLists.txt`.
+- Limit implementation changes to `cmake/QGCTest.cmake` and `test/CMakeLists.txt`; design, plan, report, and state documentation are tracked separately.
 - Add `QT_QPA_FONTDIR` to the Windows CTest environment for every test created by `add_qgc_test` when `%WINDIR%\Fonts` exists.
 - Do not change test assertions, log-capture policy, Mission editor code, translations, or application runtime behavior.
 - Do not add a warning whitelist, skip, retry, delay, or hard-coded `C:\Windows` path.
@@ -80,5 +80,5 @@ In `test/CMakeLists.txt`, retain `${QGC_TEST_TIMEOUT_EXTENDED}` on non-Windows p
 - The registered `MissionCommandTreeEditorTest` passes 1/1 through CTest; the direct QGC JUnit invocation reports 3 tests, 0 failures, 0 errors, 0 skips.
 - The Windows CTest property is `TIMEOUT=360`; unrelated tests retain their existing timeout values.
 - No uncategorized QFontDatabase missing-font warning is captured.
-- No Mission editor source, test assertions, translation, or production runtime code changes; only the two test-infrastructure CMake files change.
+- No Mission editor source, test assertions, translation, or production runtime code changes; implementation changes are limited to the two test-infrastructure CMake files.
 - `MissionManagerTest` remains explicitly outside Phase 2C and is not claimed fixed.

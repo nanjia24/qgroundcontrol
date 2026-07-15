@@ -54,3 +54,12 @@ Current constraints: production and test fixes, structured commits, and pushes a
 - The component test left zero PID-specific cache/source fixture directories.
 - Remaining Phase 2 assertion baseline: 2 suites / 2 failures (the two Mission suites).
 - `RequestMetaDataTypeStateMachineTest` passed independently in 100.437 seconds; its CTest runner/timeout investigation remains open.
+
+## 2026-07-15 Phase 2C result
+
+- Configured Windows `add_qgc_test` entries with normalized `%WINDIR%\Fonts` through `QT_QPA_FONTDIR`; no warning whitelist or SDK mutation was used.
+- Assigned a 360-second timeout only to Windows `MissionCommandTreeEditorTest`; global, non-Windows, and unrelated test timeouts were unchanged.
+- CTest result: 1/1 passed in 186.68 seconds. Direct JUnit evidence: 3 tests, 0 failures, 0 errors, 0 skips in 209.797 seconds.
+- Mission source/tests/translations were unchanged.
+- Remaining Phase 2 assertion baseline: 1 suite / 1 failure (`MissionManagerTest`, Simplified Chinese placeholder defect).
+- Remaining runner investigations: `HashCheckTest`, `SigningTest`, and `RequestMetaDataTypeStateMachineTest`.

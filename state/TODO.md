@@ -97,5 +97,5 @@
 - [x] Obtain final user review of the written Phase 2C specification.
 - [x] Write the Phase 2C implementation plan before changing CMake.
 - [x] Approve the Phase 2C Windows-only 360-second editor-test timeout adjustment.
-- [ ] Execute Phase 2C Task 1: configure Windows offscreen fonts for CTest.
+- [x] Execute Phase 2C Task 1: configure Windows offscreen fonts for CTest.
 - [ ] Execute Phase 2C Task 2: verification, evidence, and delivery.

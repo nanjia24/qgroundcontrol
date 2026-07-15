@@ -68,14 +68,14 @@ $env:QT_LOGGING_RULES = '*.debug=false'
 - Consumes: configure-time `ENV{WINDIR}` and the existing `_test_env` list.
 - Produces: module-scope `_qgc_test_windows_font_dir`, a Windows-only `QT_QPA_FONTDIR=<normalized path>` CTest environment entry, and a Windows-only 360-second editor-test timeout.
 
-- [ ] **Step 1: Confirm preserved RED and hypothesis evidence**
+- [x] **Step 1: Confirm preserved RED and hypothesis evidence**
 
 Parse the existing files:
 
 - `.tmp/phase2c/editor-baseline-MissionCommandTreeEditorTest.xml`: 3 tests, 1 failure, missing-font warning present.
 - `.tmp/phase2c/editor-fontdir-MissionCommandTreeEditorTest.xml`: 3 tests, 0 failures/errors/skips, missing-font warning absent.
 
-- [ ] **Step 2: Resolve the Windows font directory once**
+- [x] **Step 2: Resolve the Windows font directory once**
 
 After the timeout configuration in `cmake/QGCTest.cmake`, add:
 
@@ -92,7 +92,7 @@ if(WIN32)
 endif()
 ```
 
-- [ ] **Step 3: Append the validated directory to each Windows test environment**
+- [x] **Step 3: Append the validated directory to each Windows test environment**
 
 Immediately after the existing `_test_env` initialization inside `add_qgc_test`, add:
 
@@ -104,7 +104,7 @@ Immediately after the existing `_test_env` initialization inside `add_qgc_test`,
 
 Do not change the existing environment entries.
 
-- [ ] **Step 4: Give only the Windows editor test a 360-second timeout**
+- [x] **Step 4: Give only the Windows editor test a 360-second timeout**
 
 Immediately before the existing `MissionCommandTreeEditorTest` registration in `test/CMakeLists.txt`, add:
 
@@ -117,7 +117,7 @@ endif()
 
 Change only that registration to use `TIMEOUT ${_mission_command_tree_editor_timeout}`. Do not modify global timeout variables or other test registrations.
 
-- [ ] **Step 5: Reconfigure and inspect the generated CTest properties**
+- [x] **Step 5: Reconfigure and inspect the generated CTest properties**
 
 Run the Common Configure Command, then:
 
@@ -142,7 +142,7 @@ if float(timeout) != 360:
 
 Expected: configure exit 0; the environment contains normalized `QT_QPA_FONTDIR`; the editor test timeout is 360 seconds.
 
-- [ ] **Step 6: Run the registered CTest entry**
+- [x] **Step 6: Run the registered CTest entry**
 
 Run with output redirected because the suite takes about 200 seconds:
 
@@ -154,7 +154,7 @@ $LASTEXITCODE | Set-Content .tmp/phase2c/ctest-editor.exit.txt
 
 Expected: exit 0 and `100% tests passed, 0 tests failed out of 1`.
 
-- [ ] **Step 7: Reuse and verify the fresh direct JUnit GREEN evidence**
+- [x] **Step 7: Reuse and verify the fresh direct JUnit GREEN evidence**
 
 Do not repeat the 200-second direct run after the timeout-only change. Parse the already generated files:
 
@@ -166,7 +166,7 @@ Do not repeat the 200-second direct run after the timeout-only change. Parse the
 
 Expected: process exit 0; actual JUnit file reports 3 tests, 0 failures/errors/skips; no QFontDatabase missing-font warning or uncategorized default-category message.
 
-- [ ] **Step 8: Review and commit the timeout change**
+- [x] **Step 8: Review and commit the timeout change**
 
 Run:
 
@@ -194,13 +194,13 @@ Expected: the existing font-environment commit remains focused and the new timeo
 - Consumes: the reviewed Task 1 CMake commit and CTest/direct JUnit evidence.
 - Produces: Phase 2C environment documentation while leaving the Chinese translation placeholder defect open for Phase 2D.
 
-- [ ] **Step 1: Parse and scan final evidence**
+- [x] **Step 1: Parse and scan final evidence**
 
 Use Python `xml.etree.ElementTree` to parse the direct JUnit XML. Scan CTest/direct logs for `QFontDatabase`, `Cannot find font directory`, uncategorized default-category warnings, missing DLL/plugin errors, fatal assertions, and crashes. Store summaries below `.tmp/phase2c/` and display at most 30 lines.
 
 Expected: CTest 1/1 passed; direct JUnit 3/0/0/0; no font/default-category failure message.
 
-- [ ] **Step 2: Update report and state**
+- [x] **Step 2: Update report and state**
 
 Append a Phase 2C section to `ENVIRONMENT_REPORT.md` with the exact CMake commit, normalized font directory, configure result, CTest result/duration, direct JUnit totals/duration, and log scan. State explicitly that Mission source/tests/translations were unchanged and `MissionManagerTest` remains RED for Phase 2D.
 
