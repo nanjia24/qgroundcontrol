@@ -6,10 +6,10 @@ Active worktree: `E:\workspace\QGC\qgroundcontrol-worktrees\quad-rover-design`.
 Base integration branch: `codex/joystick-aux-px4-development` at `754135601`.
 Active local branch: `codex/quad-rover-design`.
 
-Current constraints: the Quad-Rover design is approved, but implementation is
-blocked until the written specification is reviewed. Do not force-push, update
-the base integration branch, create a PR without explicit approval, or store
-credentials. Preserve the historical Windows test-hardening record below.
+Current constraints: the revised Quad-Rover design is blocked on PX4/MAVLink
+release-contract review and then written-spec approval. Do not force-push,
+update the base integration branch, create a PR without explicit approval, or
+store credentials. Preserve the historical Windows test-hardening record below.
 
 ## 2026-07-22 Quad-Rover adaptation
 
@@ -18,6 +18,7 @@ credentials. Preserve the historical Windows test-hardening record below.
 - The user selected the development branch as the implementation base to retain validated downstream work; no rebase to upstream QGC main is part of this task.
 - The approved design is `docs/superpowers/specs/2026-07-22-quad-rover-adaptation-design.md`.
 - Command 50000 uses the normal queue only through its first ACK. On `IN_PROGRESS`, an explicit detach-on-progress policy moves the long PX4 transition lifecycle to the hybrid controller; it must validate the full ACK address tuple and exact transition sequence.
+- The revised design requires a new MAVLink `qgc_hybrid` composite dialect (`all.xml` plus `hybrid_vehicle.xml`) with APM dialect/plugin enabled. The existing protected `hybrid-change1-v1.16.1` tag does not contain that XML and cannot be the final QGC build input.
 
 
 ## 2026-07-13 status

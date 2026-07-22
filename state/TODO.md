@@ -142,5 +142,8 @@
 - [x] Write the Quad-Rover adaptation design specification.
 - [x] Self-review and commit the design specification.
   - 2026-07-22: reconciled the document with PX4's one-progress/one-terminal ACK behavior and QGC's 1.2-second post-progress queue timeout; reviewed placeholders, scope, state initialization, negative configuration tests, ACK address matching, and exact sequence rules.
+- [x] Revise and commit the written specification for the post-commit critical review.
+  - Resolve the combined dialect contract, remove the fixed transition-time assumption, require strict ACK matching from the first ACK, tighten status fallback semantics, and define the effective Quad/Rover mode profile.
+- [ ] Submit the revised specification to the PX4 agent for protocol/release-contract review.
 - [ ] Obtain user review of the written specification.
 - [ ] Write the implementation plan before changing QGC behavior.
