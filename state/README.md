@@ -1,12 +1,23 @@
 ﻿# State README
 
-Project: QGroundControl Windows Desktop test hardening.
+Project: QGroundControl Quad-Rover PX4 adaptation.
 Primary repository: `E:\workspace\QGC\qgroundcontrol`.
-Active worktree: `E:\workspace\QGC\qgroundcontrol-worktrees\windows-test-hardening`.
-Base integration branch: `codex/joystick-aux-px4` at `daae3a37b`.
-Active local/remote branch: `codex/windows-test-hardening`.
+Active worktree: `E:\workspace\QGC\qgroundcontrol-worktrees\quad-rover-design`.
+Base integration branch: `codex/joystick-aux-px4-development` at `754135601`.
+Active local branch: `codex/quad-rover-design`.
 
-Current constraints: production and test fixes, structured commits, and pushes are authorized only on `codex/windows-test-hardening`; do not force-push, update the integration branch, create a PR without explicit approval, or store credentials.
+Current constraints: the Quad-Rover design is approved, but implementation is
+blocked until the written specification is reviewed. Do not force-push, update
+the base integration branch, create a PR without explicit approval, or store
+credentials. Preserve the historical Windows test-hardening record below.
+
+## 2026-07-22 Quad-Rover adaptation
+
+- PX4 source: `\\wsl.localhost\Ubuntu\home\crocodile\PX4-Autopilot-change1_v1.16.1`, branch `change1_v1.16.1`, protocol revision `82478dbdf2`.
+- MAVLink release input: `https://github.com/QQgdiw/mavlink.git`, tag `hybrid-change1-v1.16.1`, peeled commit `3b84efb97a7c0b4767868e8725bd6902c0d884e8`, dialect `hybrid_vehicle`, MAVLink 2.
+- The user selected the development branch as the implementation base to retain validated downstream work; no rebase to upstream QGC main is part of this task.
+- The approved design is `docs/superpowers/specs/2026-07-22-quad-rover-adaptation-design.md`.
+- Command 50000 uses the normal queue only through its first ACK. On `IN_PROGRESS`, an explicit detach-on-progress policy moves the long PX4 transition lifecycle to the hybrid controller; it must validate the full ACK address tuple and exact transition sequence.
 
 
 ## 2026-07-13 status

@@ -133,3 +133,14 @@
 - [x] Confirm and write the Windows controller/initial-connect timeout design.
 - [x] Obtain final user review of the written timeout specification.
 - [x] Write the timeout implementation and localization plan before changing source/CMake input.
+
+## 2026-07-22 Quad-Rover PX4 adaptation
+
+- [x] Verify the QGC development baseline, PX4 protocol branch, and published MAVLink release tag.
+- [x] Obtain approval for the first-class Quad-Rover integration design.
+- [x] Create the isolated `codex/quad-rover-design` worktree from `codex/joystick-aux-px4-development`.
+- [x] Write the Quad-Rover adaptation design specification.
+- [x] Self-review and commit the design specification.
+  - 2026-07-22: reconciled the document with PX4's one-progress/one-terminal ACK behavior and QGC's 1.2-second post-progress queue timeout; reviewed placeholders, scope, state initialization, negative configuration tests, ACK address matching, and exact sequence rules.
+- [ ] Obtain user review of the written specification.
+- [ ] Write the implementation plan before changing QGC behavior.
