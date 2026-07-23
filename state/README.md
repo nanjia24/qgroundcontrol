@@ -7,11 +7,11 @@ Base integration branch: `codex/joystick-aux-px4-development` at `754135601`.
 Active local branch: `codex/quad-rover-design`.
 
 Current constraints: implementation is active under the approved SDD workflow.
-Task 1 is complete at `ec03aa473`: QGC now pins and validates the released
-`qgc_hybrid` r2 inputs and resolved CPM commit before C++ compilation. Do not
-force-push, update the base integration branch, create a PR without explicit
-approval, store credentials, or stage the unrelated untracked `NUL` entry.
-Preserve the historical Windows test-hardening record below.
+Tasks 1-2 are complete: QGC pins and validates the released `qgc_hybrid` r2
+contract, and type 200 is now a permanent, distinct Quad-Rover class at
+`3825f50c2`. Do not force-push, update the base integration branch, create a PR
+without explicit approval, store credentials, or stage the unrelated untracked
+`NUL` entry. Preserve the historical Windows test-hardening record below.
 
 ## 2026-07-22 Quad-Rover adaptation
 
@@ -25,6 +25,7 @@ Preserve the historical Windows test-hardening record below.
 - QGC currently sends but does not consume `SYSTEM_TIME`. The design requires exact-autopilot, wrap-safe `time_boot_ms` rollback plus lower-HRT confirmation within a bounded local window; if PX4 lacks an RTC, QGC resends time and uses a constrained three-status fallback so a reboot cannot permanently fail-close hybrid controls.
 - The CMake contract must use r2 `qgc_hybrid` with APM MAVLink/plugin enabled, validate the resolved CPM commit, and reject raw `all`, raw `hybrid_vehicle`, disabled APM options, or a changed release input before C++ compilation.
 - Task 1 implemented that contract in commit `ec03aa473`; its seven-case CMake matrix passed, a fresh VS2022 x64 configure resolved MAVLink to `04ad1d63e9c11ed6767a35dae4e52adaca3538c5`, and independent review found no issues.
+- Task 2 implemented the exclusive type-200 classification and `Vehicle::quadRover` property in `3825f50c2`; three relevant MSVC objects compiled and independent review found no issues.
 
 ## 2026-07-13 status
 

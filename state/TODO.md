@@ -159,5 +159,6 @@
   - 2026-07-23: selected subagent-driven development with a fresh implementer and independent reviewer per task.
 - [ ] Execute the approved implementation plan with TDD, focused reviews, and release evidence.
   - [x] Task 1: pin and prove the composite MAVLink r2 dependency contract (`ec03aa473`, review clean).
-  - [ ] Task 2: register type 200 as a permanent Quad-Rover class.
-  - [ ] Tasks 3-10: implement hybrid state, routing, ACK lifecycle, effective mode policy, mission/UI integration, and final gates.
+  - [x] Task 2: register type 200 as a permanent Quad-Rover class (`3825f50c2`, review clean).
+  - [ ] Task 3: implement authoritative hybrid state, freshness, and reboot epochs.
+  - [ ] Tasks 4-10: implement routing, ACK lifecycle, effective mode policy, mission/UI integration, and final gates.
