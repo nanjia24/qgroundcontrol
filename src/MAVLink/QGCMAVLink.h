@@ -28,6 +28,7 @@ public:
 
     static constexpr const VehicleClass_t VehicleClassAirship     = MAV_TYPE_AIRSHIP;
     static constexpr const VehicleClass_t VehicleClassFixedWing   = MAV_TYPE_FIXED_WING;
+    static constexpr const VehicleClass_t VehicleClassQuadRover   = MAV_TYPE_QUAD_ROVER;
     static constexpr const VehicleClass_t VehicleClassRoverBoat   = MAV_TYPE_GROUND_ROVER;
     static constexpr const VehicleClass_t VehicleClassSub         = MAV_TYPE_SUBMARINE;
     static constexpr const VehicleClass_t VehicleClassSpacecraft  = MAV_TYPE_SPACECRAFT_ORBITER;
@@ -47,6 +48,7 @@ public:
 
     static bool                     isAirship                   (MAV_TYPE mavType);
     static bool                     isFixedWing                 (MAV_TYPE mavType);
+    static bool                     isQuadRover                 (MAV_TYPE mavType);
     static bool                     isRoverBoat                 (MAV_TYPE mavType);
     static bool                     isSub                       (MAV_TYPE mavType);
     static bool                     isSpacecraft                (MAV_TYPE mavType);

@@ -21,6 +21,7 @@ private slots:
     void _testFirmwareTypeFromStringWhitespace();
 
     void _testVehicleClassClassification();
+    void _testQuadRoverClassification();
     void _testVehicleClassVTOL();
     void _testVehicleClassRoverBoatCovers();
     void _testVehicleClassGenericFallback();

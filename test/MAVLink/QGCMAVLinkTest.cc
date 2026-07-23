@@ -69,6 +69,18 @@ void QGCMAVLinkTest::_testVehicleClassClassification()
     QVERIFY(QGCMAVLink::isSpacecraft(MAV_TYPE_SPACECRAFT_ORBITER));
 }
 
+void QGCMAVLinkTest::_testQuadRoverClassification()
+{
+    QCOMPARE(QGCMAVLink::vehicleClass(MAV_TYPE_QUAD_ROVER), QGCMAVLink::VehicleClassQuadRover);
+    QVERIFY(QGCMAVLink::isQuadRover(MAV_TYPE_QUAD_ROVER));
+    QVERIFY(!QGCMAVLink::isMultiRotor(MAV_TYPE_QUAD_ROVER));
+    QVERIFY(!QGCMAVLink::isRoverBoat(MAV_TYPE_QUAD_ROVER));
+    QVERIFY(!QGCMAVLink::isVTOL(MAV_TYPE_QUAD_ROVER));
+    QCOMPARE(QGCMAVLink::vehicleClassToUserVisibleString(QGCMAVLink::VehicleClassQuadRover), QStringLiteral("Quad-Rover"));
+    QCOMPARE(QGCMAVLink::vehicleClassToInternalString(QGCMAVLink::VehicleClassQuadRover), QStringLiteral("QuadRover"));
+    QCOMPARE(QGCMAVLink::vehicleTypeFromString(QStringLiteral("Quad-Rover")), MAV_TYPE_QUAD_ROVER);
+}
+
 void QGCMAVLinkTest::_testVehicleClassVTOL()
 {
     // Every VTOL MAV_TYPE variant should classify as VTOL.
@@ -302,6 +314,7 @@ void QGCMAVLinkTest::_testAllVehicleClasses()
     const auto classes = QGCMAVLink::allVehicleClasses();
     QVERIFY(classes.contains(QGCMAVLink::VehicleClassFixedWing));
     QVERIFY(classes.contains(QGCMAVLink::VehicleClassMultiRotor));
+    QVERIFY(classes.contains(QGCMAVLink::VehicleClassQuadRover));
     QVERIFY(classes.contains(QGCMAVLink::VehicleClassVTOL));
     QVERIFY(classes.contains(QGCMAVLink::VehicleClassRoverBoat));
     QVERIFY(classes.contains(QGCMAVLink::VehicleClassSub));

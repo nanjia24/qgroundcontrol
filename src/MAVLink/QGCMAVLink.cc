@@ -92,6 +92,7 @@ QList<QGCMAVLink::VehicleClass_t> QGCMAVLink::allVehicleClasses(void)
 {
     static const QList<QGCMAVLink::VehicleClass_t> classes = {
         VehicleClassFixedWing,
+        VehicleClassQuadRover,
         VehicleClassRoverBoat,
         VehicleClassSub,
         VehicleClassMultiRotor,
@@ -149,6 +150,11 @@ bool QGCMAVLink::isFixedWing(MAV_TYPE mavType)
     return vehicleClass(mavType) == VehicleClassFixedWing;
 }
 
+bool QGCMAVLink::isQuadRover(MAV_TYPE mavType)
+{
+    return vehicleClass(mavType) == VehicleClassQuadRover;
+}
+
 bool QGCMAVLink::isRoverBoat(MAV_TYPE mavType)
 {
     return vehicleClass(mavType) == VehicleClassRoverBoat;
@@ -177,6 +183,8 @@ bool QGCMAVLink::isVTOL(MAV_TYPE mavType)
 QGCMAVLink::VehicleClass_t QGCMAVLink::vehicleClass(MAV_TYPE mavType)
 {
     switch (mavType) {
+    case MAV_TYPE_QUAD_ROVER:
+        return VehicleClassQuadRover;
     case MAV_TYPE_GROUND_ROVER:
     case MAV_TYPE_SURFACE_BOAT:
         return VehicleClassRoverBoat;
@@ -215,6 +223,8 @@ QString QGCMAVLink::vehicleClassToUserVisibleString(VehicleClass_t vehicleClass)
         return QT_TRANSLATE_NOOP("Vehicle Class", "Airship");
     case VehicleClassFixedWing:
         return QT_TRANSLATE_NOOP("Vehicle Class", "Fixed Wing");
+    case VehicleClassQuadRover:
+        return QT_TRANSLATE_NOOP("Vehicle Class", "Quad-Rover");
     case VehicleClassRoverBoat:
         return QT_TRANSLATE_NOOP("Vehicle Class", "Rover-Boat");
     case VehicleClassSub:
@@ -241,6 +251,9 @@ MAV_TYPE QGCMAVLink::vehicleTypeFromString(const QString &vehicleStr)
     if (type == QLatin1String("Fixed Wing")) {
         return MAV_TYPE_FIXED_WING;
     }
+    if (type == QLatin1String("Quad-Rover")) {
+        return MAV_TYPE_QUAD_ROVER;
+    }
     if (type == QLatin1String("Rover")) {
         return MAV_TYPE_GROUND_ROVER;
     }
@@ -257,6 +270,8 @@ QString QGCMAVLink::vehicleClassToInternalString(VehicleClass_t vehicleClass)
         return QStringLiteral("Airship");
     case VehicleClassFixedWing:
         return QStringLiteral("FixedWing");
+    case VehicleClassQuadRover:
+        return QStringLiteral("QuadRover");
     case VehicleClassRoverBoat:
         return QStringLiteral("RoverBoat");
     case VehicleClassSub:

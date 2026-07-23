@@ -162,6 +162,7 @@ public:
     Q_PROPERTY(bool                 airship                     READ airship                                                        NOTIFY vehicleTypeChanged)
     Q_PROPERTY(bool                 fixedWing                   READ fixedWing                                                      NOTIFY vehicleTypeChanged)
     Q_PROPERTY(bool                 multiRotor                  READ multiRotor                                                     NOTIFY vehicleTypeChanged)
+    Q_PROPERTY(bool                 quadRover                   READ quadRover                                                      NOTIFY vehicleTypeChanged)
     Q_PROPERTY(bool                 vtol                        READ vtol                                                           NOTIFY vehicleTypeChanged)
     Q_PROPERTY(bool                 rover                       READ rover                                                          NOTIFY vehicleTypeChanged)
     Q_PROPERTY(bool                 sub                         READ sub                                                            NOTIFY vehicleTypeChanged)
@@ -461,6 +462,7 @@ public:
 
     bool fixedWing() const;
     bool multiRotor() const;
+    bool quadRover() const;
     bool vtol() const;
     bool rover() const;
     bool sub() const;

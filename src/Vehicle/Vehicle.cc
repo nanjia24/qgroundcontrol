@@ -1777,6 +1777,11 @@ bool Vehicle::multiRotor() const
     return QGCMAVLink::isMultiRotor(vehicleType());
 }
 
+bool Vehicle::quadRover() const
+{
+    return QGCMAVLink::isQuadRover(vehicleType());
+}
+
 bool Vehicle::vtol() const
 {
     return QGCMAVLink::isVTOL(vehicleType());
