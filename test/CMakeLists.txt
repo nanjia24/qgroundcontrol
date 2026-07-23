@@ -369,6 +369,7 @@ add_qgc_test(ComponentInformationManagerTest LABELS Integration Vehicle RESOURCE
 add_qgc_test(FTPControllerTest LABELS Integration Vehicle RESOURCE_LOCK MockLink TempFiles)
 add_qgc_test(FTPManagerTest LABELS Integration Vehicle RESOURCE_LOCK MockLink)
 add_qgc_test(FirmwareUpgradeControllerTest LABELS Unit Vehicle)
+add_qgc_test(HybridVehicleStateTest LABELS Unit Vehicle)
 set(_initial_connect_timeout ${QGC_TEST_TIMEOUT_INTEGRATION})
 if(WIN32)
     set(_initial_connect_timeout 360)
