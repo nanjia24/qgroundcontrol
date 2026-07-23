@@ -147,6 +147,9 @@
 - [x] Submit the revised specification to the PX4 agent for protocol/release-contract review.
 - [x] Receive and evaluate the follow-up review: reboot epoch detection, initial queue retry semantics, and executable MAVLink release validation.
 - [x] Revise the written specification for the follow-up review.
-- [ ] Submit the follow-up specification to the PX4 agent for final protocol/release-contract review.
+- [x] Submit the follow-up specification to the PX4 agent for final protocol/release-contract review.
+- [x] Receive and evaluate the final review: bounded reboot recovery, controller-owned detached-request gate, and executable release evidence.
+- [x] Apply the final review corrections to the written specification.
+- [ ] Submit the corrected specification for closing PX4 protocol/release-contract review.
 - [ ] Obtain user review of the written specification.
 - [ ] Write the implementation plan before changing QGC behavior.

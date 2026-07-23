@@ -66,21 +66,29 @@ immutable tag, attach the command output and resolved commit to the handoff,
 and update the authoritative PX4/QGC integration guide with the final tag and
 peeled commit only after every step passes:
 
-1. Check out the tag and verify `git rev-parse HEAD` equals the published
-   peeled commit. A branch name, lightweight tag, or cached checkout is not
-   sufficient.
+1. Fetch the immutable annotated tag and verify
+   `git cat-file -t refs/tags/<tag>` returns `tag`. Record the tag-object OID,
+   the peeled OID from `git rev-parse refs/tags/<tag>^{}`, and verify that the
+   latter equals the published 40-hex commit. If the release tag is signed,
+   record a successful `git verify-tag` result; otherwise record it as unsigned
+   rather than claiming a signature check. A branch name, lightweight tag, or
+   cached checkout is not sufficient.
 2. Run the MAVLink project's supported CMake/mavgen generation for
    `MAVLINK_DIALECT=qgc_hybrid` and `MAVLINK_VERSION=2.0`. For the current
-   fork this is a clean CMake configure followed by its `mavlink` generation
-   target. The generated tree must contain
+   fork this is a clean CMake configure followed by its `generate_c_headers`
+   target; `mavlink` is only an interface library. The generated tree must contain
    `include/mavlink/qgc_hybrid/mavlink.h` and
    `include/mavlink/ardupilotmega/mavlink.h`.
 3. Compile a standalone C++ header probe against that generated include tree.
-   It must reference `MAV_TYPE_QUAD_ROVER` (200),
+   Its only MAVLink include must be
+   `#include <mavlink/qgc_hybrid/mavlink.h>`, with the compiler given only the
+   generated `include` root rather than direct dialect include paths. It must
+   reference `MAV_TYPE_QUAD_ROVER` (200),
    `MAV_CMD_DO_HYBRID_TRANSITION` (50000),
    `MAVLINK_MSG_ID_HYBRID_VEHICLE_STATUS` (60000), and an
    `ardupilotmega`-specific symbol such as `MAVLINK_MSG_ID_AHRS`. Generation
-   success without this compilation is not sufficient.
+   success, or probes that include raw `hybrid_vehicle` or `ardupilotmega`, are
+   not sufficient.
 4. Configure a new QGC build tree with a new CPM source cache and exactly the
    released repository, tag, dialect, version, and both APM options from the
    table above. Inspect `CMakeCache.txt` and the actual CPM checkout's
@@ -167,7 +175,7 @@ It is exposed read-only to QML and holds these decoded wire values:
 - fault reason, command result, sensor source, actuator backend, raw actuator
   protection flags, and decoded status flags
 - local monotonic receipt time, derived `stale` state, and a private
-  `SYSTEM_TIME.time_boot_ms` epoch tracker with reboot candidates
+  `SYSTEM_TIME.time_boot_ms` epoch tracker with bounded reboot candidates
 
 Before the first valid MAVLink 2 status, the object starts with
 `currentState=UNKNOWN`, `targetState=NONE`, `hasValidStatus=false`, and
@@ -185,19 +193,39 @@ means that the vehicle restarted.
 The same handler must also decode `SYSTEM_TIME` from the selected flight-control
 component for a MAVLink 2 Quad-Rover. The baseline QGC source sends
 `SYSTEM_TIME` but does not route received `SYSTEM_TIME` to `Vehicle`, so this
-is a required addition rather than an assumed existing reboot event. It tracks
-`time_boot_ms` with unsigned 32-bit serial arithmetic: a nonzero forward delta
-smaller than `0x80000000` advances the baseline, including natural uint32 wrap;
-the opposite direction opens a `SYSTEM_TIME` reboot candidate. Separately, a
-strictly lower `HYBRID_VEHICLE_STATUS.timestamp` opens a status-reboot
-candidate and remains rejected by the normal timestamp filter. Neither signal
-alone resets state because either MAVLink stream can be reordered. The
-candidates must come from the same flight-control component and overlap before
-a normal forward sample clears them; together they confirm a new PX4 epoch. A
-`SYSTEM_TIME` sample serially forward from the pre-candidate baseline clears
-only its boot candidate, and a status timestamp newer than the last accepted
-status clears only its status candidate. Hybrid and shape-dependent controls
-fail closed while either candidate is active. Any authoritative
+is a required addition rather than an assumed existing reboot event. Each
+candidate captures `selectedAutopilotComponent`, its old wire baseline, the
+candidate wire value, and a local monotonic receipt time. Both streams must
+have the vehicle sysid and `message.compid == selectedAutopilotComponent`;
+they never accept time or status from a camera, payload, GCS, or
+`MAV_COMP_ID_ALL`.
+
+It tracks `time_boot_ms` with unsigned 32-bit serial arithmetic: a nonzero
+forward delta smaller than `0x80000000` advances the baseline, including
+natural uint32 wrap; the opposite direction opens a `SYSTEM_TIME` reboot
+candidate. Separately, a strictly lower `HYBRID_VEHICLE_STATUS.timestamp`
+opens a status-reboot candidate and remains rejected by the normal timestamp
+filter. Neither signal alone resets state because either MAVLink stream can be
+reordered. Candidates from the captured component confirm a new PX4 epoch only
+when they overlap within a three-second local pairing window. A `SYSTEM_TIME`
+sample serially forward from the pre-candidate baseline clears only its boot
+candidate, and a status timestamp newer than the last accepted status clears
+only its status candidate. On expiry without confirmation, discard the stale
+candidates and restore only the normal fresh/stale readiness state; never pair
+an old packet with a later candidate. Hybrid and shape-dependent controls fail
+closed while either candidate is active.
+
+PX4 suppresses outbound `SYSTEM_TIME` while its real-time clock is invalid, so
+a lower-HRT candidate immediately invokes the existing
+`Vehicle::_sendQGCTimeToVehicle` twice. PX4 accepts a valid QGC `SYSTEM_TIME`
+to set its real-time clock, which restores the configured outbound stream. If
+that prompt still yields no matching `SYSTEM_TIME`, an HRT-only fallback
+confirms a reboot after three consecutively received, strictly increasing low
+HRT status samples from the captured autopilot component within the same
+three-second window. This fallback is used only after the time prompt and
+never on a single old packet. If neither confirmation path completes, expiry
+keeps only the usual stale safety gate; a later lower-HRT sample starts a new
+bounded attempt rather than permanently disabling controls. Any authoritative
 flight-controller reboot event added by QGC in the future, and each new Vehicle
 session, must invoke the same reset path directly.
 
@@ -235,9 +263,11 @@ not synthesized from those parameters.
 ## Transition Controller
 
 `Vehicle` owns a `HybridTransitionController` that is exposed to the hybrid
-QML surface. It sends command 50000 through `Vehicle::sendMavCommandWithHandler`
-with finite zeroes for parameters 2 through 7 and target shape 1 (Quad) or 2
-(Rover) in parameter 1.
+QML surface. Its `requestTransform` entry point is the only QML path that may
+call `Vehicle::sendMavCommandWithHandler`; QML never sends command 50000
+directly. The entry point first rejects an existing queued or detached
+transaction, then sends finite zeroes for parameters 2 through 7 and target
+shape 1 (Quad) or 2 (Rover) in parameter 1.
 
 `MavCommandQueue` owns reliable initial dispatch, but the hybrid controller
 owns **all command-50000 ACK semantics from the first ACK**. Its ordinary
@@ -258,9 +288,11 @@ machinery until the first strictly matched ACK. In the current baseline,
 `MavCommandQueue::_shouldRetry` defaults to one try, so command 50000 is a
 narrow, documented retryable exception using the existing retry count, ACK
 timeout, and retransmit path rather than a second entry or custom timer. Every
-retry preserves the original target and parameters. PX4 defines a repeated
-same-target request as idempotent: it does not create a new transition sequence,
-so this bounded initial-delivery retry is safe.
+retry preserves the original target and parameters. PX4's transition policy
+returns `ACCEPTED` for an already stable same target and `IN_PROGRESS` for the
+same active target without starting a transition; the sequence increments only
+when a transition actually starts. This makes the bounded initial-delivery
+retry safe without creating a new sequence.
 
 Its matcher is run before the queue consumes **every** ACK, including a direct
 terminal ACK that arrives before progress. `Vehicle` already filters inbound
@@ -311,9 +343,13 @@ telemetry owns alone:
   transition sequence and is rendered as no motion only when the existing
   fresh status already confirms that shape. It does not manufacture a sequence
   or await a terminal ACK.
-- Keep one transaction only; an opposite target while transforming is rejected
-  and no request is queued. Do not automatically retry denied, temporarily
-  rejected, invalid, faulted, or unconfirmed requests.
+- Keep one transaction only. While its queue entry awaits the first ACK or its
+  transaction is detached, the controller rejects every additional UI transform
+  request, including a same-target repeat and an opposite target, without
+  calling `MavCommandQueue`. This is the duplicate gate after detach removes
+  the queue entry; only the queue's internal pre-ACK retry may retransmit the
+  original command. Do not automatically retry denied, temporarily rejected,
+  invalid, faulted, or unconfirmed requests.
 
 If no first ACK arrives, the generic queue reports its existing no-response
 failure. After detach, a fresh transitioning status keeps the controller in
@@ -403,13 +439,15 @@ contain credentials or tokens.
 Add deterministic unit/protocol fixtures and focused QML or controller tests
 that prove all of the following:
 
-1. The PX4/MAVLink release gate checks out the new immutable `qgc_hybrid` tag,
-   verifies its peeled commit, generates headers in a clean MAVLink build,
-   compiles the required hybrid and `ardupilotmega` header probe, configures
-   QGC with a fresh CPM cache and the exact release inputs, and builds a QGC
-   C++ application target. Include-graph duplicate validation is a precheck,
-   not a substitute for those executions. Only then may QGC add its early
-   CMake contract test: every wrong repository, tag, resolved commit, dialect,
+1. The PX4/MAVLink release gate verifies the annotated immutable
+   `qgc_hybrid` tag object, its tag-object OID, signature status, and peeled
+   commit; runs `generate_c_headers` in a clean MAVLink build; and compiles a
+   probe whose only MAVLink include is `mavlink/qgc_hybrid/mavlink.h` while
+   referencing hybrid and `ardupilotmega` symbols. It then configures QGC with
+   a fresh CPM cache and the exact release inputs and builds a QGC C++
+   application target. Include-graph duplicate validation is a precheck, not a
+   substitute for those executions. Only then may QGC add its early CMake
+   contract test: every wrong repository, tag, resolved commit, dialect,
    MAVLink version, or disabled APM option fails before C++ compilation; raw
    `all` and raw `hybrid_vehicle` are negative inputs. A MAVLink 1 path never
    claims hybrid support.
@@ -421,11 +459,15 @@ that prove all of the following:
    An out-of-order status timestamp is ignored and cannot replace newer state.
    Normal timestamp ordering is accepted. A no-link-loss PX4 reboot test proves
    that a same-component `SYSTEM_TIME.time_boot_ms` serial rollback and lower
-   HRT status, in either arrival order, clear the old epoch, cancel an active
-   transaction, keep controls disabled during reset, and accept fresh low-HRT
-   status in the new epoch. An isolated out-of-order status or `SYSTEM_TIME`
-   packet must not reset state. A natural uint32 `time_boot_ms` wrap must
-   advance normally and must not reset state.
+   HRT status, in either arrival order and within the pairing window, clear the
+   old epoch, cancel an active transaction, keep controls disabled during reset,
+   and accept fresh low-HRT status in the new epoch. It proves component-id
+   mismatch, isolated old packets, and candidates past the pairing window do
+   not reset state. It also covers invalid PX4 RTC: QGC sends time twice, then
+   either confirms the returning `SYSTEM_TIME` or the bounded three-sample HRT
+   fallback; a missing stream must not permanently fail-close controls. A
+   natural uint32 `time_boot_ms` wrap must advance normally and must not reset
+   state.
 4. The controller covers denied, temporarily rejected, no-motion accepted,
    direct terminal ACK and in-progress ACK strict matching from the first ACK,
    opposite-target rejection, terminal accepted, terminal failed, missing
@@ -434,9 +476,13 @@ that prove all of the following:
    `HYBRID_TRANS_T`. It proves one logical queue entry per UI request, bounded
    queue retries only before the first strictly matched ACK, same-target PX4
    retry without a new sequence, and no retry after direct terminal ACK or
-   detach. It covers exact sequence correlation including zero and unsigned
-   wrap, ACK sender/address rejection, command-timestamp latching, the full
-   status-success predicate, and later fault-free recovery.
+   detach. A second same-target or opposite UI action while the entry is queued
+   or detached must be rejected by `requestTransform` before it sends a MAVLink
+   packet; it must create no queue entry, second controller transaction, or
+   callback that changes the original transaction. It covers exact sequence
+   correlation including zero and unsigned wrap, ACK sender/address rejection,
+   command-timestamp latching, the full status-success predicate, and later
+   fault-free recovery.
 5. A terminal accepted ACK alone cannot enable Quad/Rover controls. Status
    fallback requires the matching sequence, requested stable current shape,
    `MAV_RESULT_ACCEPTED`, and the command-timestamp association. A newer status
