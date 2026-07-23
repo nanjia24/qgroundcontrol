@@ -47,6 +47,9 @@ if(IS_DIRECTORY "${CMAKE_SOURCE_DIR}/custom")
     include(CustomOverrides)
 endif()
 
+include(HybridMavlinkContract)
+qgc_validate_hybrid_mavlink_inputs()
+
 # Disable testing if not explicitly enabled
 if(NOT QGC_BUILD_TESTING)
     set(BUILD_TESTING OFF CACHE INTERNAL "Disable testing by default" FORCE)

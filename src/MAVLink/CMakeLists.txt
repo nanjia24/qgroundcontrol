@@ -43,6 +43,8 @@ CPMAddPackage(
         "MAVLINK_VERSION ${QGC_MAVLINK_VERSION}"
 )
 
+qgc_verify_hybrid_mavlink_checkout("${mavlink_SOURCE_DIR}")
+
 if(mavlink_ADDED)
     add_dependencies(${CMAKE_PROJECT_NAME} mavlink)
     target_include_directories(${CMAKE_PROJECT_NAME}

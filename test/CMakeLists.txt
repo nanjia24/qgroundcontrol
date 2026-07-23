@@ -33,6 +33,7 @@ target_precompile_headers(${CMAKE_PROJECT_NAME} PRIVATE
 # CTest Integration (CTest included in root CMakeLists.txt)
 # ----------------------------------------------------------------------------
 include(QGCTest)
+add_subdirectory(CMake)
 include(Coverage)
 include(Sanitizers)
 
