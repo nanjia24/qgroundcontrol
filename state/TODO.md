@@ -155,5 +155,9 @@
 - [x] Record the published r2 release handoff and independently verify its annotated/peeled remote references.
 - [x] Obtain user authorization to proceed from the written specification into planning.
 - [x] Write and self-review the implementation plan before changing QGC behavior.
-- [ ] Obtain plan review and select the implementation workflow.
+- [x] Obtain plan review and select the implementation workflow.
+  - 2026-07-23: selected subagent-driven development with a fresh implementer and independent reviewer per task.
 - [ ] Execute the approved implementation plan with TDD, focused reviews, and release evidence.
+  - [x] Task 1: pin and prove the composite MAVLink r2 dependency contract (`ec03aa473`, review clean).
+  - [ ] Task 2: register type 200 as a permanent Quad-Rover class.
+  - [ ] Tasks 3-10: implement hybrid state, routing, ACK lifecycle, effective mode policy, mission/UI integration, and final gates.
