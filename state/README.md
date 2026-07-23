@@ -1,4 +1,4 @@
-﻿# State README
+# State README
 
 Project: QGroundControl Quad-Rover PX4 adaptation.
 Primary repository: `E:\workspace\QGC\qgroundcontrol`.
@@ -6,22 +6,24 @@ Active worktree: `E:\workspace\QGC\qgroundcontrol-worktrees\quad-rover-design`.
 Base integration branch: `codex/joystick-aux-px4-development` at `754135601`.
 Active local branch: `codex/quad-rover-design`.
 
-Current constraints: QGC feature code, defaults, and feature-build configuration
-are blocked on the PX4/MAVLink executable `qgc_hybrid` release gate and final
-written-spec review. Do not force-push, update the base integration branch,
-create a PR without explicit approval, or store credentials. Preserve the
+Current constraints: the user has supplied the executable release-gate handoff
+for `qgc_hybrid` r2 and authorized the next phase. QGC feature code is still
+unchanged while the implementation plan is reviewed. Do not force-push, update
+the base integration branch, create a PR without explicit approval, store
+credentials, or stage the unrelated untracked `NUL` entry. Preserve the
 historical Windows test-hardening record below.
 
 ## 2026-07-22 Quad-Rover adaptation
 
 - PX4 source: `\\wsl.localhost\Ubuntu\home\crocodile\PX4-Autopilot-change1_v1.16.1`, branch `change1_v1.16.1`, protocol revision `82478dbdf2`.
-- MAVLink release input: `https://github.com/QQgdiw/mavlink.git`, tag `hybrid-change1-v1.16.1`, peeled commit `3b84efb97a7c0b4767868e8725bd6902c0d884e8`, dialect `hybrid_vehicle`, MAVLink 2.
+- MAVLink release input: `https://github.com/QQgdiw/mavlink.git`, annotated tag `qgc-hybrid-change1-v1.16.1-r2`, tag object `80efde60a914f5b368eda7ec1b2d92100287ca32`, peeled commit `04ad1d63e9c11ed6767a35dae4e52adaca3538c5`, dialect `qgc_hybrid`, MAVLink 2.
+- The user reports that fresh `generate_c_headers`, the root-header C++ probe, fresh Windows CPM configure, and a 2705-step Release QGC C++ build completed against r2. This agent independently confirmed the remote annotated/peeled references and the local QGC CPM variable plumbing; it did not rerun the reported full release build in this worktree.
+- The old `hybrid-change1-v1.16.1` tag at `3b84efb97a7c0b4767868e8725bd6902c0d884e8` and r1 are rejected build inputs. `qgc_hybrid` retains APM support and excludes Storm32 because of message 60000 collision.
 - The user selected the development branch as the implementation base to retain validated downstream work; no rebase to upstream QGC main is part of this task.
-- The approved design is `docs/superpowers/specs/2026-07-22-quad-rover-adaptation-design.md`.
+- The approved design is `docs/superpowers/specs/2026-07-22-quad-rover-adaptation-design.md`; the detailed implementation plan is `docs/superpowers/plans/2026-07-23-quad-rover-implementation.md`.
 - Command 50000 creates one queue entry per UI request and uses the normal queue retry machinery until its first strictly matched ACK. `HybridTransitionController::requestTransform` is the only QML send path and rejects every further UI request before it reaches the queue; `IN_PROGRESS` then explicitly detaches the long lifecycle and validates the full ACK address tuple and exact transition sequence.
 - QGC currently sends but does not consume `SYSTEM_TIME`. The design requires exact-autopilot, wrap-safe `time_boot_ms` rollback plus lower-HRT confirmation within a bounded local window; if PX4 lacks an RTC, QGC resends time and uses a constrained three-status fallback so a reboot cannot permanently fail-close hybrid controls.
-- The revised design requires a new MAVLink `qgc_hybrid` composite dialect (`all.xml` plus `hybrid_vehicle.xml`) with APM dialect/plugin enabled. The existing protected `hybrid-change1-v1.16.1` tag does not contain that XML and cannot be the final QGC build input. The release gate must verify an annotated tag object and peeled SHA, run `generate_c_headers`, compile a root-header hybrid/APM probe, configure QGC with a fresh CPM cache, and compile a QGC C++ target against the released immutable tag before feature work starts.
-
+- The CMake contract must use r2 `qgc_hybrid` with APM MAVLink/plugin enabled, validate the resolved CPM commit, and reject raw `all`, raw `hybrid_vehicle`, disabled APM options, or a changed release input before C++ compilation.
 
 ## 2026-07-13 status
 

@@ -151,6 +151,9 @@
 - [x] Receive and evaluate the final review: bounded reboot recovery, controller-owned detached-request gate, and executable release evidence.
 - [x] Apply the final review corrections to the written specification.
 - [x] Submit the corrected specification for closing PX4 protocol/release-contract review.
-- [x] Receive closing PX4 review: no Critical, Important, or Minor findings; the unreleased `qgc_hybrid` tag remains the only executable release-gate blocker.
-- [ ] Obtain user review of the written specification.
-- [ ] Write the implementation plan before changing QGC behavior.
+- [x] Receive closing PX4 review: no Critical, Important, or Minor findings; the then-unreleased `qgc_hybrid` tag remained the only executable release-gate blocker.
+- [x] Record the published r2 release handoff and independently verify its annotated/peeled remote references.
+- [x] Obtain user authorization to proceed from the written specification into planning.
+- [x] Write and self-review the implementation plan before changing QGC behavior.
+- [ ] Obtain plan review and select the implementation workflow.
+- [ ] Execute the approved implementation plan with TDD, focused reviews, and release evidence.
