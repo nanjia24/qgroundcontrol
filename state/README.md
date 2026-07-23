@@ -6,10 +6,11 @@ Active worktree: `E:\workspace\QGC\qgroundcontrol-worktrees\quad-rover-design`.
 Base integration branch: `codex/joystick-aux-px4-development` at `754135601`.
 Active local branch: `codex/quad-rover-design`.
 
-Current constraints: the revised Quad-Rover design is blocked on PX4/MAVLink
-release-contract review and then written-spec approval. Do not force-push,
-update the base integration branch, create a PR without explicit approval, or
-store credentials. Preserve the historical Windows test-hardening record below.
+Current constraints: QGC feature code, defaults, and feature-build configuration
+are blocked on the PX4/MAVLink executable `qgc_hybrid` release gate and final
+written-spec review. Do not force-push, update the base integration branch,
+create a PR without explicit approval, or store credentials. Preserve the
+historical Windows test-hardening record below.
 
 ## 2026-07-22 Quad-Rover adaptation
 
@@ -17,8 +18,9 @@ store credentials. Preserve the historical Windows test-hardening record below.
 - MAVLink release input: `https://github.com/QQgdiw/mavlink.git`, tag `hybrid-change1-v1.16.1`, peeled commit `3b84efb97a7c0b4767868e8725bd6902c0d884e8`, dialect `hybrid_vehicle`, MAVLink 2.
 - The user selected the development branch as the implementation base to retain validated downstream work; no rebase to upstream QGC main is part of this task.
 - The approved design is `docs/superpowers/specs/2026-07-22-quad-rover-adaptation-design.md`.
-- Command 50000 uses the normal queue only through its first ACK. On `IN_PROGRESS`, an explicit detach-on-progress policy moves the long PX4 transition lifecycle to the hybrid controller; it must validate the full ACK address tuple and exact transition sequence.
-- The revised design requires a new MAVLink `qgc_hybrid` composite dialect (`all.xml` plus `hybrid_vehicle.xml`) with APM dialect/plugin enabled. The existing protected `hybrid-change1-v1.16.1` tag does not contain that XML and cannot be the final QGC build input.
+- Command 50000 creates one queue entry per UI request and uses the normal queue retry machinery until its first strictly matched ACK. On `IN_PROGRESS`, an explicit detach-on-progress policy moves the long PX4 transition lifecycle to the hybrid controller; it must validate the full ACK address tuple and exact transition sequence.
+- QGC currently sends but does not consume `SYSTEM_TIME`. The design requires same-component, wrap-safe `time_boot_ms` rollback plus lower-HRT confirmation to reset the hybrid status epoch on a PX4 reboot without link loss; hybrid controls remain disabled throughout the candidate/reset state.
+- The revised design requires a new MAVLink `qgc_hybrid` composite dialect (`all.xml` plus `hybrid_vehicle.xml`) with APM dialect/plugin enabled. The existing protected `hybrid-change1-v1.16.1` tag does not contain that XML and cannot be the final QGC build input. The release gate must generate the headers, compile a hybrid/APM probe, configure QGC with a fresh CPM cache, and compile a QGC C++ target against the released immutable tag before feature work starts.
 
 
 ## 2026-07-13 status
