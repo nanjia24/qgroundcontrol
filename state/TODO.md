@@ -150,6 +150,7 @@
 - [x] Submit the follow-up specification to the PX4 agent for final protocol/release-contract review.
 - [x] Receive and evaluate the final review: bounded reboot recovery, controller-owned detached-request gate, and executable release evidence.
 - [x] Apply the final review corrections to the written specification.
-- [ ] Submit the corrected specification for closing PX4 protocol/release-contract review.
+- [x] Submit the corrected specification for closing PX4 protocol/release-contract review.
+- [x] Receive closing PX4 review: no Critical, Important, or Minor findings; the unreleased `qgc_hybrid` tag remains the only executable release-gate blocker.
 - [ ] Obtain user review of the written specification.
 - [ ] Write the implementation plan before changing QGC behavior.
