@@ -14,7 +14,10 @@ private slots:
     void _statusBecomesStale();
     void _rejectsWrongComponentAndNonMonotonicStatus();
     void _hrtWrapIsForwardProgress();
+    void _delayedPreWrapHrtDoesNotStartResetCandidate();
     void _bootTimeWrapIsForwardProgress();
+    void _delayedPreWrapBootTimeDoesNotStartResetCandidate();
+    void _rebootCandidatesRequireSameSelectedComponent();
     void _rebootStatusThenSystemTime();
     void _rebootSystemTimeThenStatus();
     void _candidateExpiryRestoresOrdinaryFreshness();

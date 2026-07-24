@@ -228,11 +228,13 @@ void HybridVehicleState::handleStatus(uint8_t componentId, const mavlink_hybrid_
         return;
     }
 
-    if (!_statusResetCandidate) {
-        _setStatusCandidate(status.timestamp);
-    } else if (!_candidateWindowExpired() && (status.timestamp > _statusCandidateTimestamp)) {
-        _statusCandidateTimestamp = status.timestamp;
-        ++_lowHrtSampleCount;
+    if (status.timestamp < _lastStatusTimestamp) {
+        if (!_statusResetCandidate) {
+            _setStatusCandidate(status.timestamp);
+        } else if (!_candidateWindowExpired() && (status.timestamp > _statusCandidateTimestamp)) {
+            _statusCandidateTimestamp = status.timestamp;
+            ++_lowHrtSampleCount;
+        }
     }
 
     if (_statusResetCandidate && _timeResetCandidate) {
@@ -264,9 +266,11 @@ void HybridVehicleState::handleSystemTime(uint8_t componentId, uint32_t timeBoot
         return;
     }
 
-    _setTimeCandidate(timeBootMs);
-    if (_statusResetCandidate && _timeResetCandidate) {
-        _confirmReboot();
+    if (timeBootMs < _lastBootTimeMs) {
+        _setTimeCandidate(timeBootMs);
+        if (_statusResetCandidate && _timeResetCandidate) {
+            _confirmReboot();
+        }
     }
 }
 
