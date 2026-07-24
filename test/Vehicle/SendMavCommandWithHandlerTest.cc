@@ -232,7 +232,6 @@ void SendMavCommandWithHandlerTest::_hybridTransitionRetriesBeforeFirstMatchingA
 
     const int sendCountBeforeDuplicate = _mockLink->receivedMavCommandCount(kHybridTransitionCommand);
     vehicle->sendMavCommand(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand, false, 42.0f);
-    QTest::qWait(100);
     QCOMPARE(_mockLink->receivedMavCommandCount(kHybridTransitionCommand), sendCountBeforeDuplicate);
 
     vehicle->_mavCmdQueue->cancelCommand(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand);
