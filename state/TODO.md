@@ -162,5 +162,5 @@
   - [x] Task 2: register type 200 as a permanent Quad-Rover class (`3825f50c2`, review clean).
   - [x] Task 3: implement authoritative hybrid state, freshness, and reboot epochs (`f3e799c02`, `93a5ad457`, review clean).
   - [x] Task 4: route MAVLink 2 status and SYSTEM_TIME through Vehicle safely (`3dd2a2989`, review clean).
-  - [ ] Task 5: generalize command queue strict matching and detach-on-progress.
+  - [x] Task 5: generalize command queue strict matching and detach-on-progress (`1aec8c936`, `c95ded41c`, `5b38cb1e3`; review clean; runtime suites pending environment recovery).
   - [ ] Tasks 6-10: implement transition lifecycle, effective mode policy, mission/UI integration, and final gates.

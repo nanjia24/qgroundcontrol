@@ -7,10 +7,12 @@ Base integration branch: `codex/joystick-aux-px4-development` at `754135601`.
 Active local branch: `codex/quad-rover-design`.
 
 Current constraints: implementation is active under the approved SDD workflow.
-Tasks 1-4 are complete: QGC pins the released `qgc_hybrid` r2 contract,
+Tasks 1-5 are complete: QGC pins the released `qgc_hybrid` r2 contract,
 models type 200 as a permanent distinct Quad-Rover class, owns freshness/reboot
 epochs in `HybridVehicleState`, and safely routes MAVLink 2 telemetry through
-`Vehicle` at `3dd2a2989`. Do not force-push, update the base integration
+`Vehicle` at `3dd2a2989`. Command queue support at `5b38cb1e3` strictly
+matches opt-in ACK tuples, preserves first-ACK retries, and detaches on
+progress for the forthcoming controller. Do not force-push, update the base integration
 branch, create a PR without explicit approval, store credentials, or stage the
 unrelated untracked `NUL` entry. Preserve the historical Windows test-hardening
 record below.
@@ -30,6 +32,7 @@ record below.
 - Task 2 implemented the exclusive type-200 classification and `Vehicle::quadRover` property in `3825f50c2`; three relevant MSVC objects compiled and independent review found no issues.
 - Task 3 implemented `HybridVehicleState` in `f3e799c02` and fixed delayed pre-wrap packets in `93a5ad457`. Its focused QtCore harness passed after a red/green regression cycle; independent re-review found no issues.
 - Task 4 implemented type-200, MAVLink-2, system-ID, and selected-autopilot-component ingress filtering in `3dd2a2989`; direct MockLink, Vehicle, ingress-test, and moc object builds passed and independent review found no issues.
+- Task 5 implemented the generic strict-ACK queue primitive in `1aec8c936`, strengthened its coverage in `c95ded41c` and `5b38cb1e3`, and passed independent re-review. The actual hybrid matcher and detached-ACK routing intentionally remain Task 6 controller responsibilities. The three requested runtime suites are still pending because a correctly initialized VS2022/Qt configure did not produce `build.ninja` before its bounded timeout.
 
 ## 2026-07-13 status
 
