@@ -375,6 +375,15 @@ void MockLink::_loadParams()
         _mapParamName2Value[compId][paramName] = paramValue;
         _mapParamName2MavParamType[compId][paramName] = static_cast<MAV_PARAM_TYPE>(paramType);
     }
+
+    if (_vehicleType == MAV_TYPE_QUAD_ROVER) {
+        _mapParamName2Value[MAV_COMP_ID_AUTOPILOT1][QStringLiteral("HYBRID_TRANS_T")] = 2.0F;
+        _mapParamName2MavParamType[MAV_COMP_ID_AUTOPILOT1][QStringLiteral("HYBRID_TRANS_T")] = MAV_PARAM_TYPE_REAL32;
+        _mapParamName2Value[MAV_COMP_ID_AUTOPILOT1][QStringLiteral("HYB_SENS_EN")] = 1;
+        _mapParamName2MavParamType[MAV_COMP_ID_AUTOPILOT1][QStringLiteral("HYB_SENS_EN")] = MAV_PARAM_TYPE_INT32;
+        _mapParamName2Value[MAV_COMP_ID_AUTOPILOT1][QStringLiteral("HYB_ACT_TYPE")] = 0;
+        _mapParamName2MavParamType[MAV_COMP_ID_AUTOPILOT1][QStringLiteral("HYB_ACT_TYPE")] = MAV_PARAM_TYPE_INT32;
+    }
 }
 
 void MockLink::_sendHeartBeat()
@@ -1702,6 +1711,11 @@ MockLink *MockLink::_startMockLinkWorker(const QString &configName, MAV_AUTOPILO
 MockLink *MockLink::startPX4MockLink(bool sendStatusText, bool enableCamera, bool enableGimbal, MockConfiguration::FailureMode_t failureMode)
 {
     return _startMockLinkWorker(QStringLiteral("PX4 MultiRotor MockLink"), MAV_AUTOPILOT_PX4, MAV_TYPE_QUADROTOR, sendStatusText, enableCamera, enableGimbal, failureMode);
+}
+
+MockLink *MockLink::startPX4QuadRoverMockLink(bool sendStatusText, bool enableCamera, bool enableGimbal, MockConfiguration::FailureMode_t failureMode)
+{
+    return _startMockLinkWorker(QStringLiteral("PX4 Quad-Rover MockLink"), MAV_AUTOPILOT_PX4, MAV_TYPE_QUAD_ROVER, sendStatusText, enableCamera, enableGimbal, failureMode);
 }
 
 MockLink *MockLink::startGenericMockLink(bool sendStatusText, bool enableCamera, bool enableGimbal, MockConfiguration::FailureMode_t failureMode)

@@ -17,6 +17,8 @@ target_sources(${CMAKE_PROJECT_NAME}
         InitialConnectPeripheralStartupTest.h
         HybridVehicleStateTest.cc
         HybridVehicleStateTest.h
+        HybridVehicleIngressTest.cc
+        HybridVehicleIngressTest.h
         MAVLinkLogManagerTest.cc
         MAVLinkLogManagerTest.h
         RequestMessageTest.cc

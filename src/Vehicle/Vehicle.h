@@ -20,6 +20,7 @@
 
 class Actuators;
 class HealthAndArmingCheckReport;
+class HybridVehicleState;
 class MAVLinkStreamConfig;
 class QGCMapCircle;
 class QmlObjectListModel;
@@ -87,6 +88,7 @@ class Vehicle : public VehicleFactGroup, public VehicleTypes
     Q_MOC_INCLUDE("AutoPilotPlugin.h")
     Q_MOC_INCLUDE("Autotune.h")
     Q_MOC_INCLUDE("GimbalController.h")
+    Q_MOC_INCLUDE("HybridVehicleState.h")
     Q_MOC_INCLUDE("LinkInterface.h")
     Q_MOC_INCLUDE("MAVLinkLogManager.h")
     Q_MOC_INCLUDE("ParameterManager.h")
@@ -227,6 +229,7 @@ public:
     Q_PROPERTY(VehicleObjectAvoidance*  objectAvoidance     READ objectAvoidance    CONSTANT)
     Q_PROPERTY(Autotune*                autotune            READ autotune           CONSTANT)
     Q_PROPERTY(RemoteIDManager*         remoteIDManager     READ remoteIDManager    CONSTANT)
+    Q_PROPERTY(HybridVehicleState*      hybridVehicleState  READ hybridVehicleState CONSTANT)
 
     // FactGroup object model properties
 
@@ -580,6 +583,7 @@ public:
     VehicleObjectAvoidance*         objectAvoidance     () { return _objectAvoidance; }
     Autotune*                       autotune            () const { return _autotune; }
     RemoteIDManager*                remoteIDManager     () { return _remoteIDManager; }
+    HybridVehicleState*             hybridVehicleState  () const { return _hybridVehicleState; }
 
     static void showCommandAckError(const mavlink_command_ack_t& ack);
 
@@ -868,6 +872,7 @@ private:
     void _handleGimbalOrientation       (const mavlink_message_t& message);
     void _handleObstacleDistance        (const mavlink_message_t& message);
     void _handleFenceStatus             (const mavlink_message_t& message);
+    bool _isHybridAutopilotMessage      (const mavlink_message_t& message) const;
 
     // ArduPilot dialect messages
 #if !defined(QGC_NO_ARDUPILOT_DIALECT)
@@ -1121,6 +1126,7 @@ public:
     InitialConnectStateMachine*     _initialConnectStateMachine = nullptr;
     Actuators*                      _actuators                  = nullptr;
     RemoteIDManager*                _remoteIDManager            = nullptr;
+    HybridVehicleState*             _hybridVehicleState         = nullptr;
     StandardModes*                  _standardModes              = nullptr;
 
     // All terrain query workflows (doSetHome, ROI, altAboveTerrain) live in the coordinator.

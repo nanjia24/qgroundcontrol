@@ -143,6 +143,7 @@ public:
     void setMockParamValue(int componentId, const QString &paramName, float value);
 
     static MockLink *startPX4MockLink(bool sendStatusText, bool enableCamera, bool enableGimbal, MockConfiguration::FailureMode_t failureMode = MockConfiguration::FailNone);
+    static MockLink *startPX4QuadRoverMockLink(bool sendStatusText, bool enableCamera, bool enableGimbal, MockConfiguration::FailureMode_t failureMode = MockConfiguration::FailNone);
     static MockLink *startGenericMockLink(bool sendStatusText, bool enableCamera, bool enableGimbal, MockConfiguration::FailureMode_t failureMode = MockConfiguration::FailNone);
     static MockLink *startNoInitialConnectMockLink(bool sendStatusText, bool enableCamera, bool enableGimbal, MockConfiguration::FailureMode_t failureMode = MockConfiguration::FailNone);
     static MockLink *startAPMArduCopterMockLink(bool sendStatusText, bool enableCamera, bool enableGimbal, MockConfiguration::FailureMode_t failureMode = MockConfiguration::FailNone);

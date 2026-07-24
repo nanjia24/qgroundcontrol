@@ -32,6 +32,7 @@
 #include "GeoFenceManager.h"
 #include "ImageProtocolManager.h"
 #include "InitialConnectStateMachine.h"
+#include "HybridVehicleState.h"
 #include "Joystick.h"
 #include "JoystickManager.h"
 #include "LinkManager.h"
@@ -138,6 +139,9 @@ Vehicle::Vehicle(LinkInterface*             link,
     , _mavlinkStreamConfig          (std::make_unique<MAVLinkStreamConfig>(std::bind(&Vehicle::_setMessageInterval, this, std::placeholders::_1, std::placeholders::_2)))
     , _vehicleFactGroup             (this)
 {
+    _hybridVehicleState = new HybridVehicleState(static_cast<uint8_t>(_defaultComponentId), this);
+    connect(_hybridVehicleState, &HybridVehicleState::requestQGCTimeSync, this, &Vehicle::_sendQGCTimeToVehicle);
+
     connect(MultiVehicleManager::instance(), &MultiVehicleManager::activeVehicleChanged, this, &Vehicle::_activeVehicleChanged);
 
     connect(MAVLinkProtocol::instance(), &MAVLinkProtocol::messageReceived,        this, &Vehicle::_mavlinkMessageReceived);
@@ -215,6 +219,9 @@ Vehicle::Vehicle(MAV_AUTOPILOT              firmwareType,
     , _mavlinkStreamConfig              (std::make_unique<MAVLinkStreamConfig>(std::bind(&Vehicle::_setMessageInterval, this, std::placeholders::_1, std::placeholders::_2)))
     , _vehicleFactGroup                 (this)
 {
+    _hybridVehicleState = new HybridVehicleState(static_cast<uint8_t>(_defaultComponentId), this);
+    connect(_hybridVehicleState, &HybridVehicleState::requestQGCTimeSync, this, &Vehicle::_sendQGCTimeToVehicle);
+
     // This will also set the settings based firmware/vehicle types. So it needs to happen first.
     if (_firmwareType == MAV_AUTOPILOT_TRACK) {
         trackFirmwareVehicleTypeChanges();
@@ -668,6 +675,20 @@ void Vehicle::_mavlinkMessageReceived(LinkInterface* link, mavlink_message_t mes
     case MAVLINK_MSG_ID_EXTENDED_SYS_STATE:
         _handleExtendedSysState(message);
         break;
+    case MAVLINK_MSG_ID_HYBRID_VEHICLE_STATUS:
+        if (_isHybridAutopilotMessage(message)) {
+            mavlink_hybrid_vehicle_status_t status{};
+            mavlink_msg_hybrid_vehicle_status_decode(&message, &status);
+            _hybridVehicleState->handleStatus(message.compid, status);
+        }
+        break;
+    case MAVLINK_MSG_ID_SYSTEM_TIME:
+        if (_isHybridAutopilotMessage(message)) {
+            mavlink_system_time_t systemTime{};
+            mavlink_msg_system_time_decode(&message, &systemTime);
+            _hybridVehicleState->handleSystemTime(message.compid, systemTime.time_boot_ms);
+        }
+        break;
     case MAVLINK_MSG_ID_COMMAND_ACK:
         _handleCommandAck(message);
         break;
@@ -783,6 +804,15 @@ void Vehicle::_mavlinkMessageReceived(LinkInterface* link, mavlink_message_t mes
     // This must be emitted after the vehicle processes the message. This way the vehicle state is up to date when anyone else
     // does processing.
     emit mavlinkMessageReceived(message);
+}
+
+bool Vehicle::_isHybridAutopilotMessage(const mavlink_message_t& message) const
+{
+    return quadRover() &&
+           (message.magic == MAVLINK_STX) &&
+           (message.sysid == _systemID) &&
+           (_defaultComponentId == MAV_COMP_ID_AUTOPILOT1) &&
+           (message.compid == _defaultComponentId);
 }
 
 #if !defined(QGC_NO_ARDUPILOT_DIALECT)
