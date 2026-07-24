@@ -203,6 +203,7 @@ bool MavCommandQueue::_shouldRetry(MAV_CMD command)
     case MAV_CMD_REQUEST_MESSAGE:
     case MAV_CMD_PREFLIGHT_STORAGE:
     case MAV_CMD_RUN_PREARM_CHECKS:
+    case static_cast<MAV_CMD>(50000): // MAV_CMD_DO_HYBRID_TRANSITION
         return true;
 
     default:
@@ -455,18 +456,31 @@ void MavCommandQueue::showCommandAckError(const mavlink_command_ack_t& ack)
     }
 }
 
-void MavCommandQueue::handleCommandAck(const mavlink_message_t& message, const mavlink_command_ack_t& ack)
+bool MavCommandQueue::handleCommandAck(const mavlink_message_t& message, const mavlink_command_ack_t& ack)
 {
-    int entryIndex = findEntryIndex(message.compid, static_cast<MAV_CMD>(ack.command));
+    int entryIndex = -1;
+    for (int i = 0; i < _list.count(); ++i) {
+        const MavCommandListEntry_t& entry = _list[i];
+        if (entry.targetCompId != message.compid || entry.command != static_cast<MAV_CMD>(ack.command)) {
+            continue;
+        }
+        if (entry.ackHandlerInfo.ackMatcher && !entry.ackHandlerInfo.ackMatcher(entry.ackHandlerInfo.ackMatcherData, message, ack)) {
+            continue;
+        }
+        entryIndex = i;
+        break;
+    }
+
     if (entryIndex == -1) {
         QString rawCommandName = MissionCommandTree::instance()->rawName(static_cast<MAV_CMD>(ack.command));
         qCDebug(MavCommandQueueLog) << "handleCommandAck Ack not in list" << rawCommandName;
-        return;
+        return false;
     }
 
     if (ack.result == MAV_RESULT_IN_PROGRESS) {
         MavCommandListEntry_t commandEntry;
-        if (_vehicle->px4Firmware() && ack.command == MAV_CMD_DO_AUTOTUNE_ENABLE) {
+        if ((_vehicle->px4Firmware() && ack.command == MAV_CMD_DO_AUTOTUNE_ENABLE)
+            || _list[entryIndex].ackHandlerInfo.detachOnProgress) {
             // Hack to support PX4 autotune which does not send final result ack and just sends in progress
             commandEntry = _list.takeAt(entryIndex);
         } else {
@@ -480,7 +494,7 @@ void MavCommandQueue::handleCommandAck(const mavlink_message_t& message, const m
         if (commandEntry.ackHandlerInfo.progressHandler) {
             (*commandEntry.ackHandlerInfo.progressHandler)(commandEntry.ackHandlerInfo.progressHandlerData, message.compid, ack);
         }
-        return;
+        return true;
     }
 
     MavCommandListEntry_t commandEntry = _list.takeAt(entryIndex);
@@ -491,6 +505,15 @@ void MavCommandQueue::handleCommandAck(const mavlink_message_t& message, const m
             showCommandAckError(ack);
         }
         emit commandResult(_vehicle->id(), message.compid, ack.command, ack.result, MavCmdResultCommandResultOnly);
+    }
+    return true;
+}
+
+void MavCommandQueue::cancelCommand(int targetCompId, MAV_CMD command)
+{
+    const int entryIndex = findEntryIndex(targetCompId, command);
+    if (entryIndex != -1) {
+        _list.removeAt(entryIndex);
     }
 }
 

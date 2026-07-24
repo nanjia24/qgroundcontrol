@@ -49,7 +49,11 @@ public:
     int findEntryIndex(int targetCompId, MAV_CMD command) const;
 
     /// Process a COMMAND_ACK — match it to a pending entry and fire callbacks.
-    void handleCommandAck(const mavlink_message_t& message, const mavlink_command_ack_t& ack);
+    /// Returns true only when a pending entry accepted the acknowledgement.
+    bool handleCommandAck(const mavlink_message_t& message, const mavlink_command_ack_t& ack);
+
+    /// Remove one pending command without firing callbacks.
+    void cancelCommand(int targetCompId, MAV_CMD command);
 
     /// Stop the response timer and clear pending entries without firing callbacks.
     /// Used during vehicle shutdown to prevent post-destruction callbacks.

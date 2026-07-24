@@ -36,12 +36,18 @@ struct VehicleTypes
     /// Callback for sendMavCommandWithHandler which handles all non-IN_PROGRESS acks.
     typedef void (*MavCmdResultHandler)(void* resultHandlerData, int compId, const mavlink_command_ack_t& ack, MavCmdResultFailureCode_t failureCode);
 
+    /// Optional predicate used to correlate a COMMAND_ACK with a queued command.
+    typedef bool (*MavCmdAckMatcher)(void* matcherData, const mavlink_message_t& message, const mavlink_command_ack_t& ack);
+
     /// Callback info bundle for sendMavCommandWithHandler.
     typedef struct MavCmdAckHandlerInfo_s {
         MavCmdResultHandler     resultHandler;          ///< nullptr for no handler
         void*                   resultHandlerData;
         MavCmdProgressHandler   progressHandler;
         void*                   progressHandlerData;    ///< nullptr for no handler
+        MavCmdAckMatcher        ackMatcher = nullptr;
+        void*                   ackMatcherData = nullptr;
+        bool                    detachOnProgress = false;
     } MavCmdAckHandlerInfo_t;
 
     /// Callback for requestMessage — delivered when the ack/message pair resolves or a failure occurs.
