@@ -4,7 +4,7 @@
 #include "MultiVehicleManager.h"
 
 namespace {
-constexpr MAV_CMD kHybridTransitionCommand = static_cast<MAV_CMD>(50000);
+constexpr MAV_CMD kHybridTransitionCommand = MAV_CMD_DO_HYBRID_TRANSITION;
 }
 
 SendMavCommandWithHandlerTest::TestCase_t SendMavCommandWithHandlerTest::_rgTestCases[] = {
@@ -158,14 +158,16 @@ void SendMavCommandWithHandlerTest::_countProgressHandler(void* progressHandlerD
     static_cast<AckHandlerData_t*>(progressHandlerData)->progressHandlerCallCount++;
 }
 
-void SendMavCommandWithHandlerTest::_injectAck(MAV_CMD command, MAV_RESULT result, uint8_t senderSystemId,
+bool SendMavCommandWithHandlerTest::_injectAck(MAV_CMD command, MAV_RESULT result, uint8_t senderSystemId,
                                                 uint8_t senderComponentId, uint8_t targetSystemId,
                                                 uint8_t targetComponentId)
 {
     mavlink_message_t message{};
     (void)mavlink_msg_command_ack_pack_chan(senderSystemId, senderComponentId, MAVLINK_COMM_0, &message, command,
                                             result, 0, 0, targetSystemId, targetComponentId);
-    MultiVehicleManager::instance()->activeVehicle()->_handleCommandAck(message);
+    mavlink_command_ack_t ack{};
+    mavlink_msg_command_ack_decode(&message, &ack);
+    return MultiVehicleManager::instance()->activeVehicle()->_mavCmdQueue->handleCommandAck(message, ack);
 }
 
 void SendMavCommandWithHandlerTest::_strictAckMatching()
@@ -179,32 +181,6 @@ void SendMavCommandWithHandlerTest::_strictAckMatching()
     Vehicle::MavCmdAckHandlerInfo_t handlerInfo = {};
     handlerInfo.resultHandler = _countResultHandler;
     handlerInfo.resultHandlerData = &handlerData;
-    handlerInfo.ackMatcher = _strictAckMatcher;
-    handlerInfo.ackMatcherData = &matcherData;
-
-    vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand);
-    QVERIFY(vehicle->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand));
-
-    _injectAck(kHybridTransitionCommand, MAV_RESULT_ACCEPTED, static_cast<uint8_t>(vehicle->id()),
-               MAV_COMP_ID_AUTOPILOT1, qgcSystemId, qgcComponentId + 1);
-    QVERIFY(vehicle->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand));
-    QCOMPARE(handlerData.resultHandlerCallCount, 0);
-
-    _injectAck(kHybridTransitionCommand, MAV_RESULT_ACCEPTED, static_cast<uint8_t>(vehicle->id()),
-               MAV_COMP_ID_AUTOPILOT1, qgcSystemId, qgcComponentId);
-    QVERIFY(!vehicle->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand));
-    QCOMPARE(handlerData.resultHandlerCallCount, 1);
-}
-
-void SendMavCommandWithHandlerTest::_detachOnProgress()
-{
-    Vehicle* const vehicle = MultiVehicleManager::instance()->activeVehicle();
-    const uint8_t qgcSystemId = MAVLinkProtocol::instance()->getSystemId();
-    const uint8_t qgcComponentId = MAVLinkProtocol::getComponentId();
-    const AckMatcherData_t matcherData { static_cast<uint8_t>(vehicle->id()), MAV_COMP_ID_AUTOPILOT1, qgcSystemId,
-                                         qgcComponentId, kHybridTransitionCommand };
-    AckHandlerData_t handlerData;
-    Vehicle::MavCmdAckHandlerInfo_t handlerInfo = {};
     handlerInfo.progressHandler = _countProgressHandler;
     handlerInfo.progressHandlerData = &handlerData;
     handlerInfo.ackMatcher = _strictAckMatcher;
@@ -214,15 +190,29 @@ void SendMavCommandWithHandlerTest::_detachOnProgress()
     vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand);
     QVERIFY(vehicle->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand));
 
-    _injectAck(kHybridTransitionCommand, MAV_RESULT_IN_PROGRESS, static_cast<uint8_t>(vehicle->id()) + 1,
-               MAV_COMP_ID_AUTOPILOT1, qgcSystemId, qgcComponentId);
+    QVERIFY(!_injectAck(kHybridTransitionCommand, MAV_RESULT_ACCEPTED, static_cast<uint8_t>(vehicle->id()),
+                        MAV_COMP_ID_AUTOPILOT1, qgcSystemId, qgcComponentId + 1));
+    QVERIFY(vehicle->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand));
+    QCOMPARE(handlerData.resultHandlerCallCount, 0);
+    QCOMPARE(handlerData.progressHandlerCallCount, 0);
+
+    QVERIFY(!_injectAck(kHybridTransitionCommand, MAV_RESULT_IN_PROGRESS, static_cast<uint8_t>(vehicle->id()) + 1,
+                        MAV_COMP_ID_AUTOPILOT1, qgcSystemId, qgcComponentId));
     QVERIFY(vehicle->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand));
     QCOMPARE(handlerData.progressHandlerCallCount, 0);
 
-    _injectAck(kHybridTransitionCommand, MAV_RESULT_IN_PROGRESS, static_cast<uint8_t>(vehicle->id()),
-               MAV_COMP_ID_AUTOPILOT1, qgcSystemId, qgcComponentId);
+    QVERIFY(_injectAck(kHybridTransitionCommand, MAV_RESULT_IN_PROGRESS, static_cast<uint8_t>(vehicle->id()),
+                       MAV_COMP_ID_AUTOPILOT1, qgcSystemId, qgcComponentId));
     QVERIFY(!vehicle->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand));
     QCOMPARE(handlerData.progressHandlerCallCount, 1);
+    QCOMPARE(handlerData.resultHandlerCallCount, 0);
+
+    handlerInfo.detachOnProgress = false;
+    vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand);
+    QVERIFY(_injectAck(kHybridTransitionCommand, MAV_RESULT_ACCEPTED, static_cast<uint8_t>(vehicle->id()),
+                       MAV_COMP_ID_AUTOPILOT1, qgcSystemId, qgcComponentId));
+    QVERIFY(!vehicle->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand));
+    QCOMPARE(handlerData.resultHandlerCallCount, 1);
 }
 
 void SendMavCommandWithHandlerTest::_hybridTransitionRetriesBeforeFirstMatchingAck()
@@ -236,8 +226,38 @@ void SendMavCommandWithHandlerTest::_hybridTransitionRetriesBeforeFirstMatchingA
     handlerInfo.ackMatcherData = &matcherData;
 
     _mockLink->clearReceivedMavCommandCounts();
-    vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand);
+    vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand, 17.0f);
     QVERIFY_TRUE_WAIT(_mockLink->receivedMavCommandCount(kHybridTransitionCommand) >= 2, TestTimeout::longMs());
+    QVERIFY(vehicle->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand));
+
+    const int sendCountBeforeDuplicate = _mockLink->receivedMavCommandCount(kHybridTransitionCommand);
+    vehicle->sendMavCommand(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand, false, 42.0f);
+    QTest::qWait(100);
+    QCOMPARE(_mockLink->receivedMavCommandCount(kHybridTransitionCommand), sendCountBeforeDuplicate);
+
+    vehicle->_mavCmdQueue->cancelCommand(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand);
+    QVERIFY(!vehicle->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand));
+}
+
+void SendMavCommandWithHandlerTest::_cancelCommand()
+{
+    Vehicle* const vehicle = MultiVehicleManager::instance()->activeVehicle();
+    const AckMatcherData_t matcherData { static_cast<uint8_t>(vehicle->id()), MAV_COMP_ID_AUTOPILOT1,
+                                         MAVLinkProtocol::instance()->getSystemId(), MAVLinkProtocol::getComponentId(),
+                                         kHybridTransitionCommand };
+    AckHandlerData_t handlerData;
+    Vehicle::MavCmdAckHandlerInfo_t handlerInfo = {};
+    handlerInfo.resultHandler = _countResultHandler;
+    handlerInfo.resultHandlerData = &handlerData;
+    handlerInfo.ackMatcher = _strictAckMatcher;
+    handlerInfo.ackMatcherData = &matcherData;
+
+    vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand);
+    QVERIFY(vehicle->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand));
+
+    vehicle->_mavCmdQueue->cancelCommand(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand);
+    QVERIFY(!vehicle->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand));
+    QCOMPARE(handlerData.resultHandlerCallCount, 0);
 }
 
 UT_REGISTER_TEST(SendMavCommandWithHandlerTest, TestLabel::Integration, TestLabel::Vehicle)

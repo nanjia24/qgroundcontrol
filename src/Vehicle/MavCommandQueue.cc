@@ -203,7 +203,7 @@ bool MavCommandQueue::_shouldRetry(MAV_CMD command)
     case MAV_CMD_REQUEST_MESSAGE:
     case MAV_CMD_PREFLIGHT_STORAGE:
     case MAV_CMD_RUN_PREARM_CHECKS:
-    case static_cast<MAV_CMD>(50000): // MAV_CMD_DO_HYBRID_TRANSITION
+    case MAV_CMD_DO_HYBRID_TRANSITION:
         return true;
 
     default:

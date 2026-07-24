@@ -19,8 +19,8 @@ private slots:
     void _compIdAllFailure();
     void _duplicateCommand();
     void _strictAckMatching();
-    void _detachOnProgress();
     void _hybridTransitionRetriesBeforeFirstMatchingAck();
+    void _cancelCommand();
 
 private:
     struct TestCase_t
@@ -58,7 +58,7 @@ private:
                                     Vehicle::MavCmdResultFailureCode_t failureCode);
     static void _countProgressHandler(void* progressHandlerData, int compId, const mavlink_command_ack_t& ack);
 
-    void _injectAck(MAV_CMD command, MAV_RESULT result, uint8_t senderSystemId, uint8_t senderComponentId,
+    bool _injectAck(MAV_CMD command, MAV_RESULT result, uint8_t senderSystemId, uint8_t senderComponentId,
                     uint8_t targetSystemId, uint8_t targetComponentId);
 
     static bool _resultHandlerCalled;
