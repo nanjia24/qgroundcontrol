@@ -7,12 +7,13 @@ Base integration branch: `codex/joystick-aux-px4-development` at `754135601`.
 Active local branch: `codex/quad-rover-design`.
 
 Current constraints: implementation is active under the approved SDD workflow.
-Tasks 1-3 are complete: QGC pins and validates the released `qgc_hybrid` r2
-contract, models type 200 as a permanent distinct Quad-Rover class, and owns
-freshness/reboot epochs in `HybridVehicleState` through `93a5ad457`. Do not
-force-push, update the base integration branch, create a PR without explicit
-approval, store credentials, or stage the unrelated untracked `NUL` entry.
-Preserve the historical Windows test-hardening record below.
+Tasks 1-4 are complete: QGC pins the released `qgc_hybrid` r2 contract,
+models type 200 as a permanent distinct Quad-Rover class, owns freshness/reboot
+epochs in `HybridVehicleState`, and safely routes MAVLink 2 telemetry through
+`Vehicle` at `3dd2a2989`. Do not force-push, update the base integration
+branch, create a PR without explicit approval, store credentials, or stage the
+unrelated untracked `NUL` entry. Preserve the historical Windows test-hardening
+record below.
 
 ## 2026-07-22 Quad-Rover adaptation
 
@@ -28,6 +29,7 @@ Preserve the historical Windows test-hardening record below.
 - Task 1 implemented that contract in commit `ec03aa473`; its seven-case CMake matrix passed, a fresh VS2022 x64 configure resolved MAVLink to `04ad1d63e9c11ed6767a35dae4e52adaca3538c5`, and independent review found no issues.
 - Task 2 implemented the exclusive type-200 classification and `Vehicle::quadRover` property in `3825f50c2`; three relevant MSVC objects compiled and independent review found no issues.
 - Task 3 implemented `HybridVehicleState` in `f3e799c02` and fixed delayed pre-wrap packets in `93a5ad457`. Its focused QtCore harness passed after a red/green regression cycle; independent re-review found no issues.
+- Task 4 implemented type-200, MAVLink-2, system-ID, and selected-autopilot-component ingress filtering in `3dd2a2989`; direct MockLink, Vehicle, ingress-test, and moc object builds passed and independent review found no issues.
 
 ## 2026-07-13 status
 
