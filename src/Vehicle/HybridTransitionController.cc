@@ -206,8 +206,10 @@ void HybridTransitionController::_evaluateActiveStatus()
     }
 
     if (_state->commandResult() == MAV_RESULT_IN_PROGRESS) {
-        _associatedCommandTimestamp = _state->commandTimestamp();
-        _haveAssociatedCommandTimestamp = true;
+        if (!_haveAssociatedCommandTimestamp) {
+            _associatedCommandTimestamp = _state->commandTimestamp();
+            _haveAssociatedCommandTimestamp = true;
+        }
         return;
     }
 

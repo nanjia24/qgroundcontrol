@@ -25,6 +25,7 @@ private slots:
     void _terminalFailedEndsDetachedTransaction();
     void _statusOnlyCompletion();
     void _mismatchingStatusDoesNotComplete();
+    void _firstProgressStatusOwnsTimestampAssociation();
     void _supersedingSequenceRequiresIndependentResync();
     void _faultAndStaleStatusEndWithoutSuccess();
     void _confirmedRebootCancelsQueuedCommand();

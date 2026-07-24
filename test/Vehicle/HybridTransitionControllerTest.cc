@@ -273,6 +273,25 @@ void HybridTransitionControllerTest::_mismatchingStatusDoesNotComplete()
     QCOMPARE(_controller->transactionState(), HybridTransitionController::Detached);
 }
 
+void HybridTransitionControllerTest::_firstProgressStatusOwnsTimestampAssociation()
+{
+    QVERIFY(_controller->requestTransform(HybridVehicleState::TargetRover));
+    _injectAck(MAV_RESULT_IN_PROGRESS, 65);
+    QTRY_COMPARE(_controller->transactionState(), HybridTransitionController::Detached);
+
+    _injectStatus(HybridVehicleState::Transitioning, HybridVehicleState::TargetRover, 65, MAV_RESULT_IN_PROGRESS, 650);
+    QTRY_COMPARE(vehicle()->hybridVehicleState()->commandTimestamp(), 650);
+    _injectStatus(HybridVehicleState::Transitioning, HybridVehicleState::TargetRover, 65, MAV_RESULT_IN_PROGRESS, 651);
+    QTRY_COMPARE(vehicle()->hybridVehicleState()->commandTimestamp(), 651);
+
+    _injectStatus(HybridVehicleState::Rover, HybridVehicleState::None, 65, MAV_RESULT_ACCEPTED, 651);
+    QTest::qWait(20);
+    QCOMPARE(_controller->transactionState(), HybridTransitionController::Detached);
+
+    _injectStatus(HybridVehicleState::Rover, HybridVehicleState::None, 65, MAV_RESULT_ACCEPTED, 650);
+    QTRY_COMPARE(_controller->transactionState(), HybridTransitionController::Idle);
+}
+
 void HybridTransitionControllerTest::_supersedingSequenceRequiresIndependentResync()
 {
     QVERIFY(_controller->requestTransform(HybridVehicleState::TargetRover));
