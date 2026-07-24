@@ -19,6 +19,8 @@ target_sources(${CMAKE_PROJECT_NAME}
         HybridVehicleStateTest.h
         HybridVehicleIngressTest.cc
         HybridVehicleIngressTest.h
+        HybridTransitionControllerTest.cc
+        HybridTransitionControllerTest.h
         MAVLinkLogManagerTest.cc
         MAVLinkLogManagerTest.h
         RequestMessageTest.cc

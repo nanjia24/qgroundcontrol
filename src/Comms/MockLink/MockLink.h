@@ -76,6 +76,9 @@ public:
     void sendUnexpectedMissionRequest() const { _missionItemHandler->sendUnexpectedMissionRequest(); }
 
     void sendUnexpectedCommandAck(MAV_CMD command, MAV_RESULT ackResult);
+    void setHoldHybridTransitionAcks(bool hold) { _holdHybridTransitionAcks = hold; }
+    bool hasHybridTransitionRequest() const { return _hasHybridTransitionRequest; }
+    const mavlink_command_long_t& lastHybridTransitionRequest() const { return _lastHybridTransitionRequest; }
 
     /// Reset the state of the MissionItemHandler to no items, no transactions in progress.
     void resetMissionItemHandler() const { _missionItemHandler->reset(); }
@@ -300,6 +303,9 @@ private:
     double _vehicleAltitudeAMSL = _defaultVehicleHomeAltitude;
     bool _commLost = false;
     bool _signingEnabled = false;
+    bool _holdHybridTransitionAcks = false;
+    bool _hasHybridTransitionRequest = false;
+    mavlink_command_long_t _lastHybridTransitionRequest{};
     bool _highLatencyTransmissionEnabled = true;
 
     int _sendHomePositionDelayCount = 10;               ///< No home position for 4 seconds

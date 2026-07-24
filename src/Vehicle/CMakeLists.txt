@@ -13,6 +13,8 @@ target_sources(${CMAKE_PROJECT_NAME}
         FTPManager.h
         HybridVehicleState.cc
         HybridVehicleState.h
+        HybridTransitionController.cc
+        HybridTransitionController.h
         InitialConnectStateMachine.cc
         InitialConnectStateMachine.h
         MavCommandQueue.cc

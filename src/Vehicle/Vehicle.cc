@@ -32,6 +32,7 @@
 #include "GeoFenceManager.h"
 #include "ImageProtocolManager.h"
 #include "InitialConnectStateMachine.h"
+#include "HybridTransitionController.h"
 #include "HybridVehicleState.h"
 #include "Joystick.h"
 #include "JoystickManager.h"
@@ -289,6 +290,7 @@ void Vehicle::_commonInit(LinkInterface* link)
     // (e.g. VehicleLinkManager::_addLink() → _updatePrimaryLink → sendMavCommand).
     _mavCmdQueue = new MavCommandQueue(this);
     connect(_mavCmdQueue, &MavCommandQueue::commandResult, this, &Vehicle::mavCommandResult);
+    _hybridTransitionController = new HybridTransitionController(this, _hybridVehicleState);
     _reqMsgCoord = new RequestMessageCoordinator(this, _mavCmdQueue);
     _messageIntervalManager = new MessageIntervalManager(this, _mavCmdQueue, _reqMsgCoord);
     connect(_messageIntervalManager, &MessageIntervalManager::mavlinkMsgIntervalsChanged,
@@ -2293,7 +2295,11 @@ void Vehicle::_handleCommandAck(mavlink_message_t& message)
 #endif
 
     // Delegate queue-matching + user callbacks to MavCommandQueue.
-    _mavCmdQueue->handleCommandAck(message, ack);
+    const bool queueHandledAck = _mavCmdQueue->handleCommandAck(message, ack);
+    if (!queueHandledAck && _hybridTransitionController &&
+        (_hybridTransitionController->transactionState() == HybridTransitionController::Detached)) {
+        _hybridTransitionController->handleDetachedAck(message, ack);
+    }
 
     // Advance PID tuning setup/teardown.
     if (ack.command == MAV_CMD_SET_MESSAGE_INTERVAL) {

@@ -21,6 +21,7 @@
 class Actuators;
 class HealthAndArmingCheckReport;
 class HybridVehicleState;
+class HybridTransitionController;
 class MAVLinkStreamConfig;
 class QGCMapCircle;
 class QmlObjectListModel;
@@ -89,6 +90,7 @@ class Vehicle : public VehicleFactGroup, public VehicleTypes
     Q_MOC_INCLUDE("Autotune.h")
     Q_MOC_INCLUDE("GimbalController.h")
     Q_MOC_INCLUDE("HybridVehicleState.h")
+    Q_MOC_INCLUDE("HybridTransitionController.h")
     Q_MOC_INCLUDE("LinkInterface.h")
     Q_MOC_INCLUDE("MAVLinkLogManager.h")
     Q_MOC_INCLUDE("ParameterManager.h")
@@ -102,6 +104,7 @@ class Vehicle : public VehicleFactGroup, public VehicleTypes
 
     friend class InitialConnectStateMachine;
     friend class VehicleLinkManager;
+    friend class HybridTransitionController;
     friend class FactGroupListModel;                // Allow call _addFactGroup
 #ifdef QGC_UNITTEST_BUILD
     friend class SendMavCommandWithSignallingTest;  // Unit test
@@ -230,6 +233,7 @@ public:
     Q_PROPERTY(Autotune*                autotune            READ autotune           CONSTANT)
     Q_PROPERTY(RemoteIDManager*         remoteIDManager     READ remoteIDManager    CONSTANT)
     Q_PROPERTY(HybridVehicleState*      hybridVehicleState  READ hybridVehicleState CONSTANT)
+    Q_PROPERTY(HybridTransitionController* hybridTransitionController READ hybridTransitionController CONSTANT)
 
     // FactGroup object model properties
 
@@ -584,6 +588,7 @@ public:
     Autotune*                       autotune            () const { return _autotune; }
     RemoteIDManager*                remoteIDManager     () { return _remoteIDManager; }
     HybridVehicleState*             hybridVehicleState  () const { return _hybridVehicleState; }
+    HybridTransitionController*     hybridTransitionController() const { return _hybridTransitionController; }
 
     static void showCommandAckError(const mavlink_command_ack_t& ack);
 
@@ -1127,6 +1132,7 @@ public:
     Actuators*                      _actuators                  = nullptr;
     RemoteIDManager*                _remoteIDManager            = nullptr;
     HybridVehicleState*             _hybridVehicleState         = nullptr;
+    HybridTransitionController*     _hybridTransitionController = nullptr;
     StandardModes*                  _standardModes              = nullptr;
 
     // All terrain query workflows (doSetHome, ROI, altAboveTerrain) live in the coordinator.

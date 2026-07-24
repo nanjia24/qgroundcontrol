@@ -1317,6 +1317,10 @@ void MockLink::_handleCommandLong(const mavlink_message_t &msg)
 
     mavlink_command_long_t request{};
     mavlink_msg_command_long_decode(&msg, &request);
+    if (request.command == MAV_CMD_DO_HYBRID_TRANSITION) {
+        _lastHybridTransitionRequest = request;
+        _hasHybridTransitionRequest = true;
+    }
 
     uint8_t commandResult = MAV_RESULT_UNSUPPORTED;
 
@@ -1407,6 +1411,12 @@ void MockLink::_handleCommandLong(const mavlink_message_t &msg)
     case MockLink::MAV_CMD_MOCKLINK_RESULT_IN_PROGRESS_NO_ACK:
         _handleInProgressCommandLong(request);
         return;
+    case MAV_CMD_DO_HYBRID_TRANSITION:
+        if (_holdHybridTransitionAcks) {
+            return;
+        }
+        commandResult = MAV_RESULT_ACCEPTED;
+        break;
     case MAV_CMD_SET_MESSAGE_INTERVAL:
     {
         bool accepted = false;
@@ -1420,6 +1430,10 @@ void MockLink::_handleCommandLong(const mavlink_message_t &msg)
     }
 
     mavlink_message_t commandAck{};
+    const uint8_t ackTargetSystem =
+        (request.command == MAV_CMD_DO_HYBRID_TRANSITION) ? MAVLinkProtocol::instance()->getSystemId() : 0;
+    const uint8_t ackTargetComponent =
+        (request.command == MAV_CMD_DO_HYBRID_TRANSITION) ? MAVLinkProtocol::getComponentId() : 0;
     (void) mavlink_msg_command_ack_pack_chan(
         _vehicleSystemId,
         _vehicleComponentId,
@@ -1429,8 +1443,8 @@ void MockLink::_handleCommandLong(const mavlink_message_t &msg)
         commandResult,
         0,    // progress
         0,    // result_param2
-        0,    // target_system
-        0     // target_component
+        ackTargetSystem,
+        ackTargetComponent
     );
     respondWithMavlinkMessage(commandAck);
 }
