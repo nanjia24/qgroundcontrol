@@ -164,5 +164,6 @@
   - [x] Task 4: route MAVLink 2 status and SYSTEM_TIME through Vehicle safely (`3dd2a2989`, review clean).
   - [x] Task 5: generalize command queue strict matching and detach-on-progress (`1aec8c936`, `c95ded41c`, `5b38cb1e3`; review clean; Windows runtime regressions passed on 2026-07-25).
   - [x] Task 6: implement the transition-controller lifecycle (`8b57c600b`, `ef0e50f1a`, `8d3555549`; review clean; five focused Windows tests passed).
-  - [ ] Task 7: apply the effective stable shape profile to PX4 modes and command gates.
-  - [ ] Tasks 8-10: implement mission/UI integration and final gates.
+  - [x] Task 7: apply the effective stable shape profile to PX4 modes and command gates (`3357342c6`; review clean; five Windows regressions passed).
+  - [ ] Task 8: preserve and validate hybrid transition mission items.
+  - [ ] Tasks 9-10: implement UI integration and final gates.
