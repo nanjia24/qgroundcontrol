@@ -99,6 +99,10 @@ Item {
                         Layout.fillHeight:  true
                         visible:            _activeVehicle
                     }
+
+                    HybridTransitionIndicator {
+                        activeVehicle:      _activeVehicle
+                    }
                 }
             }
             Item {
