@@ -45,14 +45,14 @@ RowLayout {
     }
 
     QGCLabel {
-        text:               qsTr("Fault %1").arg(state.faultReason)
+        text:               state ? qsTr("Fault %1").arg(state.faultReason) : ""
         color:              qgcPal.warningText
         font.pointSize:     ScreenTools.smallFontPointSize
         visible:            state && state.currentState === state.TransitionFault
     }
 
     QGCLabel {
-        text:               qsTr("%1%").arg(Math.round(state.positionNormalized * 100))
+        text:               state ? qsTr("%1%").arg(Math.round(state.positionNormalized * 100)) : ""
         color:              qgcPal.text
         font.pointSize:     ScreenTools.smallFontPointSize
         visible:            state && state.positionNormalizedValid
