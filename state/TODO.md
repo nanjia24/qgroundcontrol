@@ -165,5 +165,6 @@
   - [x] Task 5: generalize command queue strict matching and detach-on-progress (`1aec8c936`, `c95ded41c`, `5b38cb1e3`; review clean; Windows runtime regressions passed on 2026-07-25).
   - [x] Task 6: implement the transition-controller lifecycle (`8b57c600b`, `ef0e50f1a`, `8d3555549`; review clean; five focused Windows tests passed).
   - [x] Task 7: apply the effective stable shape profile to PX4 modes and command gates (`3357342c6`; review clean; five Windows regressions passed).
-  - [ ] Task 8: preserve and validate hybrid transition mission items.
-  - [ ] Tasks 9-10: implement UI integration and final gates.
+  - [x] Task 8: preserve and validate hybrid transition mission items (`f7a389382`; review clean; four Mission regressions passed).
+  - [ ] Task 9: add compact state-driven toolbar controls.
+  - [ ] Task 10: run final integration gates and prepare handoff.
