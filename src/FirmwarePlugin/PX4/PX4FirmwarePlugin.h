@@ -71,6 +71,16 @@ private slots:
     void _mavCommandResult(int vehicleId, int component, int command, int result, int failureCode);
 
 private:
+    enum class EffectiveShapeProfile
+    {
+        QuadMultiRotor,
+        Rover,
+        Unavailable,
+    };
+
+    static EffectiveShapeProfile _effectiveShapeProfile(const Vehicle* vehicle);
+    static bool _isHybridRoverMode(uint32_t customMode);
+
     void    _handleAutopilotVersion         (Vehicle* vehicle, mavlink_message_t* message);
 
     QString _getLatestVersionFileUrl        (Vehicle* vehicle) const override;

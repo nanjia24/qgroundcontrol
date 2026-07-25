@@ -2,6 +2,8 @@
 #include "ParameterMetaData.h"
 #include "PX4ParameterMetaData.h"
 #include "AppMessages.h"
+#include "HybridTransitionController.h"
+#include "HybridVehicleState.h"
 #include "PX4AutoPilotPlugin.h"
 #include "QGCLoggingCategory.h"
 #include "SettingsManager.h"
@@ -102,6 +104,24 @@ QStringList PX4FirmwarePlugin::flightModes(Vehicle* vehicle) const
 
     for (auto &mode : _flightModeList) {
         if (mode.canBeSet){
+            if (vehicle->quadRover()) {
+                switch (_effectiveShapeProfile(vehicle)) {
+                    case EffectiveShapeProfile::QuadMultiRotor:
+                        if (mode.multiRotor) {
+                            flightModesList += mode.mode_name;
+                        }
+                        break;
+                    case EffectiveShapeProfile::Rover:
+                        if (_isHybridRoverMode(mode.custom_mode)) {
+                            flightModesList += mode.mode_name;
+                        }
+                        break;
+                    case EffectiveShapeProfile::Unavailable:
+                        break;
+                }
+                continue;
+            }
+
             bool fw = (vehicle->fixedWing() && mode.fixedWing);
             bool mc = (vehicle->multiRotor() && mode.multiRotor);
 
@@ -152,18 +172,57 @@ bool PX4FirmwarePlugin::setFlightMode(const QString& flightMode, uint8_t* base_m
 
 bool PX4FirmwarePlugin::isCapable(const Vehicle *vehicle, FirmwareCapabilities capabilities) const
 {
+    const bool effectiveMultiRotor =
+        vehicle->multiRotor() ||
+        (vehicle->quadRover() && (_effectiveShapeProfile(vehicle) == EffectiveShapeProfile::QuadMultiRotor));
     int available = SetFlightModeCapability | PauseVehicleCapability | GuidedModeCapability;
     //-- This is arbitrary until I find how to really tell if ROI is avaiable
-    if (vehicle->multiRotor()) {
+    if (effectiveMultiRotor) {
         available |= ROIModeCapability | ChangeHeadingCapability;
     }
-    if (vehicle->multiRotor() || vehicle->vtol()) {
+    if (effectiveMultiRotor || vehicle->vtol()) {
         available |= TakeoffVehicleCapability | GuidedTakeoffCapability | OrbitModeCapability;
     }
     if (vehicle->fixedWing()) {
         available |= TakeoffVehicleCapability | OrbitModeCapability;
     }
     return (capabilities & available) == capabilities;
+}
+
+PX4FirmwarePlugin::EffectiveShapeProfile PX4FirmwarePlugin::_effectiveShapeProfile(const Vehicle* vehicle)
+{
+    const HybridVehicleState* const state = vehicle->hybridVehicleState();
+    const HybridTransitionController* const controller = vehicle->hybridTransitionController();
+    if (!state || !controller || (controller->transactionState() != HybridTransitionController::Idle) ||
+        !state->hasValidStatus() || (state->faultReason() != HYBRID_VEHICLE_FAULT_NONE)) {
+        return EffectiveShapeProfile::Unavailable;
+    }
+
+    switch (state->currentState()) {
+        case HybridVehicleState::Quad:
+            return EffectiveShapeProfile::QuadMultiRotor;
+        case HybridVehicleState::Rover:
+            return EffectiveShapeProfile::Rover;
+        default:
+            return EffectiveShapeProfile::Unavailable;
+    }
+}
+
+bool PX4FirmwarePlugin::_isHybridRoverMode(uint32_t customMode)
+{
+    switch (static_cast<PX4CustomMode::Mode>(customMode)) {
+        case PX4CustomMode::MANUAL:
+        case PX4CustomMode::STABILIZED:
+        case PX4CustomMode::ACRO:
+        case PX4CustomMode::OFFBOARD:
+        case PX4CustomMode::POSCTL_POSCTL:
+        case PX4CustomMode::AUTO_LOITER:
+        case PX4CustomMode::AUTO_MISSION:
+        case PX4CustomMode::AUTO_RTL:
+            return true;
+        default:
+            return false;
+    }
 }
 
 void PX4FirmwarePlugin::initializeVehicle(Vehicle* vehicle)

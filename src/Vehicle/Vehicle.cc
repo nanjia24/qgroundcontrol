@@ -291,6 +291,9 @@ void Vehicle::_commonInit(LinkInterface* link)
     _mavCmdQueue = new MavCommandQueue(this);
     connect(_mavCmdQueue, &MavCommandQueue::commandResult, this, &Vehicle::mavCommandResult);
     _hybridTransitionController = new HybridTransitionController(this, _hybridVehicleState);
+    connect(_hybridVehicleState, &HybridVehicleState::stateChanged, this, &Vehicle::flightModesChanged);
+    connect(_hybridTransitionController, &HybridTransitionController::transactionStateChanged, this,
+            &Vehicle::flightModesChanged);
     _reqMsgCoord = new RequestMessageCoordinator(this, _mavCmdQueue);
     _messageIntervalManager = new MessageIntervalManager(this, _mavCmdQueue, _reqMsgCoord);
     connect(_messageIntervalManager, &MessageIntervalManager::mavlinkMsgIntervalsChanged,
@@ -1527,6 +1530,11 @@ bool Vehicle::setFlightModeCustom(const QString& flightMode, uint8_t* base_mode,
 
 void Vehicle::setFlightMode(const QString& flightMode)
 {
+    if (quadRover() && !flightModes().contains(flightMode, Qt::CaseInsensitive)) {
+        qCWarning(VehicleLog) << "Flight mode is unavailable for the current Quad-Rover shape:" << flightMode;
+        return;
+    }
+
     uint8_t     base_mode;
     uint32_t    custom_mode;
 
