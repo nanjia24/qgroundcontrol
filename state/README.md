@@ -156,6 +156,6 @@ record below.
 
 ## 2026-07-25 Quad-Rover implementation status
 
-- Tasks 1-8 of `docs/superpowers/plans/2026-07-23-quad-rover-implementation.md` are complete and independently reviewed.
+- Tasks 1-9 of `docs/superpowers/plans/2026-07-23-quad-rover-implementation.md` are complete and independently reviewed.
 - Task 6 is committed at `8d3555549`; the Windows Debug build and the five focused State/Controller/command-queue regressions passed.
-- Task 8 is committed at `f7a389382`; the next implementation boundary is Task 9's compact state-driven toolbar control.
+- Task 9 is committed in `d64ec186b` plus null-safe binding fix `856d7483a`; the remaining implementation-plan work is Task 10 integration evidence and handoff.

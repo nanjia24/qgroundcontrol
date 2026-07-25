@@ -166,5 +166,5 @@
   - [x] Task 6: implement the transition-controller lifecycle (`8b57c600b`, `ef0e50f1a`, `8d3555549`; review clean; five focused Windows tests passed).
   - [x] Task 7: apply the effective stable shape profile to PX4 modes and command gates (`3357342c6`; review clean; five Windows regressions passed).
   - [x] Task 8: preserve and validate hybrid transition mission items (`f7a389382`; review clean; four Mission regressions passed).
-  - [ ] Task 9: add compact state-driven toolbar controls.
+  - [x] Task 9: add compact state-driven toolbar controls (`d64ec186b`, `856d7483a`; review clean after one fix round).
   - [ ] Task 10: run final integration gates and prepare handoff.
