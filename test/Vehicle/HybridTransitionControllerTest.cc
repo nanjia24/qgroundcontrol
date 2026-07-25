@@ -52,8 +52,11 @@ void HybridTransitionControllerTest::_injectAck(MAV_RESULT result, uint32_t sequ
 void HybridTransitionControllerTest::_injectStatus(HybridVehicleState::CurrentState currentState,
                                                    HybridVehicleState::TargetState targetState, uint32_t sequence,
                                                    MAV_RESULT commandResult, uint64_t commandTimestamp,
-                                                   uint8_t faultReason, uint64_t statusTimestamp)
+                                                   uint8_t faultReason, uint64_t statusTimestamp,
+                                                   bool waitForAcceptance)
 {
+    QSignalSpy statusAcceptedSpy(vehicle()->hybridVehicleState(), &HybridVehicleState::statusAccepted);
+    QVERIFY(statusAcceptedSpy.isValid());
     mavlink_hybrid_vehicle_status_t status{};
     status.timestamp = statusTimestamp ? statusTimestamp : ++_statusTimestamp;
     status.transition_sequence = sequence;
@@ -69,6 +72,10 @@ void HybridTransitionControllerTest::_injectStatus(HybridVehicleState::CurrentSt
     mavlink_msg_hybrid_vehicle_status_encode_chan(vehicle()->id(), MAV_COMP_ID_AUTOPILOT1, mockLink()->mavlinkChannel(),
                                                   &message, &status);
     mockLink()->respondWithMavlinkMessage(message);
+    if (waitForAcceptance) {
+        QVERIFY(!statusAcceptedSpy.isEmpty() ||
+                UnitTest::waitForSignal(statusAcceptedSpy, TestTimeout::longMs(), QStringLiteral("statusAccepted")));
+    }
 }
 
 void HybridTransitionControllerTest::_injectSystemTime(uint32_t timeBootMs)
@@ -116,14 +123,13 @@ void HybridTransitionControllerTest::_requestUsesTypedCommandContract()
 
 void HybridTransitionControllerTest::_wrongAddressDoesNotDetach()
 {
+    const uint8_t wrongTargetSystem = MAVLinkProtocol::instance()->getSystemId() == 1 ? 2 : 1;
     QVERIFY(_controller->requestTransform(HybridVehicleState::TargetRover));
-    _injectAck(MAV_RESULT_ACCEPTED, 17, MAV_COMP_ID_AUTOPILOT1, MAVLinkProtocol::instance()->getSystemId() + 1,
-               MAVLinkProtocol::getComponentId());
-    QTest::qWait(20);
+    _injectAck(MAV_RESULT_ACCEPTED, 17, MAV_COMP_ID_AUTOPILOT1, wrongTargetSystem, MAVLinkProtocol::getComponentId());
     QVERIFY(vehicle()->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, MAV_CMD_DO_HYBRID_TRANSITION));
     QCOMPARE(_controller->transactionState(), HybridTransitionController::Queued);
 
-    _injectAck(MAV_RESULT_IN_PROGRESS, 17, MAV_COMP_ID_AUTOPILOT1, MAVLinkProtocol::instance()->getSystemId() + 1,
+    _injectAck(MAV_RESULT_IN_PROGRESS, 17, MAV_COMP_ID_AUTOPILOT1, wrongTargetSystem,
                MAVLinkProtocol::getComponentId());
     QTest::qWait(20);
     QVERIFY(vehicle()->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, MAV_CMD_DO_HYBRID_TRANSITION));
@@ -175,7 +181,7 @@ void HybridTransitionControllerTest::_noFirstAckEndsWithoutSuccess()
     while (vehicle()->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, MAV_CMD_DO_HYBRID_TRANSITION) &&
            (waitTimer.elapsed() < MavCommandQueue::kTestMaxWaitMs)) {
         _injectStatus(HybridVehicleState::Quad, HybridVehicleState::None, 7, MAV_RESULT_ACCEPTED, 70);
-        QTest::qWait(100);
+        QTest::qWait(25);
     }
     QVERIFY(!vehicle()->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, MAV_CMD_DO_HYBRID_TRANSITION));
     QCOMPARE(_controller->transactionState(), HybridTransitionController::Idle);
@@ -330,7 +336,7 @@ void HybridTransitionControllerTest::_confirmedRebootCancelsQueuedCommand()
     QVERIFY(_controller->requestTransform(HybridVehicleState::TargetRover));
     QVERIFY(vehicle()->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, MAV_CMD_DO_HYBRID_TRANSITION));
     _injectStatus(HybridVehicleState::Quad, HybridVehicleState::None, 7, MAV_RESULT_ACCEPTED, 70,
-                  HYBRID_VEHICLE_FAULT_NONE, 100);
+                  HYBRID_VEHICLE_FAULT_NONE, 100, false);
     _injectSystemTime(5000);
     _injectSystemTime(20);
     QTRY_COMPARE(_controller->transactionState(), HybridTransitionController::VehicleRebootedUnconfirmed);
@@ -343,11 +349,13 @@ void HybridTransitionControllerTest::_detachedTransactionOutlivesGenericQueueWin
     _injectAck(MAV_RESULT_IN_PROGRESS, 91);
     QTRY_COMPARE(_controller->transactionState(), HybridTransitionController::Detached);
 
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 40; ++i) {
         _injectStatus(HybridVehicleState::Transitioning, HybridVehicleState::TargetRover, 91, MAV_RESULT_IN_PROGRESS,
                       910);
-        QTest::qWait(140);
+        QTest::qWait(40);
     }
     QCOMPARE(_controller->transactionState(), HybridTransitionController::Detached);
     QVERIFY(!vehicle()->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, MAV_CMD_DO_HYBRID_TRANSITION));
 }
+
+UT_REGISTER_TEST(HybridTransitionControllerTest, TestLabel::Integration, TestLabel::Vehicle)

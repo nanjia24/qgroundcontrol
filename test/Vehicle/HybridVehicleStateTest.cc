@@ -101,14 +101,10 @@ void HybridVehicleStateTest::_decodesIndependentFlags()
 {
     using FlagGetter = bool (HybridVehicleState::*)() const;
     const std::array<FlagGetter, 8> flagGetters = {
-        &HybridVehicleState::sensorsEnabled,
-        &HybridVehicleState::positionConfirmed,
-        &HybridVehicleState::positionValid,
-        &HybridVehicleState::actuatorOnline,
-        &HybridVehicleState::actuatorHealthy,
-        &HybridVehicleState::actuatorConfigVerified,
-        &HybridVehicleState::landed,
-        &HybridVehicleState::landDetectionSampleFresh,
+        &HybridVehicleState::sensorsEnabled,  &HybridVehicleState::positionConfirmed,
+        &HybridVehicleState::positionValid,   &HybridVehicleState::actuatorOnline,
+        &HybridVehicleState::actuatorHealthy, &HybridVehicleState::actuatorConfigVerified,
+        &HybridVehicleState::landed,          &HybridVehicleState::landDetectionSampleFresh,
     };
 
     HybridVehicleState state(kAutopilotComponent);
@@ -154,7 +150,7 @@ void HybridVehicleStateTest::_statusBecomesStale()
     QSignalSpy freshnessSpy(&state, &HybridVehicleState::freshnessChanged);
     state.handleStatus(kAutopilotComponent, makeStatus(1000));
 
-    QTRY_VERIFY_WITH_TIMEOUT(state.stale(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(state.stale(), 4000);
     QVERIFY(!state.hasValidStatus());
     QCOMPARE(stateSpy.count(), 2);
     QVERIFY(freshnessSpy.count() >= 2);
@@ -283,7 +279,7 @@ void HybridVehicleStateTest::_candidateExpiryRestoresOrdinaryFreshness()
     QVERIFY(state.resetCandidateActive());
     QVERIFY(!state.hasValidStatus());
 
-    QTRY_VERIFY_WITH_TIMEOUT(!state.resetCandidateActive(), 1000);
+    QTRY_VERIFY_WITH_TIMEOUT(!state.resetCandidateActive(), 4000);
     QVERIFY(state.stale());
     QCOMPARE(state.currentState(), HybridVehicleState::Quad);
 }
@@ -323,3 +319,5 @@ void HybridVehicleStateTest::_fallbackRequiresThreeIncreasingLowHrtSamples()
     QCOMPARE(rebootSpy.count(), 1);
     QVERIFY(!state.hasValidStatus());
 }
+
+UT_REGISTER_TEST(HybridVehicleStateTest, TestLabel::Unit, TestLabel::Vehicle)

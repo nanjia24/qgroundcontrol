@@ -2,13 +2,10 @@
 
 #include <cmath>
 
-#include "AppMessages.h"
-
 namespace {
 
 constexpr int kFreshnessTimeoutMs = 3000;
 constexpr int kRebootPairingWindowMs = 3000;
-constexpr int kUnitTestTimeoutMs = 150;
 
 HybridVehicleState::CurrentState decodeCurrentState(uint8_t state)
 {
@@ -45,7 +42,7 @@ HybridVehicleState::HybridVehicleState(uint8_t selectedAutopilotComponentId, QOb
 {
     _monotonicClock.start();
     _freshnessTimer.setSingleShot(true);
-    _freshnessTimer.setInterval(QGC::runningUnitTests() ? kUnitTestTimeoutMs : kFreshnessTimeoutMs);
+    _freshnessTimer.setInterval(kFreshnessTimeoutMs);
     connect(&_freshnessTimer, &QTimer::timeout, this, [this]() {
         if (_stale) {
             return;
@@ -60,7 +57,7 @@ HybridVehicleState::HybridVehicleState(uint8_t selectedAutopilotComponentId, QOb
     });
 
     _candidateTimer.setSingleShot(true);
-    _candidateTimer.setInterval(QGC::runningUnitTests() ? kUnitTestTimeoutMs : kRebootPairingWindowMs);
+    _candidateTimer.setInterval(kRebootPairingWindowMs);
     connect(&_candidateTimer, &QTimer::timeout, this, &HybridVehicleState::_clearExpiredCandidates);
 }
 

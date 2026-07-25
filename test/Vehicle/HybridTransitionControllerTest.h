@@ -37,7 +37,8 @@ private:
                     uint8_t targetSystem = 0, uint8_t targetComponent = 0);
     void _injectStatus(HybridVehicleState::CurrentState currentState, HybridVehicleState::TargetState targetState,
                        uint32_t sequence, MAV_RESULT commandResult, uint64_t commandTimestamp,
-                       uint8_t faultReason = HYBRID_VEHICLE_FAULT_NONE, uint64_t statusTimestamp = 0);
+                       uint8_t faultReason = HYBRID_VEHICLE_FAULT_NONE, uint64_t statusTimestamp = 0,
+                       bool waitForAcceptance = true);
     void _injectSystemTime(uint32_t timeBootMs);
     void _primeStableState(HybridVehicleState::CurrentState currentState);
 

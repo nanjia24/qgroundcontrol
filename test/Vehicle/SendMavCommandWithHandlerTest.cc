@@ -1,6 +1,9 @@
 #include "SendMavCommandWithHandlerTest.h"
 
+#include <QtCore/QScopeGuard>
+
 #include "MAVLinkProtocol.h"
+#include "MavCommandQueue.h"
 #include "MultiVehicleManager.h"
 
 namespace {
@@ -78,9 +81,7 @@ void SendMavCommandWithHandlerTest::_testCaseWorker(TestCase_t& testCase)
 
 void SendMavCommandWithHandlerTest::_performTestCases()
 {
-    int index = 0;
     for (TestCase_t& testCase : _rgTestCases) {
-        qDebug() << "Testing case" << index++;
         _testCaseWorker(testCase);
     }
 }
@@ -137,30 +138,30 @@ void SendMavCommandWithHandlerTest::_compIdAllFailure()
 }
 
 bool SendMavCommandWithHandlerTest::_strictAckMatcher(void* matcherData, const mavlink_message_t& message,
-                                                       const mavlink_command_ack_t& ack)
+                                                      const mavlink_command_ack_t& ack)
 {
     const AckMatcherData_t* data = static_cast<const AckMatcherData_t*>(matcherData);
-    return message.sysid == data->senderSystemId && message.compid == data->senderComponentId
-        && ack.target_system == data->targetSystemId && ack.target_component == data->targetComponentId
-        && ack.command == data->command;
+    return message.sysid == data->senderSystemId && message.compid == data->senderComponentId &&
+           ack.target_system == data->targetSystemId && ack.target_component == data->targetComponentId &&
+           ack.command == data->command;
 }
 
 void SendMavCommandWithHandlerTest::_countResultHandler(void* resultHandlerData, int /*compId*/,
-                                                         const mavlink_command_ack_t& /*ack*/,
-                                                         Vehicle::MavCmdResultFailureCode_t /*failureCode*/)
+                                                        const mavlink_command_ack_t& /*ack*/,
+                                                        Vehicle::MavCmdResultFailureCode_t /*failureCode*/)
 {
     static_cast<AckHandlerData_t*>(resultHandlerData)->resultHandlerCallCount++;
 }
 
 void SendMavCommandWithHandlerTest::_countProgressHandler(void* progressHandlerData, int /*compId*/,
-                                                           const mavlink_command_ack_t& /*ack*/)
+                                                          const mavlink_command_ack_t& /*ack*/)
 {
     static_cast<AckHandlerData_t*>(progressHandlerData)->progressHandlerCallCount++;
 }
 
 bool SendMavCommandWithHandlerTest::_injectAck(MAV_CMD command, MAV_RESULT result, uint8_t senderSystemId,
-                                                uint8_t senderComponentId, uint8_t targetSystemId,
-                                                uint8_t targetComponentId)
+                                               uint8_t senderComponentId, uint8_t targetSystemId,
+                                               uint8_t targetComponentId)
 {
     mavlink_message_t message{};
     (void)mavlink_msg_command_ack_pack_chan(senderSystemId, senderComponentId, MAVLINK_COMM_0, &message, command,
@@ -175,8 +176,8 @@ void SendMavCommandWithHandlerTest::_strictAckMatching()
     Vehicle* const vehicle = MultiVehicleManager::instance()->activeVehicle();
     const uint8_t qgcSystemId = MAVLinkProtocol::instance()->getSystemId();
     const uint8_t qgcComponentId = MAVLinkProtocol::getComponentId();
-    const AckMatcherData_t matcherData { static_cast<uint8_t>(vehicle->id()), MAV_COMP_ID_AUTOPILOT1, qgcSystemId,
-                                         qgcComponentId, kHybridTransitionCommand };
+    AckMatcherData_t matcherData{static_cast<uint8_t>(vehicle->id()), MAV_COMP_ID_AUTOPILOT1, qgcSystemId,
+                                 qgcComponentId, kHybridTransitionCommand};
     AckHandlerData_t handlerData;
     Vehicle::MavCmdAckHandlerInfo_t handlerInfo = {};
     handlerInfo.resultHandler = _countResultHandler;
@@ -218,13 +219,15 @@ void SendMavCommandWithHandlerTest::_strictAckMatching()
 void SendMavCommandWithHandlerTest::_hybridTransitionRetriesBeforeFirstMatchingAck()
 {
     Vehicle* const vehicle = MultiVehicleManager::instance()->activeVehicle();
-    const AckMatcherData_t matcherData { static_cast<uint8_t>(vehicle->id()), MAV_COMP_ID_AUTOPILOT1,
-                                         MAVLinkProtocol::instance()->getSystemId(), MAVLinkProtocol::getComponentId(),
-                                         kHybridTransitionCommand };
+    AckMatcherData_t matcherData{static_cast<uint8_t>(vehicle->id()), MAV_COMP_ID_AUTOPILOT1,
+                                 static_cast<uint8_t>(MAVLinkProtocol::instance()->getSystemId()),
+                                 static_cast<uint8_t>(MAVLinkProtocol::getComponentId()), kHybridTransitionCommand};
     Vehicle::MavCmdAckHandlerInfo_t handlerInfo = {};
     handlerInfo.ackMatcher = _strictAckMatcher;
     handlerInfo.ackMatcherData = &matcherData;
 
+    _mockLink->setHoldHybridTransitionAcks(true);
+    const auto restoreHybridTransitionAcks = qScopeGuard([this]() { _mockLink->setHoldHybridTransitionAcks(false); });
     _mockLink->clearReceivedMavCommandCounts();
     vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand, 17.0f);
     QVERIFY_TRUE_WAIT(_mockLink->receivedMavCommandCount(kHybridTransitionCommand) >= 2, TestTimeout::longMs());
@@ -241,9 +244,9 @@ void SendMavCommandWithHandlerTest::_hybridTransitionRetriesBeforeFirstMatchingA
 void SendMavCommandWithHandlerTest::_cancelCommand()
 {
     Vehicle* const vehicle = MultiVehicleManager::instance()->activeVehicle();
-    const AckMatcherData_t matcherData { static_cast<uint8_t>(vehicle->id()), MAV_COMP_ID_AUTOPILOT1,
-                                         MAVLinkProtocol::instance()->getSystemId(), MAVLinkProtocol::getComponentId(),
-                                         kHybridTransitionCommand };
+    AckMatcherData_t matcherData{static_cast<uint8_t>(vehicle->id()), MAV_COMP_ID_AUTOPILOT1,
+                                 static_cast<uint8_t>(MAVLinkProtocol::instance()->getSystemId()),
+                                 static_cast<uint8_t>(MAVLinkProtocol::getComponentId()), kHybridTransitionCommand};
     AckHandlerData_t handlerData;
     Vehicle::MavCmdAckHandlerInfo_t handlerInfo = {};
     handlerInfo.resultHandler = _countResultHandler;

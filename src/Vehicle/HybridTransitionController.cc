@@ -96,7 +96,7 @@ void HybridTransitionController::handleDetachedAck(const mavlink_message_t& mess
 
 void HybridTransitionController::handleVehicleReboot()
 {
-    if (!busy()) {
+    if (_transactionState == Idle) {
         return;
     }
 
