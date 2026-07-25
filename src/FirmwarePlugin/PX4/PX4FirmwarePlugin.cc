@@ -277,6 +277,8 @@ QList<MAV_CMD> PX4FirmwarePlugin::supportedMissionCommands(QGCMAVLink::VehicleCl
     if (vehicleClass == QGCMAVLink::VehicleClassVTOL) {
         supportedCommands += vtolCommands;
         supportedCommands += flightCommands;
+    } else if (vehicleClass == QGCMAVLink::VehicleClassQuadRover) {
+        supportedCommands.append(MAV_CMD_DO_HYBRID_TRANSITION);
     } else if (vehicleClass == QGCMAVLink::VehicleClassFixedWing || vehicleClass == QGCMAVLink::VehicleClassMultiRotor) {
         supportedCommands += flightCommands;
     }
@@ -297,6 +299,8 @@ QString PX4FirmwarePlugin::missionCommandOverrides(QGCMAVLink::VehicleClass_t ve
         return QStringLiteral(":/json/PX4-MavCmdInfoFixedWing.json");
     case QGCMAVLink::VehicleClassMultiRotor:
         return QStringLiteral(":/json/PX4-MavCmdInfoMultiRotor.json");
+    case QGCMAVLink::VehicleClassQuadRover:
+        return QStringLiteral(":/json/PX4-MavCmdInfoQuadRover.json");
     case QGCMAVLink::VehicleClassVTOL:
         return QStringLiteral(":/json/PX4-MavCmdInfoVTOL.json");
     case QGCMAVLink::VehicleClassSub:

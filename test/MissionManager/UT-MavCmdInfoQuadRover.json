@@ -1,0 +1,13 @@
+{
+    "comment": "Unit-test Quad-Rover mission command overrides",
+    "version": 1,
+    "fileType": "MavCmdInfo",
+    "mavCmdInfo": [
+        {
+            "id": 50000,
+            "specifiesCoordinate": false,
+            "standaloneCoordinate": false,
+            "paramRemove": "2,3,4,5,6,7"
+        }
+    ]
+}

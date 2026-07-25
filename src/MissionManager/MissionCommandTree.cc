@@ -22,6 +22,7 @@ MissionCommandTree::MissionCommandTree(bool unitTest, QObject *parent)
         _staticCommandTree[MAV_AUTOPILOT_GENERIC][QGCMAVLink::VehicleClassGeneric] = new MissionCommandList(":/unittest/UT-MavCmdInfoCommon.json", true, this);
         _staticCommandTree[MAV_AUTOPILOT_GENERIC][QGCMAVLink::VehicleClassFixedWing] = new MissionCommandList(":/unittest/UT-MavCmdInfoFixedWing.json", false, this);
         _staticCommandTree[MAV_AUTOPILOT_GENERIC][QGCMAVLink::VehicleClassMultiRotor] = new MissionCommandList(":/unittest/UT-MavCmdInfoMultiRotor.json", false, this);
+        _staticCommandTree[MAV_AUTOPILOT_GENERIC][QGCMAVLink::VehicleClassQuadRover] = new MissionCommandList(":/unittest/UT-MavCmdInfoQuadRover.json", false, this);
         _staticCommandTree[MAV_AUTOPILOT_GENERIC][QGCMAVLink::VehicleClassVTOL] = new MissionCommandList(":/unittest/UT-MavCmdInfoVTOL.json", false, this);
         _staticCommandTree[MAV_AUTOPILOT_GENERIC][QGCMAVLink::VehicleClassSub] = new MissionCommandList(":/unittest/UT-MavCmdInfoSub.json", false, this);
         _staticCommandTree[MAV_AUTOPILOT_GENERIC][QGCMAVLink::VehicleClassRoverBoat] = new MissionCommandList(":/unittest/UT-MavCmdInfoRover.json", false, this);

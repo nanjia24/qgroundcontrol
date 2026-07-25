@@ -52,8 +52,6 @@ void PlanManager::_writeMissionItemsWorker(void)
     _connectToMavlink();
     _writeMissionCount();
 }
-
-
 void PlanManager::writeMissionItems(const QList<MissionItem*>& missionItems)
 {
     if (_vehicle->isOfflineEditingVehicle()) {
@@ -63,6 +61,19 @@ void PlanManager::writeMissionItems(const QList<MissionItem*>& missionItems)
     if (inProgress()) {
         qCDebug(PlanManagerLog) << QStringLiteral("writeMissionItems %1 called while transaction in progress").arg(_planTypeString());
         return;
+    }
+
+    if (_planType == MAV_MISSION_TYPE_MISSION && _vehicle->quadRover()) {
+        for (MissionItem* const item : missionItems) {
+            QString error;
+            if (!item->isValidHybridTransition(&error)) {
+                if (error.isEmpty()) {
+                    error = tr("Hybrid transition reserved parameters must be finite and zero.");
+                }
+                _sendError(InternalError, error);
+                return;
+            }
+        }
     }
 
     _clearAndDeleteWriteMissionItems();

@@ -87,6 +87,8 @@ public:
     bool load(QTextStream &loadStream);
     bool load(const QJsonObject& json, int sequenceNumber, QString& errorString);
 
+    bool isValidHybridTransition(QString* error = nullptr) const;
+
     bool relativeAltitude(void) const { return frame() == MAV_FRAME_GLOBAL_RELATIVE_ALT; }
 
 signals:

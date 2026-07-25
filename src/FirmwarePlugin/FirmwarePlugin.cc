@@ -100,6 +100,8 @@ QString FirmwarePlugin::missionCommandOverrides(QGCMAVLink::VehicleClass_t vehic
         return QStringLiteral(":/json/MavCmdInfoFixedWing.json");
     case QGCMAVLink::VehicleClassMultiRotor:
         return QStringLiteral(":/json/MavCmdInfoMultiRotor.json");
+    case QGCMAVLink::VehicleClassQuadRover:
+        return QStringLiteral(":/json/MavCmdInfoQuadRover.json");
     case QGCMAVLink::VehicleClassVTOL:
         return QStringLiteral(":/json/MavCmdInfoVTOL.json");
     case QGCMAVLink::VehicleClassSub:

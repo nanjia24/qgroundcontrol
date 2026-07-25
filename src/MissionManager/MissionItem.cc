@@ -1,7 +1,9 @@
-#include <QtCore/QStringList>
-#include <QtCore/QJsonArray>
-
 #include "MissionItem.h"
+
+#include <QtCore/QJsonArray>
+#include <QtCore/QStringList>
+#include <cmath>
+
 #include "GeoJsonHelper.h"
 #include "JsonParsing.h"
 #include "VisualMissionItem.h"
@@ -126,9 +128,29 @@ const MissionItem& MissionItem::operator=(const MissionItem& other)
     return *this;
 }
 
-MissionItem::~MissionItem()
-{
+MissionItem::~MissionItem() {}
 
+bool MissionItem::isValidHybridTransition(QString* error) const
+{
+    if (command() != MAV_CMD_DO_HYBRID_TRANSITION) {
+        return true;
+    }
+
+    const double target = param1();
+    if (!std::isfinite(target) || (target != 1.0 && target != 2.0)) {
+        if (error) {
+            *error = tr("Hybrid transition target must be Quad or Rover.");
+        }
+        return false;
+    }
+
+    for (const double reserved : {param2(), param3(), param4(), param5(), param6(), param7()}) {
+        if (!std::isfinite(reserved) || reserved != 0.0) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 void MissionItem::save(QJsonObject& json) const

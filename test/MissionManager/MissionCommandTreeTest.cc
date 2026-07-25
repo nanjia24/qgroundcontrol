@@ -3,6 +3,7 @@
 #include "MissionCommandList.h"
 #include "MissionCommandTree.h"
 #include "MissionCommandUIInfo.h"
+#include "PX4FirmwarePlugin.h"
 #include "UnitTest.h"
 #include "Vehicle.h"
 
@@ -195,6 +196,43 @@ void MissionCommandTreeTest::testAllTrees()
             delete vehicle;
         }
     }
+}
+
+void MissionCommandTreeTest::testHybridTransitionCommandIsQuadRoverOnly()
+{
+    PX4FirmwarePlugin px4FirmwarePlugin;
+    QCOMPARE(px4FirmwarePlugin.missionCommandOverrides(QGCMAVLink::VehicleClassQuadRover),
+             QStringLiteral(":/json/PX4-MavCmdInfoQuadRover.json"));
+
+    const MAV_CMD hybridTransitionCommand = MAV_CMD_DO_HYBRID_TRANSITION;
+    Vehicle quadRover(MAV_AUTOPILOT_PX4, MAV_TYPE_QUAD_ROVER, this);
+    MissionCommandTree* const commandTree = MissionCommandTree::instance();
+
+    const MissionCommandUIInfo* const hybridInfo =
+        commandTree->getUIInfo(&quadRover, QGCMAVLink::VehicleClassGeneric, hybridTransitionCommand);
+    QVERIFY(hybridInfo);
+    QCOMPARE(hybridInfo->command(), hybridTransitionCommand);
+    QVERIFY(!hybridInfo->specifiesCoordinate());
+    QVERIFY(!hybridInfo->isStandaloneCoordinate());
+    bool showUI = false;
+    const MissionCmdParamInfo* const param1Info = hybridInfo->getParamInfo(1, showUI);
+    QVERIFY(showUI);
+    QVERIFY(param1Info);
+    QCOMPARE(param1Info->enumStrings(), QStringList({QStringLiteral("Quad"), QStringLiteral("Rover")}));
+    QCOMPARE(param1Info->enumValues(), QVariantList({1, 2}));
+    for (int parameter = 2; parameter <= 7; ++parameter) {
+        QVERIFY(hybridInfo->getParamInfo(parameter, showUI) == nullptr);
+        QVERIFY(!showUI);
+    }
+
+    QVERIFY(px4FirmwarePlugin.supportedMissionCommands(QGCMAVLink::VehicleClassQuadRover)
+                .contains(hybridTransitionCommand));
+    QVERIFY(!px4FirmwarePlugin.supportedMissionCommands(QGCMAVLink::VehicleClassMultiRotor)
+                 .contains(hybridTransitionCommand));
+    QVERIFY(
+        !px4FirmwarePlugin.supportedMissionCommands(QGCMAVLink::VehicleClassVTOL).contains(hybridTransitionCommand));
+    QVERIFY(!px4FirmwarePlugin.supportedMissionCommands(QGCMAVLink::VehicleClassRoverBoat)
+                 .contains(hybridTransitionCommand));
 }
 
 void MissionCommandTreeTest::testUnknownCommandFallbacks()

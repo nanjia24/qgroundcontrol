@@ -1291,6 +1291,22 @@
             }
         },
         {
+            "id":                   50000,
+            "rawName":              "MAV_CMD_DO_HYBRID_TRANSITION",
+            "friendlyName":         "Hybrid Transition",
+            "description":          "Transition a Quad-Rover between Quad and Rover shapes.",
+            "specifiesCoordinate":  false,
+            "standaloneCoordinate": false,
+            "category":             "Advanced",
+            "param1": {
+                "label":            "Target",
+                "default":          1,
+                "decimalPlaces":    0,
+                "enumStrings":      "Quad,Rover",
+                "enumValues":       "1,2"
+            }
+        },
+        {
             "id":                   4501,
             "rawName":              "MAV_CMD_CONDITION_GATE",
             "friendlyName":         "Condition Gate",

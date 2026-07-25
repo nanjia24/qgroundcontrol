@@ -11,6 +11,7 @@ target_sources(${CMAKE_PROJECT_NAME}
         CorridorScanComplexItemTest.cc CorridorScanComplexItemTest.h
         FWLandingPatternTest.cc FWLandingPatternTest.h
         LandingComplexItemTest.cc LandingComplexItemTest.h
+        HybridMissionItemTest.cc HybridMissionItemTest.h
         MissionCommandTreeEditorTest.cc MissionCommandTreeEditorTest.h
         MissionCommandTreeTest.cc MissionCommandTreeTest.h
         MissionControllerManagerTest.cc MissionControllerManagerTest.h
@@ -52,6 +53,7 @@ qt_add_resources(${CMAKE_PROJECT_NAME} "MissionManagerTest_res"
         UT-MavCmdInfoCommon.json
         UT-MavCmdInfoFixedWing.json
         UT-MavCmdInfoMultiRotor.json
+        UT-MavCmdInfoQuadRover.json
         UT-MavCmdInfoRover.json
         UT-MavCmdInfoSub.json
         UT-MavCmdInfoVTOL.json

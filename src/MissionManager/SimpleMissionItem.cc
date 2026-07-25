@@ -792,6 +792,10 @@ SimpleMissionItem::ReadyForSaveState SimpleMissionItem::readyForSaveState(void) 
         return NotReadyForSaveData;
     }
 
+    if (!_missionItem.isValidHybridTransition()) {
+        return NotReadyForSaveData;
+    }
+
     bool terrainReady =  !specifiesAltitude() || !qIsNaN(_missionItem._param7Fact.rawValue().toDouble());
     return terrainReady ? ReadyForSave : NotReadyForSaveTerrain;
 }
