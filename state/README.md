@@ -153,3 +153,9 @@ record below.
 - A reversible CTest metadata probe proved `MissionControllerTest` is slow rather than stalled: it passed in 133.82 seconds with a 360-second probe limit.
 - `InitialConnectTest` still timed out at 360.04 seconds, so increasing its timeout without function/data-row localization is prohibited.
 - Approved direction: Windows-only 180 seconds for `MissionControllerTest`; temporary uncommitted QTest function/data-row selection for Initial Connect localization; evidence-driven durable correction; full CTest before downstream branching.
+
+## 2026-07-25 Quad-Rover implementation status
+
+- Tasks 1-6 of `docs/superpowers/plans/2026-07-23-quad-rover-implementation.md` are complete and independently reviewed.
+- Task 6 is committed at `8d3555549`; the Windows Debug build and the five focused State/Controller/command-queue regressions passed.
+- The next implementation boundary is Task 7: project the effective stable Quad/Rover shape into PX4 flight-mode policy without changing the permanent Quad-Rover vehicle class.

@@ -195,3 +195,5 @@ enabled: vehicle && vehicle.armed
 - Windows CTest environment paths must derive from `%WINDIR%`, normalize with CMake, and never hard-code `C:\Windows` or whitelist the resulting font warning.
 - Long-test timeout corrections must be scoped to the proven test/platform pair; do not raise shared timeout variables to mask one Windows offscreen runtime.
 - Custom MockLinks created by `VehicleTest` cases must be assigned to the fixture `_mockLink` member and disconnected through `_disconnectMockLink()` so vehicle removal and event-loop cleanup finish before local link configuration objects are released.
+- Hybrid controller integration tests must preserve the production ordering between the 3000 ms status-freshness window and the shorter command-queue retry window; globally shortening the state timer for unit tests creates false `Unconfirmed` transitions under full-QGC event-loop stalls.
+- MockLink tests of command 50000 pre-ACK retries must enable `setHoldHybridTransitionAcks(true)` and restore it after the case; the default MockLink behavior immediately emits a matching `ACCEPTED` ACK.
