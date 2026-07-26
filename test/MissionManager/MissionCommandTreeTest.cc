@@ -238,14 +238,16 @@ void MissionCommandTreeTest::testHybridTransitionCommandIsQuadRoverOnly()
 
     const auto commandIsExposed = [commandTree, hybridTransitionCommand](Vehicle* vehicle) {
         const QStringList categories = commandTree->categoriesForVehicle(vehicle);
-        if (categories.isEmpty()) {
-            return false;
+        for (const QString& category : categories) {
+            const QVariantList commands = commandTree->getCommandsForCategory(vehicle, category, true);
+            if (std::any_of(commands.cbegin(), commands.cend(), [hybridTransitionCommand](const QVariant& command) {
+                    const MissionCommandUIInfo* const uiInfo = command.value<MissionCommandUIInfo*>();
+                    return uiInfo && uiInfo->command() == hybridTransitionCommand;
+                })) {
+                return true;
+            }
         }
-        const QVariantList commands = commandTree->getCommandsForCategory(vehicle, categories.constLast(), true);
-        return std::any_of(commands.cbegin(), commands.cend(), [hybridTransitionCommand](const QVariant& command) {
-            const MissionCommandUIInfo* const uiInfo = command.value<MissionCommandUIInfo*>();
-            return uiInfo && uiInfo->command() == hybridTransitionCommand;
-        });
+        return false;
     };
 
     Vehicle multirotor(MAV_AUTOPILOT_PX4, MAV_TYPE_QUADROTOR, this);
