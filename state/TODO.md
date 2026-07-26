@@ -157,7 +157,7 @@
 - [x] Write and self-review the implementation plan before changing QGC behavior.
 - [x] Obtain plan review and select the implementation workflow.
   - 2026-07-23: selected subagent-driven development with a fresh implementer and independent reviewer per task.
-- [ ] Execute the approved implementation plan with TDD, focused reviews, and release evidence.
+- [x] Execute the approved implementation plan with TDD, focused reviews, and release evidence.
   - [x] Task 1: pin and prove the composite MAVLink r2 dependency contract (`ec03aa473`, review clean).
   - [x] Task 2: register type 200 as a permanent Quad-Rover class (`3825f50c2`, review clean).
   - [x] Task 3: implement authoritative hybrid state, freshness, and reboot epochs (`f3e799c02`, `93a5ad457`, review clean).
@@ -167,4 +167,5 @@
   - [x] Task 7: apply the effective stable shape profile to PX4 modes and command gates (`3357342c6`; review clean; five Windows regressions passed).
   - [x] Task 8: preserve and validate hybrid transition mission items (`f7a389382`; review clean; four Mission regressions passed).
   - [x] Task 9: add compact state-driven toolbar controls (`d64ec186b`, `856d7483a`; review clean after one fix round).
-  - [ ] Task 10: run final integration gates and prepare handoff.
+  - [x] Task 10: run final integration gates and prepare handoff (`08588c3a2` registered the omitted ingress test; Release/Debug builds passed; focused 6/6 and broad 180/180 passed).
+- [ ] Complete physical PX4/QGC acceptance on the target aircraft and attach the source commit, CMake cache, resolved MAVLink commit, desktop binary, automated logs, MAVLink 2 capture, and evidence for Quad, Rover, transition, landed rejection, fault, and a mission item.

@@ -156,6 +156,13 @@ record below.
 
 ## 2026-07-25 Quad-Rover implementation status
 
-- Tasks 1-9 of `docs/superpowers/plans/2026-07-23-quad-rover-implementation.md` are complete and independently reviewed.
+- Tasks 1-10 of `docs/superpowers/plans/2026-07-23-quad-rover-implementation.md` have completed their desktop implementation and automated gates.
 - Task 6 is committed at `8d3555549`; the Windows Debug build and the five focused State/Controller/command-queue regressions passed.
-- Task 9 is committed in `d64ec186b` plus null-safe binding fix `856d7483a`; the remaining implementation-plan work is Task 10 integration evidence and handoff.
+- Task 9 is committed in `d64ec186b`, null-safe binding fix `856d7483a`, and qualified integration binding fix `6c80b6be2`.
+- Task 10 used fresh `build/quad-rover-release-final` and `build/quad-rover-debug-final` trees. Both builds completed with VS2022 x64, Ninja `--parallel 2`, Qt 6.10.3, and the documented GStreamer path.
+- Both fresh caches retain APM MAVLink/plugin support and resolve `qgc_hybrid`, tag `qgc-hybrid-change1-v1.16.1-r2`, MAVLink 2, and CPM HEAD `04ad1d63e9c11ed6767a35dae4e52adaca3538c5`. Generated headers contain command 50000, status message 60000, and ArduPilot `SENSOR_OFFSETS`.
+- The Release executable is `build/quad-rover-release-final/Release/QGroundControl.exe`; `--version` returned exit 0 and `QGroundControl 465649e19`.
+- Final focused testing passed 6/6 in 49.02 seconds. The full `Unit|Vehicle|MissionManager|MAVLink` CTest selection passed 180/180 in 1786.32 seconds on its complete rerun.
+- The first broad run passed 178/180; `GeoTagControllerTest` and `VehicleLinkManagerTest` then passed 2/2 in isolation and both passed in the complete 180/180 rerun. The failed-run and rerun logs are retained under `.tmp`.
+- `pre-commit` is unavailable in this environment and is recorded as unavailable, not passing.
+- Desktop automation does not constitute physical acceptance. MAVLink 2 capture plus real Quad, Rover, transition, landed rejection, fault, and mission-item evidence remain required against the PX4 hardware.
