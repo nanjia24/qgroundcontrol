@@ -127,3 +127,5 @@ void HybridVehicleIngressTest::_ordinaryPx4VehicleIgnoresHybridStatus()
     QTest::qWait(50);
     QCOMPARE(vehicle()->hybridVehicleState()->currentState(), HybridVehicleState::Unknown);
 }
+
+UT_REGISTER_TEST(HybridVehicleIngressTest, TestLabel::Integration, TestLabel::Vehicle)
