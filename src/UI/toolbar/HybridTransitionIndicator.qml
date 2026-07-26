@@ -16,8 +16,11 @@ RowLayout {
     property var controller:    activeVehicle ? activeVehicle.hybridTransitionController : null
 
     readonly property string _stateText: {
-        if (!state) {
+        if (!state || !state.hasValidStatus) {
             return qsTr("Unknown")
+        }
+        if (state.stale) {
+            return qsTr("Stale")
         }
         if (state.currentState === state.Quad) {
             return qsTr("Quad")

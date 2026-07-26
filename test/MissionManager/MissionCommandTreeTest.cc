@@ -7,6 +7,8 @@
 #include "UnitTest.h"
 #include "Vehicle.h"
 
+#include <algorithm>
+
 void MissionCommandTreeTest::init()
 {
     UnitTest::init();
@@ -233,6 +235,29 @@ void MissionCommandTreeTest::testHybridTransitionCommandIsQuadRoverOnly()
         !px4FirmwarePlugin.supportedMissionCommands(QGCMAVLink::VehicleClassVTOL).contains(hybridTransitionCommand));
     QVERIFY(!px4FirmwarePlugin.supportedMissionCommands(QGCMAVLink::VehicleClassRoverBoat)
                  .contains(hybridTransitionCommand));
+
+    const auto commandIsExposed = [commandTree, hybridTransitionCommand](Vehicle* vehicle) {
+        const QStringList categories = commandTree->categoriesForVehicle(vehicle);
+        if (categories.isEmpty()) {
+            return false;
+        }
+        const QVariantList commands = commandTree->getCommandsForCategory(vehicle, categories.constLast(), true);
+        return std::any_of(commands.cbegin(), commands.cend(), [hybridTransitionCommand](const QVariant& command) {
+            const MissionCommandUIInfo* const uiInfo = command.value<MissionCommandUIInfo*>();
+            return uiInfo && uiInfo->command() == hybridTransitionCommand;
+        });
+    };
+
+    Vehicle multirotor(MAV_AUTOPILOT_PX4, MAV_TYPE_QUADROTOR, this);
+    Vehicle vtol(MAV_AUTOPILOT_PX4, MAV_TYPE_VTOL_TILTROTOR, this);
+    Vehicle rover(MAV_AUTOPILOT_PX4, MAV_TYPE_GROUND_ROVER, this);
+    Vehicle generic(MAV_AUTOPILOT_PX4, MAV_TYPE_GENERIC, this);
+
+    QVERIFY(commandIsExposed(&quadRover));
+    QVERIFY(!commandIsExposed(&multirotor));
+    QVERIFY(!commandIsExposed(&vtol));
+    QVERIFY(!commandIsExposed(&rover));
+    QVERIFY(!commandIsExposed(&generic));
 }
 
 void MissionCommandTreeTest::testUnknownCommandFallbacks()
