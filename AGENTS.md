@@ -205,3 +205,4 @@ enabled: vehicle && vehicle.armed
 - QML `visible: false` does not prevent other bindings from being evaluated. Any binding that dereferences an optional active vehicle/state/controller must carry its own null guard, including text and tooltip expressions on hidden controls.
 - Before a fresh Windows configure, remove inherited `CC`, `CXX`, `LD`, `AR`, and `RANLIB`, import the full `VsDevCmd.bat` environment, and reject any cache that does not resolve the MSVC compiler/linker/librarian tuple.
 - To run multiple QGC tests directly, repeat `--unittest:<TestName>` once per test. A comma-separated value is treated as one literal test name and exits with an unknown-test failure.
+- Mission-command visibility tests must scan every category returned by `MissionCommandTree::categoriesForVehicle()`. Checking only the last category cannot prove a command is absent from the complete UI command list.

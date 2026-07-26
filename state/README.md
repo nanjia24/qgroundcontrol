@@ -164,5 +164,7 @@ record below.
 - The Release executable is `build/quad-rover-release-final/Release/QGroundControl.exe`; `--version` returned exit 0 and `QGroundControl 465649e19`.
 - Final focused testing passed 6/6 in 49.02 seconds. The full `Unit|Vehicle|MissionManager|MAVLink` CTest selection passed 180/180 in 1786.32 seconds on its complete rerun.
 - The first broad run passed 178/180; `GeoTagControllerTest` and `VehicleLinkManagerTest` then passed 2/2 in isolation and both passed in the complete 180/180 rerun. The failed-run and rerun logs are retained under `.tmp`.
+- The final-review fix snapshot also completed the same 180-test label selection with 180/180 passing. CTest had 198 total registrations, of which the label expression selected 180; the current `LastTest.log` contains 180 passed and zero failed records.
+- Commit `3f366f56c` strengthened the command-50000 exposure test to scan every mission category for Quad-Rover and ordinary PX4 vehicle classes. Independent scoped review approved the fix with no Critical, Important, or Minor findings, and independently passed `MissionCommandTreeTest` 1/1 in 15.10 seconds.
 - `pre-commit` is unavailable in this environment and is recorded as unavailable, not passing.
 - Desktop automation does not constitute physical acceptance. MAVLink 2 capture plus real Quad, Rover, transition, landed rejection, fault, and mission-item evidence remain required against the PX4 hardware.

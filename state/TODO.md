@@ -167,5 +167,5 @@
   - [x] Task 7: apply the effective stable shape profile to PX4 modes and command gates (`3357342c6`; review clean; five Windows regressions passed).
   - [x] Task 8: preserve and validate hybrid transition mission items (`f7a389382`; review clean; four Mission regressions passed).
   - [x] Task 9: add compact state-driven toolbar controls (`d64ec186b`, `856d7483a`; review clean after one fix round).
-  - [x] Task 10: run final integration gates and prepare handoff (`08588c3a2` registered the omitted ingress test; Release/Debug builds passed; focused 6/6 and broad 180/180 passed).
+  - [x] Task 10: run final integration gates and prepare handoff (`08588c3a2` registered the omitted ingress test; Release/Debug builds passed; focused 6/6 and broad 180/180 passed; `3f366f56c` closed the final mission-category coverage finding and passed independent review).
 - [ ] Complete physical PX4/QGC acceptance on the target aircraft and attach the source commit, CMake cache, resolved MAVLink commit, desktop binary, automated logs, MAVLink 2 capture, and evidence for Quad, Rover, transition, landed rejection, fault, and a mission item.
