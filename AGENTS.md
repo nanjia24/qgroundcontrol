@@ -184,6 +184,8 @@ enabled: vehicle && vehicle.armed
 - `MissionCommandTreeEditorTest` has verified Windows offscreen runtimes above 180 seconds (197.590 and 209.797 seconds); its registered Windows CTest timeout must be 360 seconds while unrelated tests retain their existing timeouts.
 - `InitialConnectTest` has a verified Windows offscreen runtime near 185 seconds after its teardown correction; its registered Windows CTest timeout must be 360 seconds while other platforms retain the integration default.
 - `VehicleCameraControlTest` has a verified Windows offscreen runtime of 161.519 seconds and `MissionControllerTreeTest` has a verified runtime of 123.426 seconds; their default 120-second integration registration is insufficient on this environment.
+- A fresh Ninja/MSVC configure can silently select MSYS `ar.exe`/`ranlib.exe`, or even OpenOCD as the compiler, when inherited `CC`, `CXX`, `LD`, `AR`, or `RANLIB` variables contaminate the process. The accepted VS2022 configuration resolves `cl.exe`, `link.exe`, and `lib.exe`, with `CMAKE_RANLIB=:`; verify these cache values before accepting a build.
+- QGC direct unittest execution is sensitive to the CTest working directory and environment. The verified Windows invocation uses the build root as `WorkingDirectory`, `QT_QPA_PLATFORM=offscreen`, `QT_QPA_FONTDIR=%WINDIR%\Fonts`, and `QT_LOGGING_RULES=*.debug=false`.
 
 【项目规范区域】
 
@@ -201,3 +203,5 @@ enabled: vehicle && vehicle.armed
 - When modifying a small region of a large legacy C++ file, format only the changed line ranges. Whole-file clang-format can create thousands of unrelated lines of churn that must not be committed.
 - Mission upload validation that must preserve invalid items for correction belongs before `PlanManager` takes ownership of the incoming raw pointers. On pre-transfer rejection, the caller remains responsible for those items; tests must not delete pointers after a successful ownership transfer.
 - QML `visible: false` does not prevent other bindings from being evaluated. Any binding that dereferences an optional active vehicle/state/controller must carry its own null guard, including text and tooltip expressions on hidden controls.
+- Before a fresh Windows configure, remove inherited `CC`, `CXX`, `LD`, `AR`, and `RANLIB`, import the full `VsDevCmd.bat` environment, and reject any cache that does not resolve the MSVC compiler/linker/librarian tuple.
+- To run multiple QGC tests directly, repeat `--unittest:<TestName>` once per test. A comma-separated value is treated as one literal test name and exits with an unknown-test failure.
