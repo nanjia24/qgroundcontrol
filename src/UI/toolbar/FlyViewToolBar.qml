@@ -101,7 +101,7 @@ Item {
                     }
 
                     HybridTransitionIndicator {
-                        activeVehicle:      _activeVehicle
+                        activeVehicle:      control._activeVehicle
                     }
                 }
             }
