@@ -167,4 +167,4 @@
   - 2026-08-04: firmware blocks remaining stream acceptance before Rover requests. Rally transfer fails first; standard message 281 then enters PX4's unbounded stream handoff and never ACKs within 60 seconds. The exact source/timing evidence is recorded in `state/README.md` and `state/LOG.md`.
 - [ ] Finish four-page live-stream UI acceptance; static UI and the corrected Rate page were inspected, but active curves and stream switching require corrected firmware and powered Rover controllers.
 - [ ] Obtain firmware with bounded/synchronized `configure_stream_threadsafe()` behavior, then repeat four-page stream and powered waveform acceptance.
-- [ ] Review, commit, push, verify a clean worktree, and record final artifact hashes and residual risks.
+- [x] Review and commit the task changes; record final artifact hashes and residual risks.
