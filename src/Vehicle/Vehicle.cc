@@ -3,6 +3,7 @@
 #include "BatteryFactGroupListModel.h"
 #include "EscStatusFactGroupListModel.h"
 #include "RadioStatusFactGroup.h"
+#include "RoverTuningFactGroup.h"
 #include "TerrainFactGroup.h"
 #include "VehicleClockFactGroup.h"
 #include "VehicleDistanceSensorFactGroup.h"
@@ -85,8 +86,19 @@
 #endif
 
 #include <QtCore/QDateTime>
+#include <utility>
 
 QGC_LOGGING_CATEGORY(VehicleLog, "Vehicle.Vehicle")
+
+struct Vehicle::PIDTuningStreamAckContext
+{
+    QPointer<Vehicle> vehicle;
+    quint64 generation = 0;
+    bool restoreCommand = false;
+    int messageId = 0;
+    int intervalUsecs = 0;
+    SharedLinkInterfacePtr commandLink;
+};
 
 #define UPDATE_TIMER 50
 #define DEFAULT_LAT  38.965767f
@@ -254,7 +266,6 @@ void Vehicle::_commonInit(LinkInterface* link)
     connect(this, &Vehicle::coordinateChanged,      this, &Vehicle::_updateDistanceHeadingGCS);
     connect(this, &Vehicle::homePositionChanged,    this, &Vehicle::_updateDistanceHeadingHome);
     connect(this, &Vehicle::hobbsMeterChanged,      this, &Vehicle::_updateHobbsMeter);
-    connect(this, &Vehicle::coordinateChanged, _terrainQueryCoordinator, &TerrainQueryCoordinator::updateAltAboveTerrain);
     connect(this, &Vehicle::vehicleTypeChanged,     this, &Vehicle::inFwdFlightChanged);
     connect(this, &Vehicle::vtolInFwdFlightChanged, this, &Vehicle::inFwdFlightChanged);
 
@@ -287,11 +298,15 @@ void Vehicle::_commonInit(LinkInterface* link)
     connect(_messageIntervalManager, &MessageIntervalManager::mavlinkMsgIntervalsChanged,
             this, &Vehicle::mavlinkMsgIntervalsChanged);
     _terrainQueryCoordinator = new TerrainQueryCoordinator(this);
+    connect(this, &Vehicle::coordinateChanged, _terrainQueryCoordinator, &TerrainQueryCoordinator::updateAltAboveTerrain);
 
     _vehicleLinkManager = new VehicleLinkManager(this);
     if (link) {
         _vehicleLinkManager->_addLink(link);
     }
+    connect(_vehicleLinkManager, &VehicleLinkManager::communicationLostChanged, this, &Vehicle::_handleCommunicationLost);
+    connect(_vehicleLinkManager, &VehicleLinkManager::primaryLinkChanged, this, &Vehicle::_handlePrimaryLinkChanged);
+    _updateRoverTuningMavlink2Supported();
 
     connect(_standardModes, &StandardModes::modesUpdated, this, &Vehicle::flightModesChanged);
     // Re-emit flightModeChanged after available modes mapping updates so UI refreshes
@@ -346,6 +361,7 @@ void Vehicle::_commonInit(LinkInterface* link)
     _rpmFactGroup                   = new VehicleRPMFactGroup(this);
     _terrainFactGroup               = new TerrainFactGroup(this);
     _radioStatusFactGroup           = new RadioStatusFactGroup(this);
+    _roverTuningFactGroup           = new RoverTuningFactGroup(this, this);
     _batteryFactGroupListModel      = new BatteryFactGroupListModel(this);
     _escStatusFactGroupListModel    = new EscStatusFactGroupListModel(this);
 
@@ -379,6 +395,7 @@ void Vehicle::_commonInit(LinkInterface* link)
     _addFactGroup(_rpmFactGroup,               _rpmFactGroupName);
     _addFactGroup(_terrainFactGroup,           _terrainFactGroupName);
     _addFactGroup(_radioStatusFactGroup,       _radioStatusFactGroupName);
+    _addFactGroup(_roverTuningFactGroup,       _roverTuningFactGroupName);
 
     // Add firmware-specific fact groups, if provided
     QMap<QString, FactGroup*>* fwFactGroups = _firmwarePlugin->factGroups();
@@ -408,6 +425,11 @@ Vehicle::~Vehicle()
 {
     qCDebug(VehicleLog) << "~Vehicle" << this;
 
+    _abortPIDTuningTelemetry();
+    if (_roverTuningFactGroup) {
+        _roverTuningFactGroup->communicationLost();
+    }
+
     // Stop all timers and disconnect their signals to prevent any callbacks during destruction.
     // Even though _stopCommandProcessing() should have been called earlier via VehicleLinkManager,
     // we do it again here defensively in case the vehicle is destroyed without going through
@@ -415,6 +437,7 @@ Vehicle::~Vehicle()
     if (_mavCmdQueue) {
         _mavCmdQueue->stop();
     }
+    _clearPIDTuningStreamAckContexts();
     _sendMultipleTimer.stop();
     _sendMultipleTimer.disconnect();
     _prearmErrorTimer.stop();
@@ -451,7 +474,14 @@ QmlObjectListModel* Vehicle::escs()                 { return _escStatusFactGroup
 
 QObject* Vehicle::sysStatusSensorInfo()                             { return _sysStatusSensorInfo.get(); }
 QmlObjectListModel* Vehicle::cameraTriggerPoints()                  { return _cameraTriggerPoints.get(); }
-void Vehicle::closeVehicle()                                        { _vehicleLinkManager->closeVehicle(); }
+void Vehicle::closeVehicle()
+{
+    _abortPIDTuningTelemetry();
+    if (_roverTuningFactGroup) {
+        _roverTuningFactGroup->communicationLost();
+    }
+    _vehicleLinkManager->closeVehicle();
+}
 
 void Vehicle::_deleteCameraManager()
 {
@@ -477,12 +507,18 @@ void Vehicle::_stopCommandProcessing()
 {
     qCDebug(VehicleLog) << "_stopCommandProcessing - stopping timers and clearing pending commands";
 
+    _abortPIDTuningTelemetry();
+    if (_roverTuningFactGroup) {
+        _roverTuningFactGroup->communicationLost();
+    }
+
     // Stop timers AND disconnect their signals to prevent any pending callbacks
     // from being delivered after this point. This is critical during vehicle destruction
     // where a queued callback could access a partially-destroyed vehicle.
     if (_mavCmdQueue) {
         _mavCmdQueue->stop();
     }
+    _clearPIDTuningStreamAckContexts();
     if (_reqMsgCoord) {
         _reqMsgCoord->stop();
     }
@@ -669,7 +705,7 @@ void Vehicle::_mavlinkMessageReceived(LinkInterface* link, mavlink_message_t mes
         _handleExtendedSysState(message);
         break;
     case MAVLINK_MSG_ID_COMMAND_ACK:
-        _handleCommandAck(message);
+        _handleCommandAck(link, message);
         break;
     case MAVLINK_MSG_ID_LOGGING_DATA:
         _handleMavlinkLoggingData(message);
@@ -1762,6 +1798,11 @@ bool Vehicle::rover() const
     return QGCMAVLink::isRoverBoat(vehicleType());
 }
 
+bool Vehicle::miniRover() const
+{
+    return vehicleType() == MAV_TYPE_VTOL_FIXEDROTOR;
+}
+
 bool Vehicle::sub() const
 {
     return QGCMAVLink::isSub(vehicleType());
@@ -2219,7 +2260,7 @@ void Vehicle::showCommandAckError(const mavlink_command_ack_t& ack)
     MavCommandQueue::showCommandAckError(ack);
 }
 
-void Vehicle::_handleCommandAck(mavlink_message_t& message)
+void Vehicle::_handleCommandAck(LinkInterface* link, mavlink_message_t& message)
 {
     mavlink_command_ack_t ack;
     mavlink_msg_command_ack_decode(&message, &ack);
@@ -2258,12 +2299,8 @@ void Vehicle::_handleCommandAck(mavlink_message_t& message)
 #endif
 
     // Delegate queue-matching + user callbacks to MavCommandQueue.
-    _mavCmdQueue->handleCommandAck(message, ack);
+    _mavCmdQueue->handleCommandAck(message, ack, link);
 
-    // Advance PID tuning setup/teardown.
-    if (ack.command == MAV_CMD_SET_MESSAGE_INTERVAL) {
-        _mavlinkStreamConfig->gotSetMessageIntervalAck();
-    }
 }
 
 void Vehicle::requestMessage(RequestMessageResultHandler resultHandler, void* resultHandlerData, int compId, int messageId, float param1, float param2, float param3, float param4, float param5)
@@ -2754,6 +2791,15 @@ void Vehicle::_mavlinkMessageStatus(int uasId, uint64_t totalSent, uint64_t tota
         _mavlinkLossCount       = totalLoss;
         _mavlinkLossPercent     = lossPercent;
         emit mavlinkStatusChanged();
+        const bool roverTuningMavlink2SupportedBeforeUpdate = _roverTuningMavlink2Supported;
+        _updateRoverTuningMavlink2Supported();
+        if (_isRoverTuningMode() && roverTuningMavlink2SupportedBeforeUpdate != _roverTuningMavlink2Supported) {
+            if (_roverTuningMavlink2Supported) {
+                _applyPIDTuningTelemetryMode();
+            } else {
+                _abortPIDTuningTelemetry();
+            }
+        }
 
         // Update signing status from the primary link's channel
         bool signing = false;
@@ -2783,41 +2829,326 @@ int Vehicle::versionCompare(int major, int minor, int patch) const
 
 void Vehicle::setPIDTuningTelemetryMode(PIDTuningTelemetryMode mode)
 {
-    bool liveUpdate = mode != ModeDisabled;
+    if (_pidTuningRestoreDebts.empty()) {
+        _setRoverTuningTelemetryError(QString());
+    }
+    _pidTuningTelemetryMode = mode;
+    _applyPIDTuningTelemetryMode();
+}
+
+void Vehicle::_applyPIDTuningTelemetryMode()
+{
+    const bool liveUpdate = _pidTuningTelemetryMode != ModeDisabled;
     setLiveUpdates(liveUpdate);
     _setpointFactGroup->setLiveUpdates(liveUpdate);
     _localPositionFactGroup->setLiveUpdates(liveUpdate);
     _localPositionSetpointFactGroup->setLiveUpdates(liveUpdate);
 
-    switch (mode) {
-    case ModeDisabled:
-        _mavlinkStreamConfig->restoreDefaults();
-        break;
-    case ModeRateAndAttitude:
-        _mavlinkStreamConfig->setHighRateRateAndAttitude();
-        break;
-    case ModeVelocityAndPosition:
-        _mavlinkStreamConfig->setHighRateVelAndPos();
-        break;
-    case ModeAltitudeAndAirspeed:
-        _mavlinkStreamConfig->setHighRateAltAirspeed();
-        // reset the altitude offset to the current value, so the plotted value is around 0
-        if (!qIsNaN(_altitudeTuningOffset)) {
-            _altitudeTuningOffset += _altitudeTuningFact.rawValue().toDouble();
-            _altitudeTuningSetpointFact.setRawValue(0.f);
-            _altitudeTuningFact.setRawValue(0.f);
+    const SharedLinkInterfacePtr sharedLink =
+        _vehicleLinkManager ? _vehicleLinkManager->primaryLink().lock() : SharedLinkInterfacePtr{};
+    if (!sharedLink || _vehicleLinkManager->communicationLost()) {
+        _abortPIDTuningTelemetry();
+        return;
+    }
+
+    if (_isRoverTuningMode() && !roverTuningMavlink2Supported()) {
+        _abortPIDTuningTelemetry();
+        if (_pidTuningStreamAckContexts.empty() && !_pidTuningRestorePending &&
+            !_mavlinkStreamConfig->hasChangedStreams() && _adoptPIDTuningRestoreDebt(sharedLink)) {
+            _continuePIDTuningTelemetryTransition();
         }
-        break;
+        return;
+    }
+
+    if (!_pidTuningStreamAckContexts.empty() || _pidTuningRestorePending) {
+        _pidTuningApplyPending = true;
+        _continuePIDTuningTelemetryTransition();
+        return;
+    }
+
+    if (!_mavlinkStreamConfig->hasChangedStreams() && _adoptPIDTuningRestoreDebt(sharedLink)) {
+        _pidTuningApplyPending = true;
+        _continuePIDTuningTelemetryTransition();
+        return;
+    }
+
+    if (!_mavlinkStreamConfig->hasChangedStreams()) {
+        _pidTuningCommandLink = sharedLink;
+    }
+
+    _pidTuningApplyPending = false;
+    if (_pidTuningTelemetryMode != ModeDisabled && _pidTuningRestoreDebts.empty()) {
+        _setRoverTuningTelemetryError(QString());
+    }
+
+    switch (_pidTuningTelemetryMode) {
+        case ModeDisabled:
+            _mavlinkStreamConfig->restoreDefaults();
+            break;
+        case ModeRateAndAttitude:
+            _mavlinkStreamConfig->setHighRateRateAndAttitude();
+            break;
+        case ModeVelocityAndPosition:
+            _mavlinkStreamConfig->setHighRateVelAndPos();
+            break;
+        case ModeAltitudeAndAirspeed:
+            _mavlinkStreamConfig->setHighRateAltAirspeed();
+            // reset the altitude offset to the current value, so the plotted value is around 0
+            if (!qIsNaN(_altitudeTuningOffset)) {
+                _altitudeTuningOffset += _altitudeTuningFact.rawValue().toDouble();
+                _altitudeTuningSetpointFact.setRawValue(0.f);
+                _altitudeTuningFact.setRawValue(0.f);
+            }
+            break;
+        case ModeRoverRate:
+            _mavlinkStreamConfig->setRoverRateTuning();
+            break;
+        case ModeRoverAttitude:
+            _mavlinkStreamConfig->setRoverAttitudeTuning();
+            break;
+        case ModeRoverVelocity:
+            _mavlinkStreamConfig->setRoverVelocityTuning();
+            break;
+        case ModeRoverPosition:
+            _mavlinkStreamConfig->setRoverPositionTuning();
+            break;
+    }
+}
+
+void Vehicle::_abortPIDTuningTelemetry()
+{
+    ++_pidTuningStreamGeneration;
+    _mavlinkStreamConfig->abort();
+    _pidTuningApplyPending = false;
+    _pidTuningRestorePending = _mavlinkStreamConfig->hasChangedStreams();
+    _continuePIDTuningTelemetryTransition();
+}
+
+void Vehicle::_continuePIDTuningTelemetryTransition()
+{
+    if (!_pidTuningStreamAckContexts.empty()) {
+        return;
+    }
+
+    if (_pidTuningRestorePending) {
+        const SharedLinkInterfacePtr sharedLink =
+            _vehicleLinkManager ? _vehicleLinkManager->primaryLink().lock() : SharedLinkInterfacePtr{};
+        if (!sharedLink || _vehicleLinkManager->communicationLost()) {
+            return;
+        }
+        _pidTuningRestorePending = false;
+        _mavlinkStreamConfig->restoreDefaults();
+        if (!_pidTuningStreamAckContexts.empty()) {
+            return;
+        }
+    }
+
+    if (_pidTuningApplyPending) {
+        _pidTuningApplyPending = false;
+        _applyPIDTuningTelemetryMode();
+    }
+}
+
+void Vehicle::_pidTuningPrimaryLinkAboutToChange()
+{
+    if (!_pidTuningCommandLink && _vehicleLinkManager) {
+        _pidTuningCommandLink = _vehicleLinkManager->primaryLink().lock();
+    }
+    _abortPIDTuningTelemetry();
+}
+
+void Vehicle::_handlePrimaryLinkChanged()
+{
+    _updateRoverTuningMavlink2Supported();
+    _applyPIDTuningTelemetryMode();
+}
+
+bool Vehicle::_adoptPIDTuningRestoreDebt(const SharedLinkInterfacePtr& link)
+{
+    if (!link) {
+        return false;
+    }
+
+    for (auto it = _pidTuningRestoreDebts.begin(); it != _pidTuningRestoreDebts.end(); ++it) {
+        if (it->link != link) {
+            continue;
+        }
+
+        _pidTuningCommandLink = link;
+        _mavlinkStreamConfig->adoptChangedStreams(it->messageIds);
+        _pidTuningRestoreDebts.erase(it);
+        _pidTuningRestorePending = _mavlinkStreamConfig->hasChangedStreams();
+        return _pidTuningRestorePending;
+    }
+
+    return false;
+}
+
+void Vehicle::_stashPIDTuningRestoreDebt(const SharedLinkInterfacePtr& link, const QList<int>& messageIds)
+{
+    if (!link || messageIds.empty()) {
+        return;
+    }
+
+    for (PIDTuningRestoreDebt& debt : _pidTuningRestoreDebts) {
+        if (debt.link != link) {
+            continue;
+        }
+        for (const int messageId : messageIds) {
+            if (!debt.messageIds.contains(messageId)) {
+                debt.messageIds.append(messageId);
+            }
+        }
+        return;
+    }
+
+    _pidTuningRestoreDebts.append({link, messageIds});
+}
+
+bool Vehicle::_isRoverTuningMode() const
+{
+    return _pidTuningTelemetryMode == ModeRoverRate || _pidTuningTelemetryMode == ModeRoverAttitude ||
+           _pidTuningTelemetryMode == ModeRoverVelocity || _pidTuningTelemetryMode == ModeRoverPosition;
+}
+
+bool Vehicle::roverTuningMavlink2Supported() const
+{
+    return _roverTuningMavlink2Supported;
+}
+
+void Vehicle::_updateRoverTuningMavlink2Supported()
+{
+    bool supported = false;
+    const SharedLinkInterfacePtr sharedLink =
+        _vehicleLinkManager ? _vehicleLinkManager->primaryLink().lock() : SharedLinkInterfacePtr{};
+    if (sharedLink && sharedLink->mavlinkChannelIsSet()) {
+        const mavlink_channel_t channel = static_cast<mavlink_channel_t>(sharedLink->mavlinkChannel());
+        supported = !(mavlink_get_channel_status(channel)->flags & MAVLINK_STATUS_FLAG_OUT_MAVLINK1);
+    }
+
+    if (_roverTuningMavlink2Supported != supported) {
+        _roverTuningMavlink2Supported = supported;
+        emit roverTuningMavlink2SupportedChanged(supported);
+    }
+}
+
+void Vehicle::_handleCommunicationLost(bool communicationLost)
+{
+    _updateRoverTuningMavlink2Supported();
+
+    if (communicationLost) {
+        _abortPIDTuningTelemetry();
+        if (_roverTuningFactGroup) {
+            _roverTuningFactGroup->communicationLost();
+        }
+        return;
+    }
+
+    _applyPIDTuningTelemetryMode();
+}
+
+void Vehicle::_setRoverTuningTelemetryError(const QString& error)
+{
+    if (_roverTuningTelemetryError != error) {
+        _roverTuningTelemetryError = error;
+        emit roverTuningTelemetryErrorChanged();
     }
 }
 
 void Vehicle::_setMessageInterval(int messageId, int rate)
 {
-    sendMavCommand(defaultComponentId(),
-                   MAV_CMD_SET_MESSAGE_INTERVAL,
-                   true,                        // show error
-                   messageId,
-                   rate);
+    if (!_pidTuningCommandLink && _vehicleLinkManager) {
+        _pidTuningCommandLink = _vehicleLinkManager->primaryLink().lock();
+    }
+
+    auto* context = new PIDTuningStreamAckContext{
+        this,
+        _pidTuningStreamGeneration,
+        rate == 0,
+        messageId,
+        rate,
+        _pidTuningCommandLink,
+    };
+    _pidTuningStreamAckContexts.insert(context);
+
+    MavCmdAckHandlerInfo_t handlerInfo = {};
+    handlerInfo.resultHandler = _pidTuningStreamCommandResultHandler;
+    handlerInfo.resultHandlerData = context;
+
+    _mavCmdQueue->sendCommandWithHandlerOnLink(&handlerInfo, context->commandLink, defaultComponentId(),
+                                               MAV_CMD_SET_MESSAGE_INTERVAL, messageId, rate);
+}
+
+void Vehicle::_pidTuningStreamCommandResultHandler(void* resultHandlerData, int /*compId*/,
+                                                   const mavlink_command_ack_t& ack,
+                                                   MavCmdResultFailureCode_t failureCode)
+{
+    auto* context = static_cast<PIDTuningStreamAckContext*>(resultHandlerData);
+    if (!context) {
+        return;
+    }
+
+    const QPointer<Vehicle> vehicle = context->vehicle;
+    const quint64 generation = context->generation;
+    const bool restoreCommand = context->restoreCommand;
+    const int messageId = context->messageId;
+    const int intervalUsecs = context->intervalUsecs;
+    const SharedLinkInterfacePtr commandLink = context->commandLink;
+    if (vehicle) {
+        vehicle->_pidTuningStreamAckContexts.remove(context);
+    }
+    delete context;
+
+    if (vehicle && generation == vehicle->_pidTuningStreamGeneration) {
+        if (failureCode == MavCmdResultCommandResultOnly && ack.result == MAV_RESULT_ACCEPTED) {
+            if (!restoreCommand && vehicle->_pidTuningRestoreDebts.empty()) {
+                vehicle->_setRoverTuningTelemetryError(QString());
+            }
+            vehicle->_mavlinkStreamConfig->gotSetMessageIntervalAck();
+            if (restoreCommand && vehicle->_pidTuningRestoreDebts.empty() &&
+                !vehicle->_mavlinkStreamConfig->hasChangedStreams()) {
+                vehicle->_setRoverTuningTelemetryError(QString());
+            }
+            vehicle->_continuePIDTuningTelemetryTransition();
+        } else {
+            qCDebug(VehicleLog) << "PID tuning stream command failed"
+                                << "messageId:interval:result:failure" << messageId << intervalUsecs << ack.result
+                                << failureCode;
+            if (restoreCommand) {
+                if (vehicle->_roverTuningTelemetryError.isEmpty()) {
+                    vehicle->_setRoverTuningTelemetryError(Vehicle::tr("Unable to restore telemetry stream rate"));
+                }
+            } else if (failureCode == MavCmdResultFailureNoResponseToCommand) {
+                vehicle->_setRoverTuningTelemetryError(Vehicle::tr("Telemetry stream request timed out"));
+            } else {
+                vehicle->_setRoverTuningTelemetryError(Vehicle::tr("Telemetry stream request was rejected"));
+            }
+            vehicle->_mavlinkStreamConfig->gotSetMessageIntervalFailure();
+            vehicle->_pidTuningRestorePending =
+                vehicle->_mavlinkStreamConfig->hasChangedStreams() && vehicle->_pidTuningStreamAckContexts.empty();
+            const SharedLinkInterfacePtr primaryLink = vehicle->_vehicleLinkManager
+                                                           ? vehicle->_vehicleLinkManager->primaryLink().lock()
+                                                           : SharedLinkInterfacePtr{};
+            if (restoreCommand && vehicle->_pidTuningApplyPending && commandLink && primaryLink &&
+                commandLink != primaryLink) {
+                vehicle->_stashPIDTuningRestoreDebt(commandLink,
+                                                    vehicle->_mavlinkStreamConfig->takeChangedStreams());
+                vehicle->_pidTuningRestorePending = false;
+                vehicle->_continuePIDTuningTelemetryTransition();
+            }
+        }
+    } else if (vehicle) {
+        vehicle->_continuePIDTuningTelemetryTransition();
+    }
+}
+
+void Vehicle::_clearPIDTuningStreamAckContexts()
+{
+    for (PIDTuningStreamAckContext* context : std::as_const(_pidTuningStreamAckContexts)) {
+        context->vehicle.clear();
+        delete context;
+    }
+    _pidTuningStreamAckContexts.clear();
 }
 
 QString Vehicle::_formatMavCommand(MAV_CMD command, float param1)

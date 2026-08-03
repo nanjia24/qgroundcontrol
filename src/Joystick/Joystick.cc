@@ -1945,7 +1945,7 @@ void Joystick::_buildAvailableButtonsActionList(Vehicle *vehicle)
     _availableButtonActions->append(new AvailableButtonAction(_buttonActionGripperRelease,
         [this]() { emit gripperAction(GRIPPER_ACTION_RELEASE); }));
     _availableButtonActions->append(new AvailableButtonAction(_buttonActionGripperHold,
-        [this]() { emit gripperAction(GRIPPER_ACTION_HOLD); }));
+        [this]() { emit gripperAction(QGCMAVLink::GripperActionHold); }));
     _availableButtonActions->append(new AvailableButtonAction(_buttonActionLandingGearDeploy,
         [this]() { emit landingGearDeploy(); }));
     _availableButtonActions->append(new AvailableButtonAction(_buttonActionLandingGearRetract,

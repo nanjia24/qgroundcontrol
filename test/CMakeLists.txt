@@ -381,6 +381,8 @@ add_qgc_test(InitialConnectPeripheralStartupTest LABELS Integration Vehicle RESO
 add_qgc_test(MAVLinkLogManagerTest LABELS Integration Vehicle RESOURCE_LOCK MockLink)
 add_qgc_test(RequestMessageTest LABELS Integration Vehicle RESOURCE_LOCK MockLink TIMEOUT ${QGC_TEST_TIMEOUT_EXTENDED})
 add_qgc_test(RequestMetaDataTypeStateMachineTest LABELS Integration Vehicle RESOURCE_LOCK MockLink)
+add_qgc_test(RoverTuningFactGroupTest LABELS Unit Vehicle)
 add_qgc_test(SendMavCommandWithHandlerTest LABELS Integration Vehicle RESOURCE_LOCK MockLink)
 add_qgc_test(SendMavCommandWithSignallingTest LABELS Integration Vehicle RESOURCE_LOCK MockLink)
 add_qgc_test(VehicleLinkManagerTest LABELS Integration Vehicle RESOURCE_LOCK MockLink)
+add_qgc_test(VehiclePIDTuningTelemetryTest LABELS Integration Vehicle RESOURCE_LOCK MockLink)

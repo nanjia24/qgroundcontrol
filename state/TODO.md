@@ -133,3 +133,38 @@
 - [x] Confirm and write the Windows controller/initial-connect timeout design.
 - [x] Obtain final user review of the written timeout specification.
 - [x] Write the timeout implementation and localization plan before changing source/CMake input.
+
+## 2026-08-03 Mini Rover realtime tuning
+
+- [x] Read the QGC task prompt and realtime tuning guide in full.
+- [x] Verify the owner clone, remote, exact QGC baseline, target branch absence, and target worktree absence.
+- [x] Create `codex/mini-rover-realtime-tuning` at `754135601a53d7650ddeb6562ca5a5cd2167880c` in the required worktree.
+- [x] Capture focused baseline build/test evidence in a fresh task-local build directory.
+  - 2026-08-03: configure and 2031-step `QGroundControl` build exited 0; `FactGroupTest` and `MAVLinkStreamConfigTest` passed 2/2 in 2.51 seconds.
+- [x] Pin the MAVLink fork, exact commit, and `qgc_mini_rover` dialect; verify generated ID/LEN/CRC constants.
+  - 2026-08-03: fetched HEAD and remote match exactly; generated constants are `60100/27/147`, `60101/23/85`, `60102/43/217`, and `60103/44/90`; `all.xml` remains included.
+- [x] Implement and test the per-Vehicle `RoverTuningFactGroup` decoder and lifecycle state machine.
+- [x] Implement and test four mutually exclusive Rover stream modes and restore/reconnect behavior.
+- [x] Implement asynchronous Mini capability routing, source-timestamp chart sampling, four Rover pages, and metadata-driven parameter controls.
+- [x] Run focused tests, affected regressions, and the Windows build/test gates available in this environment.
+  - 2026-08-03: full Debug target and `QGCQmlQuickTests` build; authoritative focused gate passed 7/7 in 254.18 seconds.
+  - 2026-08-03: compact layout now stacks chart/parameters at narrow widths and scrolls the parameter panel vertically.
+  - 2026-08-03: post-review Debug rebuild passed; the expanded ACK/link/Fact/UI focused gate passed 8/8 in 288.69 seconds.
+  - 2026-08-03: `QGroundControlControlsModule_qmllint` passed. Full `all_qmllint` remains blocked by the pre-existing generated `PowerComponent.qml` duplicate-id error.
+  - 2026-08-03: all 188 CTest registrations completed in 1998.81 seconds; 187 passed and `HashCheckTest` alone exceeded its 180-second Windows budget by 0.04 seconds.
+  - 2026-08-03: a diagnostic 300-second registration verified `HashCheckTest` through CTest in 176.38 seconds; the source timeout change was removed as unrelated to Rover. The final seven-suite gate passed 7/7 in 287.00 seconds, QML Quick Tests passed, and targeted changed-file qmllint exited 0.
+  - 2026-08-04: final post-review gate passed 8/8 in 65.44 seconds after adding synchronous-callback, pinned-link disconnect, and source-snapshot FIFO regressions. Controls qmllint exited 0; QML Quick Tests reported 16/16. Final Debug artifact is 99,605,504 bytes with SHA-256 `BE7D31B6DBDAE09D8F7C6465D2FA869DEA510EEDA09FA0D71B158DB613A62703`.
+- [x] Ask the user to connect the Mini Rover and execute all non-destructive USB checks possible with the current firmware.
+  - 2026-08-03: firmware with Rover topics is flashed and the PX4 FMU V6U is connected on `COM16` over USB only.
+  - 2026-08-03: fixed the nested Rover tuning page's missing size context after the first manual tab selection hung; targeted qmllint, Debug rebuild, and `QmlQuickTests` passed. Correct-build manual retest remains pending.
+  - 2026-08-03: moved the terrain coordinator signal connection after object construction, eliminating the reported null-receiver warning. Final focused rerun passed `VehiclePIDTuningTelemetryTest` and `QmlQuickTests` 2/2 in 120.53 seconds.
+  - In the correct QGC parameter page, set global `MAV_PROTO_VER=2`, restart the USB-powered flight controller, and verify that non-heartbeat MAVLink v1 traffic no longer occurs before evaluating Rover streams.
+  - Verify the running process path is the task-local Debug executable before interpreting UI or COM16 evidence; installed and `quad-rover-design` QGC binaries were observed during attempted retests.
+  - 2026-08-03: captured a 6.2 GB full hang dump and all thread stacks. The main UI thread repeatedly created QML delegates because metadata increment `0.01` over a `0..10000` range produced roughly one million major ticks plus two million minor ticks per slider.
+  - 2026-08-03: bounded metadata-derived display ticks to about 50 major ticks without changing Fact decimal precision. New QML math regressions and existing QML tests pass 11/11; Controls qmllint and the Debug rebuild pass. Await explicit manual Rover-page confirmation.
+  - 2026-08-04: correct-binary Rover Rate opens without hanging; USB-only status is accurately `Rate controller inactive`, and the user reports the UI is basically responsive.
+  - 2026-08-04: the user also observed `Operation timeout aborting transfer`; this matches the captured Rally/standard-stream timeout path and is not evidence that any Rover stream was accepted.
+  - 2026-08-04: firmware blocks remaining stream acceptance before Rover requests. Rally transfer fails first; standard message 281 then enters PX4's unbounded stream handoff and never ACKs within 60 seconds. The exact source/timing evidence is recorded in `state/README.md` and `state/LOG.md`.
+- [ ] Finish four-page live-stream UI acceptance; static UI and the corrected Rate page were inspected, but active curves and stream switching require corrected firmware and powered Rover controllers.
+- [ ] Obtain firmware with bounded/synchronized `configure_stream_threadsafe()` behavior, then repeat four-page stream and powered waveform acceptance.
+- [ ] Review, commit, push, verify a clean worktree, and record final artifact hashes and residual risks.

@@ -14,6 +14,7 @@ class QGCMAVLink : public QObject, public QGCMAVLinkTypes
     Q_OBJECT
     QML_NAMED_ELEMENT(MAVLink)
     QML_SINGLETON
+    Q_PROPERTY(int gripperActionHold READ gripperActionHold CONSTANT)
 
 public:
     // Creating an instance of QGCMAVLink is only meant to be used for the Qml Singleton
@@ -26,11 +27,17 @@ public:
     static constexpr const FirmwareClass_t FirmwareClassArduPilot = MAV_AUTOPILOT_ARDUPILOTMEGA;
     static constexpr const FirmwareClass_t FirmwareClassGeneric   = MAV_AUTOPILOT_GENERIC;
 
+    // The pinned Mini Rover dialect predates these common.xml symbols; their protocol values are already assigned.
+    static constexpr const MAV_TYPE MavTypeSpacecraftOrbiter = static_cast<MAV_TYPE>(45);
+    static constexpr const GRIPPER_ACTIONS GripperActionHold = static_cast<GRIPPER_ACTIONS>(2);
+
+    int gripperActionHold() const { return static_cast<int>(GripperActionHold); }
+
     static constexpr const VehicleClass_t VehicleClassAirship     = MAV_TYPE_AIRSHIP;
     static constexpr const VehicleClass_t VehicleClassFixedWing   = MAV_TYPE_FIXED_WING;
     static constexpr const VehicleClass_t VehicleClassRoverBoat   = MAV_TYPE_GROUND_ROVER;
     static constexpr const VehicleClass_t VehicleClassSub         = MAV_TYPE_SUBMARINE;
-    static constexpr const VehicleClass_t VehicleClassSpacecraft  = MAV_TYPE_SPACECRAFT_ORBITER;
+    static constexpr const VehicleClass_t VehicleClassSpacecraft  = MavTypeSpacecraftOrbiter;
     static constexpr const VehicleClass_t VehicleClassMultiRotor  = MAV_TYPE_QUADROTOR;
     static constexpr const VehicleClass_t VehicleClassVTOL        = MAV_TYPE_VTOL_TAILSITTER_QUADROTOR;
     // VehicleClassGeneric inherited from QGCMAVLinkTypes

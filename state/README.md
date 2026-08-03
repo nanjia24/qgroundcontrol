@@ -1,19 +1,19 @@
 ﻿# State README
 
-Project: QGroundControl Windows Desktop test hardening.
-Primary repository: `E:\workspace\QGC\qgroundcontrol`.
-Active worktree: `E:\workspace\QGC\qgroundcontrol-worktrees\windows-test-hardening`.
-Base integration branch: `codex/joystick-aux-px4` at `daae3a37b`.
-Active local/remote branch: `codex/windows-test-hardening`.
+Project: QGroundControl Mini Rover realtime tuning.
+Primary repository: `E:\workspace\QGC\qgroundcontrol-source`.
+Active worktree: `E:\workspace\QGC\qgroundcontrol-worktrees\mini-rover-realtime-tuning`.
+Base commit: `754135601a53d7650ddeb6562ca5a5cd2167880c` from `codex/joystick-aux-px4-development`.
+Active branch: `codex/mini-rover-realtime-tuning`.
 
-Current constraints: production and test fixes, structured commits, and pushes are authorized only on `codex/windows-test-hardening`; do not force-push, update the integration branch, create a PR without explicit approval, or store credentials.
+Current constraints: write only in this worktree; do not modify the PX4 firmware worktree, force-push, create a PR, or commit generated build/debug artifacts and UI screenshots. No GitHub Issue or PR exists, so do not invent a closing footer.
 
 
 ## 2026-07-13 status
 
 - `/Zc:preprocessor` was codified in `cmake/platform/Windows.cmake` for MSVC Windows builds.
 - Clean Debug build `build/windows-debug-vs2022-zc-fixed` succeeds without manually passing `CMAKE_CXX_FLAGS`.
-- Failed-test details are stored in `.tmp/test-runs-zc-fixed`.
+- Failed-test details are stored in `build/mini-rover-debug/delivery-artifacts/diagnostics/test-runs-zc-fixed`.
 - `origin/master` comparison worktree is `E:\workspace\QGC\qgroundcontrol-origin-master`; same 11-test behavior was reproduced there.
 - Current evidence indicates the 11 test failures are not introduced by `codex/joystick-aux-px4`.
 - Release configure/build now succeeds in `build/windows-release`; the executable ran for a 20-second observation window with empty stdout/stderr.
@@ -128,3 +128,49 @@ Current constraints: production and test fixes, structured commits, and pushes a
 - A reversible CTest metadata probe proved `MissionControllerTest` is slow rather than stalled: it passed in 133.82 seconds with a 360-second probe limit.
 - `InitialConnectTest` still timed out at 360.04 seconds, so increasing its timeout without function/data-row localization is prohibited.
 - Approved direction: Windows-only 180 seconds for `MissionControllerTest`; temporary uncommitted QTest function/data-row selection for Initial Connect localization; evidence-driven durable correction; full CTest before downstream branching.
+
+## 2026-08-03 Mini Rover realtime tuning task
+
+- Development worktree: `E:\workspace\QGC\qgroundcontrol-worktrees\mini-rover-realtime-tuning`.
+- Feature branch: `codex/mini-rover-realtime-tuning`, created from exact QGC baseline `754135601a53d7650ddeb6562ca5a5cd2167880c`.
+- MAVLink contract: `https://github.com/QQgdiw/mavlink.git` at `07c6964a8fcc364c49d394f0bf0275b9fc05857d`, dialect `qgc_mini_rover`.
+- Scope is Differential Mini Rover phase 1: Rate, Attitude, Velocity, and Position/Path realtime tuning with standard Fact-based parameter writes.
+- Capability is restricted to `MAV_TYPE_VTOL_FIXEDROTOR` with `HYBR_QUAD_ROV == 1`; existing Multirotor/VTOL and joystick/AUX behavior must remain intact.
+- The user confirmed that USB hardware is available and will connect it when explicitly requested. No hardware operation or firmware flashing occurs before that request.
+- No GitHub Issue or PR number exists for this task; commit messages must not fabricate a `Fixes` or `Resolves` footer.
+- Fresh stock-MAVLink baseline configure and `QGroundControl` build completed successfully in `build\mini-rover-baseline` (2031 build steps, exit 0).
+- Baseline `FactGroupTest` and `MAVLinkStreamConfigTest` passed 2/2 in 2.51 seconds after supplying the Qt and GStreamer runtime DLL paths.
+- Fresh `build\mini-rover-debug` configuration fetched `QQgdiw/mavlink` at exact HEAD `07c6964a8fcc364c49d394f0bf0275b9fc05857d`; its generated `qgc_mini_rover` dialect includes both `all.xml` and `mini_rover.xml`.
+- Generated Rover message `ID/LEN/CRC` values match the fixed contract: `60100/27/147`, `60101/23/85`, `60102/43/217`, and `60103/44/90`.
+- The four Rover pages, per-Vehicle decoder, source-timestamp sampling, Mini capability routing, and metadata-backed parameter controls are implemented.
+- Stream transitions serialize `SET_MESSAGE_INTERVAL`, keep failed restore IDs as retry debt, reject MAVLink1 Rover requests, and isolate stale command generations.
+- Manual primary-link migration restores the old link before configuring the new link; the focused dual-link regression passes.
+- The authoritative focused gate passed 7/7 in 254.18 seconds after the final lifecycle review fixes.
+- The parameter panel is vertically scrollable and moves below the chart when the available width cannot hold both panes.
+- `SET_MESSAGE_INTERVAL` is now single-flight per vehicle/component across all callers, and pinned interval commands only accept ACKs from their originating link.
+- Failed restore debt from an old primary link is retained without blocking stream configuration on the new primary; delayed/wrong-link ACK and timeout regressions are covered.
+- Invalid source timestamps clear charts immediately, invalid Path diagnostics have an explicit availability state, unsupported drive types cannot edit Differential parameters, and short wide windows no longer force an oversized chart.
+- The post-review Debug target build passed, followed by 8/8 focused suites in 288.69 seconds.
+- The complete Windows Debug CTest run finished all 188 registrations in 1998.81 seconds: 187 passed and only `HashCheckTest` hit its 180-second limit. A diagnostic 300-second registration passed the same test through CTest in 176.38 seconds; that unrelated source timeout change is not part of this Rover branch.
+- After the final queue and UI review, the authoritative seven-suite gate passed 7/7 in 287.00 seconds; `QmlQuickTests` and targeted qmllint for all changed PX4/Controls QML also exited 0.
+- Final Debug artifact before USB acceptance: `build\mini-rover-debug\Debug\QGroundControl.exe`, 99,453,440 bytes, SHA-256 `239C5220918AA5AEE002F0F53E2DD044564CAE2A6D35877002CE4A4A18596408`.
+- The user flashed the Rover-topic firmware and connected the PX4 FMU V6U on `COM16` over USB only; no battery is connected, so acceptance remains non-arming and non-actuating.
+- The first manual Rover-tab attempt exposed missing `availableWidth`/`availableHeight` context in the nested `PX4TuningComponentRoverAll`; the child now bridges both dimensions from its parent Loader. Targeted qmllint, the Debug incremental build, and `QmlQuickTests` passed; hardware UI retest is still pending.
+- The reported `QObject::connect(Vehicle, Unknown)` warning came from connecting `_terrainQueryCoordinator` before construction; the connection now follows object creation. This warning was not the Rover-tab hang.
+- PX4 uses the global `MAV_PROTO_VER` parameter: hardware acceptance requires value `2` (forced MAVLink 2) followed by a flight-controller restart. Reading the parser's transient inbound-version flag is not a reliable QGC-side substitute because v1 startup heartbeats are explicitly allowed.
+- Current post-fix Debug artifact: `build\mini-rover-debug\Debug\QGroundControl.exe`, 99,453,440 bytes, SHA-256 `78CE0FE49D7B5E265CB291F588E3A6475AF92157BAC27B3B5D8FFF21DB527739`.
+- A full dump of the repeat Rover-tab hang proved the UI thread was continuously creating QML delegate objects. PX4 metadata for parameters such as `RO_YAW_RATE_LIM` is `0..10000` with increment `0.01`; treating that increment as a major slider tick requested about one million major and two million minor delegates for one slider.
+- Metadata-backed PID sliders now derive a display tick step that preserves Fact precision while limiting the range to approximately 50 major ticks. A pure QML math regression covers the `0..10000 / 0.01` case; the Controls qmllint target and all 11 QML Quick Test cases pass. Manual confirmation of the rebuilt Rover page is pending.
+
+## 2026-08-04 USB and performance result
+
+- The correct task-local Debug executable opens Rover Rate without hanging. With USB only, no battery and no arming, the page correctly reports `Rate controller inactive`; the user reported that the interface was basically responsive.
+- The same USB session displayed `Operation timeout aborting transfer`. This is consistent with the captured Rally/standard message-281 timeout sequence; it does not prove that a Rover message interval request was sent or accepted.
+- Source-timestamp charts snapshot every distinct PX4 frame into a FIFO, flush the complete FIFO at a 20 ms rendering cadence, skip transient NaN values without deleting history, batch three-minute history removal, and always initialize non-degenerate axes. Legacy Multirotor sampling remains on its 10 ms path.
+- The Simplified Chinese PID stop-mode translation now preserves `%1`, removing the reproducible `QString::arg: Argument missing` warnings.
+- USB startup proved that `COMMAND_ACK` for command 511 may be delayed beyond 40 seconds and cannot identify `param1`. The queue now serializes command 511 per `(component, link)`, quarantines a timed-out key, consumes its late ACK as a tombstone, and clears quarantine on ACK or link disconnect/destruction. A pinned-link disconnect immediately fails that link's active and queued 511 entries so a backup primary is not blocked by the USB timeout. The 60-second timeout is limited to PX4 direct USB.
+- Direct runtime logging requires `QT_FORCE_STDERR_LOGGING=1`; otherwise this Windows GUI build writes only the QML-debugging notice to redirected stderr.
+- Hardware acceptance is blocked by the current PX4 firmware before any Rover stream request. At process time 23.839-34.379 seconds, Rally synchronization exhausted retries; the first command 511 was only sent later at 34.543 seconds for standard message 281 (`GIMBAL_MANAGER_STATUS`). Request-message ACKs then arrived in a batch at 74.353-74.451 seconds, while the 281 interval command still had no ACK at its 94.627-second timeout.
+- PX4 source at `d656c31dd794e3cfec992c63af789deb012dce83` uses an unbounded, unsynchronized `_subscribe_to_stream` handoff in `Mavlink::configure_stream_threadsafe()`. That file is unchanged from the task's firmware anchor. The QGC task explicitly forbids editing PX4 or fabricating ACK/data, so four-page live-stream and powered waveform acceptance remain blocked pending a firmware-side correction.
+- Final automated gate: `MAVLinkStreamConfigTest`, `RequestMessageTest`, `RoverTuningFactGroupTest`, both `SendMavCommand` suites, `VehicleLinkManagerTest`, `VehiclePIDTuningTelemetryTest`, and `QmlQuickTests` passed 8/8 in 65.44 seconds. QML Quick Tests explicitly reported 16/16, including the source-snapshot FIFO regression. The final Debug executable is 99,605,504 bytes with SHA-256 `BE7D31B6DBDAE09D8F7C6465D2FA869DEA510EEDA09FA0D71B158DB613A62703`.
+- Untracked diagnostics and screenshots were preserved under `build/mini-rover-debug/delivery-artifacts/`, an ignored build-artifact path, so they remain available without entering the delivery commit.

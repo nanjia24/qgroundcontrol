@@ -77,6 +77,9 @@ public:
 
     void sendUnexpectedCommandAck(MAV_CMD command, MAV_RESULT ackResult);
 
+    void setMessageIntervalAccepted(bool accepted) { _setMessageIntervalAccepted = accepted; }
+    void setMessageIntervalResponseEnabled(bool enabled) { _messageIntervalResponseEnabled = enabled; }
+
     /// Reset the state of the MissionItemHandler to no items, no transactions in progress.
     void resetMissionItemHandler() const { _missionItemHandler->reset(); }
 
@@ -339,6 +342,8 @@ private:
     bool _hashCheckNoResponse = false;
     int _hashCheckRequestCount = 0;
     bool _paramRequestListHashCheckSent = false;
+    bool _setMessageIntervalAccepted = false;
+    bool _messageIntervalResponseEnabled = true;
 
     QMap<MAV_CMD, int> _receivedMavCommandCountMap;
     QMap<MAV_CMD, QMap<int, int>> _receivedMavCommandByCompCountMap;

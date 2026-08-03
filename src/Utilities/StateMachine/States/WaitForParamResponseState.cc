@@ -37,6 +37,7 @@ void WaitForParamResponseState::_messageReceived(const mavlink_message_t &messag
         return;
     }
 
+#ifdef MAVLINK_MSG_ID_PARAM_ERROR
     if (message.msgid == MAVLINK_MSG_ID_PARAM_ERROR) {
         if (_paramErrorPredicate && !_paramErrorPredicate(message)) {
             return;
@@ -56,10 +57,12 @@ void WaitForParamResponseState::_messageReceived(const mavlink_message_t &messag
         waitFailed();
         return;
     }
+#endif
 }
 
 QString WaitForParamResponseState::_paramErrorToString(uint8_t errorCode)
 {
+#ifdef MAVLINK_MSG_ID_PARAM_ERROR
     switch (errorCode) {
     case MAV_PARAM_ERROR_NO_ERROR:
         return QStringLiteral("No error");
@@ -82,4 +85,7 @@ QString WaitForParamResponseState::_paramErrorToString(uint8_t errorCode)
     default:
         return QStringLiteral("Unknown error (%1)").arg(errorCode);
     }
+#else
+    return QStringLiteral("PARAM_ERROR is unavailable in the configured MAVLink dialect (%1)").arg(errorCode);
+#endif
 }

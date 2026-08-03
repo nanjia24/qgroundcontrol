@@ -184,11 +184,17 @@ void ParameterManagerTest::_paramReadNoResponse()
 
 void ParameterManagerTest::_paramWriteParamError()
 {
+#ifndef MAVLINK_MSG_ID_PARAM_ERROR
+    QSKIP("Configured MAVLink dialect does not provide PARAM_ERROR");
+#endif
     _setParamWithFailureMode(MockLink::FailParamSetParamError, false /* expectSuccess */);
 }
 
 void ParameterManagerTest::_paramReadParamError()
 {
+#ifndef MAVLINK_MSG_ID_PARAM_ERROR
+    QSKIP("Configured MAVLink dialect does not provide PARAM_ERROR");
+#endif
     QVERIFY2(!_mockLink, "MockLink already connected");
     _connectMockLink();
     QVERIFY(_mockLink);

@@ -346,6 +346,7 @@ void ParameterManager::_mavlinkParamSet(int componentId, const QString &paramNam
         }
     };
 
+#ifdef MAVLINK_MSG_ID_PARAM_ERROR
     auto checkForParamError = [componentId, paramName](const mavlink_message_t &message) -> bool {
         if (message.compid != componentId) {
             return false;
@@ -359,6 +360,9 @@ void ParameterManager::_mavlinkParamSet(int componentId, const QString &paramNam
 
         return QString(paramId) == paramName;
     };
+#else
+    auto checkForParamError = [](const mavlink_message_t &) -> bool { return false; };
+#endif
 
     // State Machine:
     //  Send PARAM_SET - 2 retries after initial attempt
@@ -914,6 +918,7 @@ void ParameterManager::_mavlinkParamRequestRead(int componentId, const QString &
         return true;
     };
 
+#ifdef MAVLINK_MSG_ID_PARAM_ERROR
     auto checkForParamError = [componentId, paramName, paramIndex](const mavlink_message_t &message) -> bool {
         if (message.compid != componentId) {
             return false;
@@ -931,6 +936,9 @@ void ParameterManager::_mavlinkParamRequestRead(int componentId, const QString &
             return QString(paramId) == paramName;
         }
     };
+#else
+    auto checkForParamError = [](const mavlink_message_t &) -> bool { return false; };
+#endif
 
     // State Machine:
     //  Send PARAM_REQUEST_READ - 2 retries after initial attempt

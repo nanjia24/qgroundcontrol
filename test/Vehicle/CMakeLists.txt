@@ -19,12 +19,15 @@ target_sources(${CMAKE_PROJECT_NAME}
         MAVLinkLogManagerTest.h
         RequestMessageTest.cc
         RequestMessageTest.h
+        RoverTuningFactGroupTest.cc
+        RoverTuningFactGroupTest.h
         SendMavCommandWithHandlerTest.cc
         SendMavCommandWithHandlerTest.h
         SendMavCommandWithSignallingTest.cc
         SendMavCommandWithSignallingTest.h
         VehicleLinkManagerTest.cc
         VehicleLinkManagerTest.h
+        VehiclePIDTuningTelemetryTest.cc
 )
 
 if(NOT QGC_DISABLE_APM_PLUGIN)

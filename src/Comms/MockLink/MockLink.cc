@@ -1099,9 +1099,13 @@ void MockLink::_handleParamSet(const mavlink_message_t &msg)
 
     if (_paramSetFailureMode == FailParamSetParamError) {
         qCDebug(MockLinkLog) << "Param set failure: PARAM_ERROR" << paramId;
+#ifdef MAVLINK_MSG_ID_PARAM_ERROR
         _sendParamError(componentId, paramId,
                         _mapParamName2Value[componentId].keys().indexOf(paramId),
                         MAV_PARAM_ERROR_VALUE_OUT_OF_RANGE);
+#else
+        qCWarning(MockLinkLog) << "Configured MAVLink dialect does not provide PARAM_ERROR";
+#endif
         return;
     }
 
@@ -1202,7 +1206,11 @@ void MockLink::_handleParamRequestRead(const mavlink_message_t &msg)
 
     if (_paramRequestReadFailureMode == FailParamRequestReadParamError) {
         qCDebug(MockLinkLog) << "Param request read failure: PARAM_ERROR" << paramId;
+#ifdef MAVLINK_MSG_ID_PARAM_ERROR
         _sendParamError(componentId, paramId, request.param_index, MAV_PARAM_ERROR_DOES_NOT_EXIST);
+#else
+        qCWarning(MockLinkLog) << "Configured MAVLink dialect does not provide PARAM_ERROR";
+#endif
         return;
     }
 
@@ -1222,6 +1230,7 @@ void MockLink::_handleParamRequestRead(const mavlink_message_t &msg)
 
 void MockLink::_sendParamError(int componentId, const char *paramId, int16_t paramIndex, uint8_t errorCode)
 {
+#ifdef MAVLINK_MSG_ID_PARAM_ERROR
     mavlink_message_t responseMsg{};
     char paramIdBuf[MAVLINK_MSG_PARAM_ERROR_FIELD_PARAM_ID_LEN + 1] = {};
     (void) strncpy(paramIdBuf, paramId, MAVLINK_MSG_PARAM_ERROR_FIELD_PARAM_ID_LEN);
@@ -1238,6 +1247,12 @@ void MockLink::_sendParamError(int componentId, const char *paramId, int16_t par
         errorCode
     );
     respondWithMavlinkMessage(responseMsg);
+#else
+    Q_UNUSED(componentId);
+    Q_UNUSED(paramId);
+    Q_UNUSED(paramIndex);
+    Q_UNUSED(errorCode);
+#endif
 }
 
 void MockLink::_handleFTP(const mavlink_message_t &msg)
@@ -1295,10 +1310,10 @@ void MockLink::_handleInProgressCommandLong(const mavlink_command_long_t &reques
     }
 }
 
-void MockLink::_handleCommandLongSetMessageInterval(const mavlink_command_long_t &request, bool &accepted)
+void MockLink::_handleCommandLongSetMessageInterval(const mavlink_command_long_t& request, bool& accepted)
 {
     Q_UNUSED(request);
-    accepted = false;
+    accepted = _setMessageIntervalAccepted;
 }
 
 void MockLink::_handleCommandLong(const mavlink_message_t &msg)
@@ -1403,6 +1418,9 @@ void MockLink::_handleCommandLong(const mavlink_message_t &msg)
         bool accepted = false;
 
         _handleCommandLongSetMessageInterval(request, accepted);
+        if (!_messageIntervalResponseEnabled) {
+            return;
+        }
         if (accepted) {
             commandResult = MAV_RESULT_ACCEPTED;
         }

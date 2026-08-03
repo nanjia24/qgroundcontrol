@@ -10924,7 +10924,7 @@ Is this really what you want?</translation>
     <message>
       <location filename="../src/QmlControls/PIDTuning.qml" line="294"/>
       <source>Switches to &apos;%1&apos; when you click Stop.</source>
-      <translation>点击“停止”后，切换到 &apos;稳定&apos;。</translation>
+      <translation>点击“停止”后，切换到“%1”。</translation>
     </message>
     <message>
       <location filename="../src/QmlControls/PIDTuning.qml" line="310"/>

@@ -13,6 +13,12 @@ private slots:
     void _simpleLinkTest();
     void _simpleCommLossTest();
     void _multiLinkSingleVehicleTest();
+    void _manualPrimaryLinkTuningStreamTest();
+    void _pendingTuningAckRestoresOriginalPrimaryLinkTest();
+    void _failedOldLinkRestoreDoesNotBlockNewPrimaryTest();
+    void _setMessageIntervalQueueIsolationTest();
+    void _setMessageIntervalLateAckQuarantineTest();
+    void _pendingSetMessageIntervalDisconnectFailsOverTest();
     void _connectionRemovedTest();
     void _highLatencyLinkTest();
 

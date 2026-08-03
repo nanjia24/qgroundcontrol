@@ -5,8 +5,11 @@
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QList>
 #include <QtCore/QObject>
+#include <QtCore/QPointer>
+#include <QtCore/QSet>
 #include <QtCore/QTimer>
 
+#include "LinkInterface.h"
 #include "VehicleTypes.h"
 
 class Vehicle;
@@ -15,8 +18,9 @@ class Vehicle;
 ///
 /// Each outbound command is appended to a per-vehicle queue with its retry policy
 /// and ack timeout. A periodic timer resends entries whose ack window has expired;
-/// incoming COMMAND_ACK messages are matched by (compId, command) and either complete
-/// the entry or refresh its timer on MAV_RESULT_IN_PROGRESS.
+/// incoming COMMAND_ACK messages are matched by (compId, command) and, for pinned
+/// commands, their link. A match either completes the entry or refreshes its timer
+/// on MAV_RESULT_IN_PROGRESS.
 class MavCommandQueue : public QObject, public VehicleTypes
 {
     Q_OBJECT
@@ -31,6 +35,11 @@ public:
     void sendCommandInt        (int compId, MAV_CMD command, MAV_FRAME frame, bool showError, float param1, float param2, float param3, float param4, double param5, double param6, float param7);
 
     void sendCommandWithHandler    (const MavCmdAckHandlerInfo_t* ackHandlerInfo, int compId, MAV_CMD command, float param1 = 0.0f, float param2 = 0.0f, float param3 = 0.0f, float param4 = 0.0f, float param5 = 0.0f, float param6 = 0.0f, float param7 = 0.0f);
+    void sendCommandWithHandlerOnLink(const MavCmdAckHandlerInfo_t* ackHandlerInfo,
+                                      const SharedLinkInterfacePtr& link, int compId, MAV_CMD command,
+                                      float param1 = 0.0f, float param2 = 0.0f, float param3 = 0.0f,
+                                      float param4 = 0.0f, float param5 = 0.0f, float param6 = 0.0f,
+                                      float param7 = 0.0f);
     void sendCommandIntWithHandler (const MavCmdAckHandlerInfo_t* ackHandlerInfo, int compId, MAV_CMD command, MAV_FRAME frame, float param1 = 0.0f, float param2 = 0.0f, float param3 = 0.0f, float param4 = 0.0f, double param5 = 0.0, double param6 = 0.0, float param7 = 0.0f);
 
     void sendCommandWithLambdaFallback(std::function<void()> lambda, int compId, MAV_CMD command, bool showError, float param1 = 0.0f, float param2 = 0.0f, float param3 = 0.0f, float param4 = 0.0f, float param5 = 0.0f, float param6 = 0.0f, float param7 = 0.0f);
@@ -40,7 +49,8 @@ public:
     /// typed send* wrappers above.
     void sendWorker(bool commandInt, bool showError, const MavCmdAckHandlerInfo_t* ackHandlerInfo,
                     int compId, MAV_CMD command, MAV_FRAME frame,
-                    float param1, float param2, float param3, float param4, double param5, double param6, float param7);
+                    float param1, float param2, float param3, float param4, double param5, double param6,
+                    float param7, const SharedLinkInterfacePtr& targetLink = {});
 
     /// True if a matching (targetCompId, command) is already queued or awaiting ack.
     bool isPending(int targetCompId, MAV_CMD command) const;
@@ -49,7 +59,8 @@ public:
     int findEntryIndex(int targetCompId, MAV_CMD command) const;
 
     /// Process a COMMAND_ACK — match it to a pending entry and fire callbacks.
-    void handleCommandAck(const mavlink_message_t& message, const mavlink_command_ack_t& ack);
+    void handleCommandAck(const mavlink_message_t& message, const mavlink_command_ack_t& ack,
+                          LinkInterface* incomingLink = nullptr);
 
     /// Stop the response timer and clear pending entries without firing callbacks.
     /// Used during vehicle shutdown to prevent post-destruction callbacks.
@@ -89,19 +100,41 @@ private:
         int                     tryCount            = 0;
         QElapsedTimer           elapsedTimer;
         int                     ackTimeoutMSecs     = 0;
+        WeakLinkInterfacePtr    targetLink;
+        LinkInterface*          targetLinkIdentity = nullptr;
+        bool                    targetLinkPinned    = false;
+        bool                    waitingToSend       = false;
     } MavCommandListEntry_t;
 
     void _sendFromList(int index);
+    void _sendNextWaitingCommand(int targetCompId, MAV_CMD command, LinkInterface* targetLink);
+    int _findActiveEntryIndex(int targetCompId, MAV_CMD command, LinkInterface* incomingLink) const;
+    bool _hasSetMessageIntervalEntry(int targetCompId, LinkInterface* targetLink) const;
+    bool _isSetMessageIntervalQuarantined(int targetCompId, LinkInterface* targetLink) const;
+    void _observeSetMessageIntervalLink(LinkInterface* targetLink);
+    void _failSetMessageIntervalEntriesForLink(LinkInterface* targetLink);
+    void _addSetMessageIntervalTombstone(int targetCompId, LinkInterface* targetLink);
+    bool _consumeSetMessageIntervalTombstone(int targetCompId, LinkInterface* targetLink);
+    void _clearSetMessageIntervalTombstones(LinkInterface* targetLink);
     static bool _shouldRetry(MAV_CMD command);
     static bool _canBeDuplicated(MAV_CMD command);
+    static bool _mustBeSerialized(MAV_CMD command);
     static int _responseCheckIntervalMSecs();
-    static int _ackTimeoutMSecs();
+    int _ackTimeoutMSecs(MAV_CMD command, const LinkInterface* link) const;
     static QString _formatCommand(MAV_CMD command, float param1);
 
     Vehicle*                         _vehicle = nullptr;
     QList<MavCommandListEntry_t>     _list;
+    // A timed-out 511 must drain its unidentifiable late ACK before this key can be reused.
+    struct SetMessageIntervalTombstone {
+        int targetCompId = 0;
+        QPointer<LinkInterface> targetLink;
+    };
+    QList<SetMessageIntervalTombstone> _setMessageIntervalTombstones;
+    QSet<LinkInterface*>               _observedSetMessageIntervalLinks;
     QTimer                           _responseCheckTimer;
     bool                             _stopped = false;  // set by stop(), gates all send paths
 
+    static constexpr int _usbSetMessageIntervalAckTimeoutMSecs = 60000;
     static constexpr int _ackTimeoutMSecsHighLatency = 120000;
 };

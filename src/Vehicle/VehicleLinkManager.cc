@@ -489,6 +489,8 @@ bool VehicleLinkManager::_updatePrimaryLink()
         return false;
     }
 
+    _vehicle->_pidTuningPrimaryLinkAboutToChange();
+
     if (primaryLink && primaryLink->linkConfiguration()->isHighLatency()) {
         _vehicle->sendMavCommand(
             MAV_COMP_ID_AUTOPILOT1,
@@ -575,12 +577,17 @@ QString VehicleLinkManager::primaryLinkDetails() const
     return linkDetailsForLink(primaryLink.get());
 }
 
-void VehicleLinkManager::setPrimaryLinkByName(const QString &name)
+void VehicleLinkManager::setPrimaryLinkByName(const QString& name)
 {
-    for (const LinkInfo_t& linkInfo: _rgLinkInfo) {
+    for (const LinkInfo_t& linkInfo : _rgLinkInfo) {
         if (linkInfo.link->linkConfiguration()->name() == name) {
+            if (_primaryLink.lock() == linkInfo.link) {
+                return;
+            }
+            _vehicle->_pidTuningPrimaryLinkAboutToChange();
             _primaryLink = linkInfo.link;
             emit primaryLinkChanged();
+            return;
         }
     }
 }

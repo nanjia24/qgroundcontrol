@@ -66,7 +66,7 @@ void QGCMAVLinkTest::_testVehicleClassClassification()
 
     QVERIFY(QGCMAVLink::isSub(MAV_TYPE_SUBMARINE));
     QVERIFY(QGCMAVLink::isAirship(MAV_TYPE_AIRSHIP));
-    QVERIFY(QGCMAVLink::isSpacecraft(MAV_TYPE_SPACECRAFT_ORBITER));
+    QVERIFY(QGCMAVLink::isSpacecraft(QGCMAVLink::MavTypeSpacecraftOrbiter));
 }
 
 void QGCMAVLinkTest::_testVehicleClassVTOL()
@@ -155,7 +155,7 @@ void QGCMAVLinkTest::_testMotorCountStandardTypes()
     QCOMPARE(QGCMAVLink::motorCount(MAV_TYPE_VTOL_TAILSITTER_QUADROTOR),       4);
     QCOMPARE(QGCMAVLink::motorCount(MAV_TYPE_HEXAROTOR),                       6);
     QCOMPARE(QGCMAVLink::motorCount(MAV_TYPE_OCTOROTOR),                       8);
-    QCOMPARE(QGCMAVLink::motorCount(MAV_TYPE_SPACECRAFT_ORBITER),              8);
+    QCOMPARE(QGCMAVLink::motorCount(QGCMAVLink::MavTypeSpacecraftOrbiter),     8);
 }
 
 void QGCMAVLinkTest::_testMotorCountSubmarineFrames()
