@@ -13,6 +13,7 @@ qt_add_qml_module(FlyViewModule
         CustomGuidedActionsController.qml
         DefaultChecklist.qml
         FixedWingChecklist.qml
+        HybridChecklist.qml
         FlightDisplayViewDummy.qml
         FlightDisplayViewGStreamer.qml
         FlightDisplayViewGStreamerD3D11.qml
@@ -60,6 +61,7 @@ qt_add_qml_module(FlyViewModule
         PreFlightCheckList.qml
         PreFlightCheckListShowAction.qml
         PreFlightGPSCheck.qml
+        PreFlightHybridStateCheck.qml
         PreFlightRCCheck.qml
         PreFlightSensorsHealthCheck.qml
         PreFlightSoundCheck.qml

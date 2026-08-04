@@ -2,6 +2,7 @@
 
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QObject>
+#include <QtCore/QString>
 #include <QtCore/QTimer>
 
 #include "MAVLinkLib.h"
@@ -10,12 +11,14 @@ class HybridVehicleState final : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(CurrentState currentState READ currentState NOTIFY stateChanged)
+    Q_PROPERTY(QString currentStateText READ currentStateText NOTIFY stateChanged)
     Q_PROPERTY(TargetState targetState READ targetState NOTIFY stateChanged)
     Q_PROPERTY(uint transitionSequence READ transitionSequence NOTIFY stateChanged)
     Q_PROPERTY(uint transitionElapsedMs READ transitionElapsedMs NOTIFY stateChanged)
     Q_PROPERTY(double positionNormalized READ positionNormalized NOTIFY stateChanged)
     Q_PROPERTY(bool positionNormalizedValid READ positionNormalizedValid NOTIFY stateChanged)
     Q_PROPERTY(uint faultReason READ faultReason NOTIFY stateChanged)
+    Q_PROPERTY(QString faultReasonText READ faultReasonText NOTIFY stateChanged)
     Q_PROPERTY(uint commandResult READ commandResult NOTIFY stateChanged)
     Q_PROPERTY(uint sensorSource READ sensorSource NOTIFY stateChanged)
     Q_PROPERTY(uint actuatorBackend READ actuatorBackend NOTIFY stateChanged)
@@ -59,6 +62,8 @@ public:
 
     CurrentState currentState() const { return _currentState; }
 
+    QString currentStateText() const;
+
     TargetState targetState() const { return _targetState; }
 
     uint32_t transitionSequence() const { return _transitionSequence; }
@@ -70,6 +75,8 @@ public:
     bool positionNormalizedValid() const { return _positionNormalizedWireValid && hasValidStatus(); }
 
     uint8_t faultReason() const { return _faultReason; }
+
+    QString faultReasonText() const;
 
     uint8_t commandResult() const { return _commandResult; }
 

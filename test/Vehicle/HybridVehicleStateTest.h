@@ -9,6 +9,7 @@ class HybridVehicleStateTest : public UnitTest
 private slots:
     void _initialStateIsUnknownAndStale();
     void _decodesStatesAndScalarFields();
+    void _faultStateWithoutReasonHasFaultText();
     void _decodesIndependentFlags();
     void _finitePositionRequiresValidFlag();
     void _nanPositionIsInvalid();

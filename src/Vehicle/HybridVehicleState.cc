@@ -76,6 +76,56 @@ bool HybridVehicleState::canRequestTransform() const
            landDetectionSampleFresh();
 }
 
+QString HybridVehicleState::currentStateText() const
+{
+    switch (_currentState) {
+        case Quad:
+            return tr("Quad");
+        case Transitioning:
+            return tr("Transitioning");
+        case Rover:
+            return tr("Rover");
+        case TransitionFault:
+            return tr("Fault");
+        case Unknown:
+        default:
+            return tr("Unknown");
+    }
+}
+
+QString HybridVehicleState::faultReasonText() const
+{
+    switch (_faultReason) {
+        case HYBRID_VEHICLE_FAULT_NONE:
+            return (_currentState == TransitionFault) ? tr("Hybrid controller reported a transition fault")
+                                                      : tr("No fault");
+        case HYBRID_VEHICLE_FAULT_NO_SENSOR:
+            return tr("No shape sensor");
+        case HYBRID_VEHICLE_FAULT_SENSOR_CONFLICT:
+            return tr("Shape sensors disagree");
+        case HYBRID_VEHICLE_FAULT_SENSOR_TIMEOUT:
+            return tr("Shape sensor timed out");
+        case HYBRID_VEHICLE_FAULT_TRANSITION_TIMEOUT:
+            return tr("Transition timed out");
+        case HYBRID_VEHICLE_FAULT_INVALID_SERVO_CONFIG:
+            return tr("Invalid transform servo configuration");
+        case HYBRID_VEHICLE_FAULT_INVALID_CONFIGURATION:
+            return tr("Invalid hybrid configuration");
+        case HYBRID_VEHICLE_FAULT_STALL:
+            return tr("Transform mechanism stalled");
+        case HYBRID_VEHICLE_FAULT_ACTUATOR_COMMUNICATION:
+            return tr("Transform actuator communication failed");
+        case HYBRID_VEHICLE_FAULT_ACTUATOR_PROTECTION:
+            return tr("Transform actuator protection active");
+        case HYBRID_VEHICLE_FAULT_ACTUATOR_CONFIG_MISMATCH:
+            return tr("Transform actuator configuration mismatch");
+        case HYBRID_VEHICLE_FAULT_ACTUATOR_COMMAND_REJECTED:
+            return tr("Transform actuator rejected the command");
+        default:
+            return tr("Unknown hybrid fault (%1)").arg(_faultReason);
+    }
+}
+
 bool HybridVehicleState::_serialIsNewer(uint32_t candidate, uint32_t baseline)
 {
     const uint32_t delta = candidate - baseline;

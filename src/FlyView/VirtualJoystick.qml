@@ -17,9 +17,12 @@ Item {
     property real  uiTotalWidth:           0
     property real  uiRealX:                 0
     property bool  _activeJoystickSending:  joystickManager.activeJoystick && joystickManager.activeJoystickEnabledForActiveVehicle
-    readonly property bool _centerThrottleDisplay: _activeVehicle && _activeVehicle.supports.throttleModeCenterZero &&
-                                                   (_activeVehicle.rover ||
-                                                    (_activeJoystickSending && joystickManager.activeJoystick && joystickManager.activeJoystick.settings.throttleModeCenterZero.rawValue))
+    property bool  _restorePending:          false
+    readonly property bool _centerThrottleDisplay: virtualJoysticks._activeVehicle && virtualJoysticks._activeVehicle.supports.throttleModeCenterZero &&
+                                                   (virtualJoysticks._activeVehicle.manualControlRover ||
+                                                    (virtualJoysticks._activeJoystickSending && joystickManager.activeJoystick && joystickManager.activeJoystick.settings.throttleModeCenterZero.rawValue))
+    readonly property bool _manualControlAvailable: !!virtualJoysticks._activeVehicle &&
+                                                    (!virtualJoysticks._activeVehicle.quadRover || virtualJoysticks._activeVehicle.manualControlProfileKnown)
 
     function _clampAxis(axisValue) {
         return Math.max(-1, Math.min(axisValue, 1))
@@ -57,16 +60,33 @@ Item {
         if (!leftStick.yAxisReCenter) {
             leftStick.stickPositionY = leftStick.yAxisPositiveRangeOnly ? leftStick.height : leftStick.height / 2
         }
+        leftStick.syncAxes()
+        rightStick.syncAxes()
         leftYAxisValue = leftStick.yAxis
+    }
+
+    function _scheduleVirtualJoystickRestore() {
+        if (virtualJoysticks._restorePending) {
+            return
+        }
+        virtualJoysticks._restorePending = true
+        Qt.callLater(function() {
+            virtualJoysticks._restoreVirtualJoystickPositions()
+            virtualJoysticks._restorePending = false
+        })
     }
 
     Timer {
         interval:   40  // 25Hz, same as real joystick rate
-        running:    QGroundControl.settingsManager.appSettings.virtualJoystick.value
+        running:    QGroundControl.settingsManager.appSettings.virtualJoystick.value && virtualJoysticks.visible
         repeat:     true
         onTriggered: {
-            if (_activeVehicle && _initialConnectComplete && !virtualJoysticks._activeJoystickSending) {
-                leftHandedMode ? _activeVehicle.virtualTabletJoystickValue(leftStick.xAxis, leftStick.yAxis, rightStick.xAxis, rightStick.yAxis) : _activeVehicle.virtualTabletJoystickValue(rightStick.xAxis, rightStick.yAxis, leftStick.xAxis, leftStick.yAxis)
+            if (virtualJoysticks._activeVehicle &&
+                virtualJoysticks._initialConnectComplete &&
+                virtualJoysticks._manualControlAvailable &&
+                !virtualJoysticks._restorePending &&
+                !virtualJoysticks._activeJoystickSending) {
+                leftHandedMode ? virtualJoysticks._activeVehicle.virtualTabletJoystickValue(leftStick.xAxis, leftStick.yAxis, rightStick.xAxis, rightStick.yAxis) : virtualJoysticks._activeVehicle.virtualTabletJoystickValue(rightStick.xAxis, rightStick.yAxis, leftStick.xAxis, leftStick.yAxis)
                 leftYAxisValue = leftStick.yAxis // We keep Y axis value from the throttle stick for using it while there is a resize
             }
         }
@@ -83,7 +103,11 @@ Item {
 
     onHeightChanged:        { keepYAxisWhileChanged() }
     onWidthChanged:         { keepXAxisWhileChanged() }
+    onVisibleChanged:       { if (virtualJoysticks.visible) virtualJoysticks._scheduleVirtualJoystickRestore() }
     onCalibrationChanged:   { calibration ? calibrateJoysticks() : undefined }
+    on_ActiveVehicleChanged:          { virtualJoysticks._scheduleVirtualJoystickRestore() }
+    on_ManualControlAvailableChanged: { virtualJoysticks._scheduleVirtualJoystickRestore() }
+    on_CenterThrottleDisplayChanged:  { virtualJoysticks._scheduleVirtualJoystickRestore() }
     on_ActiveJoystickSendingChanged: {
         if (!virtualJoysticks._activeJoystickSending) {
             virtualJoysticks._restoreVirtualJoystickPositions()
@@ -119,9 +143,9 @@ Item {
         anchors.bottom:         parent.bottom
         width:                  parent.height
         height:                 parent.height
-        yAxisPositiveRangeOnly: _activeVehicle && !_activeVehicle.rover && !leftHandedMode && !_centerThrottleDisplay
+        yAxisPositiveRangeOnly: _activeVehicle && !_activeVehicle.manualControlRover && !leftHandedMode && !_centerThrottleDisplay
         yAxisReCenter:          autoCenterThrottle
-        inputEnabled:           !virtualJoysticks._activeJoystickSending
+        inputEnabled:           !virtualJoysticks._activeJoystickSending && virtualJoysticks._manualControlAvailable && !virtualJoysticks._restorePending
     }
 
     JoystickThumbPad {
@@ -132,8 +156,8 @@ Item {
         anchors.bottom:         parent.bottom
         width:                  parent.height
         height:                 parent.height
-        yAxisPositiveRangeOnly: _activeVehicle && !_activeVehicle.rover && leftHandedMode && !_centerThrottleDisplay
+        yAxisPositiveRangeOnly: _activeVehicle && !_activeVehicle.manualControlRover && leftHandedMode && !_centerThrottleDisplay
         yAxisReCenter:          true
-        inputEnabled:           !virtualJoysticks._activeJoystickSending
+        inputEnabled:           !virtualJoysticks._activeJoystickSending && virtualJoysticks._manualControlAvailable && !virtualJoysticks._restorePending
     }
 }

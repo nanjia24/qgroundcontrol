@@ -17,6 +17,7 @@ Item {
     property string message
     property int    action
     property var    actionData
+    property var    actionVehicle
     property bool   hideTrigger:        false
     property var    mapIndicator
     property alias  optionText:         optionCheckBox.text
@@ -47,6 +48,7 @@ Item {
         guidedValueSlider.visible = false
         visible = false
         hideTrigger = false
+        actionVehicle = null
         visibleTimer.stop()
         messageDisplay.opacity = 1.0
         messageFadeTimer.stop()
@@ -90,7 +92,9 @@ Item {
                     guidedValueSlider.visible = false
                 }
                 hideTrigger = false
-                let success = guidedController.executeAction(control.action, control.actionData, sliderOutputValue, control.optionChecked)
+                let actionVehicleCopy = control.actionVehicle
+                control.actionVehicle = null
+                let success = guidedController.executeAction(control.action, control.actionData, sliderOutputValue, control.optionChecked, actionVehicleCopy)
                 if (mapIndicator) {
                     if (success) {
                         mapIndicator.actionConfirmed()

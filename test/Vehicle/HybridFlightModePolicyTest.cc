@@ -9,6 +9,7 @@
 #include "MAVLinkProtocol.h"
 #include "MultiVehicleManager.h"
 #include "Vehicle.h"
+#include "VehicleSupports.h"
 #include "px4_custom_mode.h"
 
 namespace {
@@ -60,14 +61,32 @@ void HybridFlightModePolicyTest::init()
 
 void HybridFlightModePolicyTest::_stableQuadFiltersToMultirotorModes()
 {
+    QVERIFY(vehicle()->effectiveMultiRotor());
+    QVERIFY(!vehicle()->effectiveRover());
+    QVERIFY(vehicle()->hybridTransitionController()->canRequestTransform());
+    QVERIFY(vehicle()->hybridTransitionController()->requestUnavailableReason().isEmpty());
+    QVERIFY(vehicle()->supports()->guidedTakeoffWithAltitude());
+    QVERIFY(vehicle()->supports()->orbitMode());
+    QVERIFY(vehicle()->supports()->roiMode());
     const QStringList modes = vehicle()->flightModes();
     QCOMPARE(modeIdentities(vehicle(), modes), kQuadModes);
 }
 
 void HybridFlightModePolicyTest::_stableRoverFiltersToRoverModes()
 {
+    QSignalSpy capabilitiesSpy(vehicle()->supports(), &VehicleSupports::capabilitiesChanged);
+    QVERIFY(capabilitiesSpy.isValid());
     _primeStableState(HybridVehicleState::Rover);
 
+    QVERIFY(!vehicle()->effectiveMultiRotor());
+    QVERIFY(vehicle()->effectiveRover());
+    QVERIFY(vehicle()->hybridTransitionController()->canRequestTransform());
+    QVERIFY(vehicle()->hybridTransitionController()->requestUnavailableReason().isEmpty());
+    QVERIFY(capabilitiesSpy.count() >= 1);
+    QVERIFY(!vehicle()->supports()->guidedTakeoffWithAltitude());
+    QVERIFY(!vehicle()->supports()->orbitMode());
+    QVERIFY(!vehicle()->supports()->roiMode());
+    QVERIFY(vehicle()->supports()->negativeThrust());
     const QStringList modes = vehicle()->flightModes();
     QCOMPARE(modeIdentities(vehicle(), modes), kRoverModes);
 }
@@ -85,6 +104,8 @@ void HybridFlightModePolicyTest::_unavailableStatesRejectModesAndCommands_data()
                              << static_cast<uint8_t>(HYBRID_VEHICLE_FAULT_NONE) << false;
     QTest::newRow("fault") << HybridVehicleState::TransitionFault << HybridVehicleState::TargetRover
                            << static_cast<uint8_t>(HYBRID_VEHICLE_FAULT_ACTUATOR_COMMUNICATION) << false;
+    QTest::newRow("fault-without-reason") << HybridVehicleState::TransitionFault << HybridVehicleState::TargetRover
+                                          << static_cast<uint8_t>(HYBRID_VEHICLE_FAULT_NONE) << false;
     QTest::newRow("superseded") << HybridVehicleState::Quad << HybridVehicleState::None
                                 << static_cast<uint8_t>(HYBRID_VEHICLE_FAULT_NONE) << true;
 }
@@ -110,6 +131,10 @@ void HybridFlightModePolicyTest::_unavailableStatesRejectModesAndCommands()
     } else {
         _injectStatus(currentState, targetState, faultReason);
     }
+    QVERIFY(!vehicle()->effectiveMultiRotor());
+    QVERIFY(!vehicle()->effectiveRover());
+    QVERIFY(!vehicle()->hybridTransitionController()->canRequestTransform());
+    QVERIFY(!vehicle()->hybridTransitionController()->requestUnavailableReason().isEmpty());
     QCOMPARE(vehicle()->flightModes(), QStringList());
     _verifyUnavailableModeRequestIsNotSent();
 }
@@ -119,6 +144,10 @@ void HybridFlightModePolicyTest::_staleStateRejectsModesAndCommands()
     QTest::qWait(3100);
 
     QVERIFY(vehicle()->hybridVehicleState()->stale());
+    QVERIFY(!vehicle()->effectiveMultiRotor());
+    QVERIFY(!vehicle()->effectiveRover());
+    QVERIFY(!vehicle()->hybridTransitionController()->canRequestTransform());
+    QVERIFY(!vehicle()->hybridTransitionController()->requestUnavailableReason().isEmpty());
     QCOMPARE(vehicle()->flightModes(), QStringList());
     _verifyUnavailableModeRequestIsNotSent();
 }

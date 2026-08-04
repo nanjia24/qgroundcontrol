@@ -2,8 +2,6 @@
 #include "ParameterMetaData.h"
 #include "PX4ParameterMetaData.h"
 #include "AppMessages.h"
-#include "HybridTransitionController.h"
-#include "HybridVehicleState.h"
 #include "PX4AutoPilotPlugin.h"
 #include "QGCLoggingCategory.h"
 #include "SettingsManager.h"
@@ -172,9 +170,7 @@ bool PX4FirmwarePlugin::setFlightMode(const QString& flightMode, uint8_t* base_m
 
 bool PX4FirmwarePlugin::isCapable(const Vehicle *vehicle, FirmwareCapabilities capabilities) const
 {
-    const bool effectiveMultiRotor =
-        vehicle->multiRotor() ||
-        (vehicle->quadRover() && (_effectiveShapeProfile(vehicle) == EffectiveShapeProfile::QuadMultiRotor));
+    const bool effectiveMultiRotor = vehicle->effectiveMultiRotor();
     int available = SetFlightModeCapability | PauseVehicleCapability | GuidedModeCapability;
     //-- This is arbitrary until I find how to really tell if ROI is avaiable
     if (effectiveMultiRotor) {
@@ -191,21 +187,13 @@ bool PX4FirmwarePlugin::isCapable(const Vehicle *vehicle, FirmwareCapabilities c
 
 PX4FirmwarePlugin::EffectiveShapeProfile PX4FirmwarePlugin::_effectiveShapeProfile(const Vehicle* vehicle)
 {
-    const HybridVehicleState* const state = vehicle->hybridVehicleState();
-    const HybridTransitionController* const controller = vehicle->hybridTransitionController();
-    if (!state || !controller || (controller->transactionState() != HybridTransitionController::Idle) ||
-        !state->hasValidStatus() || (state->faultReason() != HYBRID_VEHICLE_FAULT_NONE)) {
-        return EffectiveShapeProfile::Unavailable;
+    if (vehicle->effectiveMultiRotor()) {
+        return EffectiveShapeProfile::QuadMultiRotor;
     }
-
-    switch (state->currentState()) {
-        case HybridVehicleState::Quad:
-            return EffectiveShapeProfile::QuadMultiRotor;
-        case HybridVehicleState::Rover:
-            return EffectiveShapeProfile::Rover;
-        default:
-            return EffectiveShapeProfile::Unavailable;
+    if (vehicle->effectiveRover()) {
+        return EffectiveShapeProfile::Rover;
     }
+    return EffectiveShapeProfile::Unavailable;
 }
 
 bool PX4FirmwarePlugin::_isHybridRoverMode(uint32_t customMode)
@@ -764,7 +752,7 @@ QString PX4FirmwarePlugin::_versionRegex() const
 
 bool PX4FirmwarePlugin::supportsNegativeThrust(Vehicle* vehicle) const
 {
-    return ((vehicle->vehicleType() == MAV_TYPE_GROUND_ROVER) || (vehicle->vehicleType() == MAV_TYPE_SUBMARINE));
+    return vehicle->manualControlRover() || (vehicle->vehicleType() == MAV_TYPE_SUBMARINE);
 }
 
 QString PX4FirmwarePlugin::getHobbsMeter(Vehicle* vehicle) const

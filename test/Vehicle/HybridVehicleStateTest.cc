@@ -100,6 +100,21 @@ void HybridVehicleStateTest::_decodesStatesAndScalarFields()
     QCOMPARE(state.currentState(), HybridVehicleState::TransitionFault);
 }
 
+void HybridVehicleStateTest::_faultStateWithoutReasonHasFaultText()
+{
+    HybridVehicleState state(kAutopilotComponent);
+    auto status = makeStatus(1000);
+    state.handleStatus(kAutopilotComponent, status);
+    const QString healthyText = state.faultReasonText();
+
+    status.timestamp = 2000;
+    status.current_state = HYBRID_VEHICLE_STATE_TRANSITION_FAULT;
+    state.handleStatus(kAutopilotComponent, status);
+
+    QVERIFY(!state.faultReasonText().isEmpty());
+    QVERIFY(state.faultReasonText() != healthyText);
+}
+
 void HybridVehicleStateTest::_decodesIndependentFlags()
 {
     using FlagGetter = bool (HybridVehicleState::*)() const;

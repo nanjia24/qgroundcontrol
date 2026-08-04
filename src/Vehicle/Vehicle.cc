@@ -264,6 +264,8 @@ void Vehicle::_commonInit(LinkInterface* link)
     connect(this, &Vehicle::hobbsMeterChanged,      this, &Vehicle::_updateHobbsMeter);
     connect(this, &Vehicle::coordinateChanged, _terrainQueryCoordinator, &TerrainQueryCoordinator::updateAltAboveTerrain);
     connect(this, &Vehicle::vehicleTypeChanged,     this, &Vehicle::inFwdFlightChanged);
+    connect(this, &Vehicle::vehicleTypeChanged, this, &Vehicle::effectiveVehicleClassChanged);
+    connect(this, &Vehicle::vehicleTypeChanged, this, &Vehicle::manualControlProfileChanged);
     connect(this, &Vehicle::vtolInFwdFlightChanged, this, &Vehicle::inFwdFlightChanged);
 
     connect(QGCPositionManager::instance(), &QGCPositionManager::gcsPositionChanged, this, &Vehicle::_updateDistanceHeadingGCS);
@@ -292,8 +294,13 @@ void Vehicle::_commonInit(LinkInterface* link)
     connect(_mavCmdQueue, &MavCommandQueue::commandResult, this, &Vehicle::mavCommandResult);
     _hybridTransitionController = new HybridTransitionController(this, _hybridVehicleState);
     connect(_hybridVehicleState, &HybridVehicleState::modePolicyInputsChanged, this, &Vehicle::flightModesChanged);
+    connect(_hybridVehicleState, &HybridVehicleState::modePolicyInputsChanged, this,
+            &Vehicle::effectiveVehicleClassChanged);
+    connect(_hybridVehicleState, &HybridVehicleState::stateChanged, this, &Vehicle::_updateManualControlProfile);
     connect(_hybridTransitionController, &HybridTransitionController::transactionStateChanged, this,
             &Vehicle::flightModesChanged);
+    connect(_hybridTransitionController, &HybridTransitionController::transactionStateChanged, this,
+            &Vehicle::effectiveVehicleClassChanged);
     _reqMsgCoord = new RequestMessageCoordinator(this, _mavCmdQueue);
     _messageIntervalManager = new MessageIntervalManager(this, _mavCmdQueue, _reqMsgCoord);
     connect(_messageIntervalManager, &MessageIntervalManager::mavlinkMsgIntervalsChanged,
@@ -1822,6 +1829,30 @@ bool Vehicle::quadRover() const
     return QGCMAVLink::isQuadRover(vehicleType());
 }
 
+bool Vehicle::effectiveMultiRotor() const
+{
+    if (!quadRover()) {
+        return multiRotor();
+    }
+
+    return _hybridVehicleState && _hybridTransitionController &&
+           (_hybridTransitionController->transactionState() == HybridTransitionController::Idle) &&
+           _hybridVehicleState->hasValidStatus() && (_hybridVehicleState->faultReason() == HYBRID_VEHICLE_FAULT_NONE) &&
+           (_hybridVehicleState->currentState() == HybridVehicleState::Quad);
+}
+
+bool Vehicle::effectiveRover() const
+{
+    if (!quadRover()) {
+        return rover();
+    }
+
+    return _hybridVehicleState && _hybridTransitionController &&
+           (_hybridTransitionController->transactionState() == HybridTransitionController::Idle) &&
+           _hybridVehicleState->hasValidStatus() && (_hybridVehicleState->faultReason() == HYBRID_VEHICLE_FAULT_NONE) &&
+           (_hybridVehicleState->currentState() == HybridVehicleState::Rover);
+}
+
 bool Vehicle::vtol() const
 {
     return QGCMAVLink::isVTOL(vehicleType());
@@ -2236,6 +2267,42 @@ Vehicle::MavCmdQueueEntryToken Vehicle::sendMavCommandWithHandler(const MavCmdAc
 {
     return _mavCmdQueue->sendCommandWithHandler(ackHandlerInfo, compId, command, param1, param2, param3, param4, param5,
                                                 param6, param7);
+}
+
+bool Vehicle::manualControlProfileKnown() const
+{
+    return !quadRover() || _hybridManualControlProfileKnown.load();
+}
+
+bool Vehicle::manualControlRover() const
+{
+    if (!quadRover()) {
+        return rover();
+    }
+
+    return _hybridManualControlProfileKnown.load() && _hybridManualControlRover.load();
+}
+
+void Vehicle::_updateManualControlProfile()
+{
+    if (!quadRover() || !_hybridVehicleState) {
+        return;
+    }
+
+    const HybridVehicleState::CurrentState state = _hybridVehicleState->currentState();
+    if (!_hybridVehicleState->hasValidStatus() || (_hybridVehicleState->faultReason() != HYBRID_VEHICLE_FAULT_NONE) ||
+        ((state != HybridVehicleState::Quad) && (state != HybridVehicleState::Rover))) {
+        return;
+    }
+
+    const bool roverProfile = state == HybridVehicleState::Rover;
+    const bool profileChanged =
+        !_hybridManualControlProfileKnown.load() || (_hybridManualControlRover.load() != roverProfile);
+    _hybridManualControlRover.store(roverProfile);
+    _hybridManualControlProfileKnown.store(true);
+    if (profileChanged) {
+        emit manualControlProfileChanged();
+    }
 }
 
 void Vehicle::sendMavCommandInt(int compId, MAV_CMD command, MAV_FRAME frame, bool showError, float param1, float param2, float param3, float param4, double param5, double param6, float param7)
@@ -3063,6 +3130,11 @@ void Vehicle::clearAllParamMapRC(void)
 
 void Vehicle::sendJoystickDataThreadSafe(float roll, float pitch, float yaw, float thrust, quint16 buttons, quint16 buttons2, float pitchExtension, float rollExtension, float aux1, float aux2, float aux3, float aux4, float aux5, float aux6)
 {
+    if (quadRover() && !manualControlProfileKnown()) {
+        qCDebug(VehicleLog) << "Ignoring manual control until the Quad-Rover shape is known";
+        return;
+    }
+
     SharedLinkInterfacePtr sharedLink = vehicleLinkManager()->primaryLink().lock();
     if (!sharedLink) {
         qCDebug(VehicleLog)<< "sendJoystickDataThreadSafe: primary link gone!";

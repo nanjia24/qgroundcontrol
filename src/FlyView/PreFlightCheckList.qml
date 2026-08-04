@@ -8,6 +8,8 @@ import QGroundControl.Controls
 import QGroundControl.FlyView
 
 ColumnLayout {
+    id: _root
+
     spacing: 0.8 * ScreenTools.defaultFontPixelWidth
 
     property real _verticalMargin: ScreenTools.defaultFontPixelHeight / 2
@@ -15,22 +17,28 @@ ColumnLayout {
     Loader {
         id:     modelContainer
         source: "qrc:/qml/QGroundControl/FlyView/DefaultChecklist.qml"
-    }
 
-    property bool allChecksPassed:  false
-    property var  vehicleCopy:      globals.activeVehicle
-
-    onVehicleCopyChanged: {
-        if (checkListRepeater.model) {
-            checkListRepeater.model.reset()
+        onLoaded: {
+            if (modelContainer.item && modelContainer.item.model) {
+                modelContainer.item.model.reset()
+            }
         }
     }
 
+    property bool allChecksPassed:  false
+    property var  vehicleCopy:      QGroundControl.multiVehicleManager.activeVehicle ? QGroundControl.multiVehicleManager.activeVehicle : QGroundControl.multiVehicleManager.offlineEditingVehicle
+
+    onVehicleCopyChanged: {
+        _root._resetForVehicle()
+    }
+
     onAllChecksPassedChanged: {
-        if (allChecksPassed) {
-            globals.activeVehicle.checkListState = Vehicle.CheckListPassed
-        } else {
-            globals.activeVehicle.checkListState = Vehicle.CheckListFailed
+        _root._syncVehicleChecklistState()
+    }
+
+    function _syncVehicleChecklistState() {
+        if (_root.vehicleCopy && _root.vehicleCopy === QGroundControl.multiVehicleManager.activeVehicle) {
+            _root.vehicleCopy.checkListState = _root.allChecksPassed ? Vehicle.CheckListPassed : Vehicle.CheckListFailed
         }
     }
 
@@ -55,17 +63,18 @@ ColumnLayout {
                 break
             }
         }
-        allChecksPassed = allPassed;
+        _root.allChecksPassed = allPassed;
     }
 
     //-- Pick a checklist model that matches the current airframe type (if any)
     function _updateModel() {
-        var vehicle = globals.activeVehicle
-        if (!vehicle) {
-            vehicle = QGroundControl.multiVehicleManager.offlineEditingVehicle
-        }
+        var vehicle = _root.vehicleCopy
 
-        if(vehicle.multiRotor) {
+        if(!vehicle) {
+            modelContainer.source = "qrc:/qml/QGroundControl/FlyView/DefaultChecklist.qml"
+        } else if(vehicle.quadRover) {
+            modelContainer.source = "qrc:/qml/QGroundControl/FlyView/HybridChecklist.qml"
+        } else if(vehicle.multiRotor) {
             modelContainer.source = "qrc:/qml/QGroundControl/FlyView/MultiRotorChecklist.qml"
         } else if(vehicle.vtol) {
             modelContainer.source = "qrc:/qml/QGroundControl/FlyView/VTOLChecklist.qml"
@@ -81,15 +90,31 @@ ColumnLayout {
         return
     }
 
+    function _resetForVehicle() {
+        delayedGroupPassed.stop()
+        _root.allChecksPassed = false
+        _root._syncVehicleChecklistState()
+        _root._updateModel()
+        if (modelContainer.item && modelContainer.item.model) {
+            modelContainer.item.model.reset()
+        }
+    }
+
+    Connections {
+        target: _root.vehicleCopy
+
+        function onVehicleTypeChanged() {
+            _root._resetForVehicle()
+        }
+    }
+
     Component.onCompleted: {
-        _updateModel()
+        _root._resetForVehicle()
     }
 
     onVisibleChanged: {
-        if(globals.activeVehicle) {
-            if(visible) {
-                _updateModel()
-            }
+        if(_root.visible) {
+            _root._updateModel()
         }
     }
 
@@ -100,7 +125,7 @@ ColumnLayout {
 
         property int index
 
-        onTriggered: _handleGroupPassedChanged(index, true /* passed */)
+        onTriggered: _root._handleGroupPassedChanged(delayedGroupPassed.index, true /* passed */)
     }
 
     function groupPassedChanged(index, passed) {
@@ -108,7 +133,7 @@ ColumnLayout {
             delayedGroupPassed.index = index
             delayedGroupPassed.restart()
         } else {
-            _handleGroupPassedChanged(index, passed)
+            _root._handleGroupPassedChanged(index, passed)
         }
     }
 
@@ -120,14 +145,19 @@ ColumnLayout {
 
         QGCLabel {
             Layout.fillWidth:   true
-            text:               allChecksPassed ? qsTr("(Passed)") : qsTr("In Progress")
+            text:               _root.allChecksPassed ? qsTr("(Passed)") : qsTr("In Progress")
             font.pointSize:     ScreenTools.mediumFontPointSize
         }
         QGCButton {
             width:              1.2 * ScreenTools.defaultFontPixelHeight
             height:             1.2 * ScreenTools.defaultFontPixelHeight
             Layout.alignment:   Qt.AlignVCenter
-            onClicked:          checkListRepeater.model.reset()
+            enabled:            !!checkListRepeater.model
+            onClicked: {
+                if (checkListRepeater.model) {
+                    checkListRepeater.model.reset()
+                }
+            }
 
             QGCColoredImage {
                 source:         "/qmlimages/MapSyncBlack.svg"
@@ -140,6 +170,6 @@ ColumnLayout {
     // All check list items
     Repeater {
         id:     checkListRepeater
-        model:  modelContainer.item.model
+        model:  modelContainer.item ? modelContainer.item.model : null
     }
 }

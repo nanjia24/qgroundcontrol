@@ -126,19 +126,19 @@ Item {
     property bool showArm:                  _guidedActionsEnabled && !_vehicleArmed && _canArm
     property bool showForceArm:             _guidedActionsEnabled && !_vehicleArmed
     property bool showDisarm:               _guidedActionsEnabled && _vehicleArmed && !_vehicleFlying
-    property bool showRTL:                  _guidedActionsEnabled && _vehicleArmed && _activeVehicle.supports.guidedMode && _vehicleFlying && !_vehicleInRTLMode
+    property bool showRTL:                  _guidedActionsEnabled && _vehicleArmed && _activeVehicle.supports.guidedMode && _vehicleOperational && !_vehicleInRTLMode
     property bool showTakeoff:              _guidedActionsEnabled && (_activeVehicle.supports.guidedTakeoffWithAltitude || _activeVehicle.supports.guidedTakeoffWithoutAltitude) && !_vehicleFlying && _canTakeoff
-    property bool showLand:                 _guidedActionsEnabled && _activeVehicle.supports.guidedMode && _vehicleArmed && !_activeVehicle.fixedWing && !_vehicleInLandMode
+    property bool showLand:                 _guidedActionsEnabled && _activeVehicle.supports.guidedMode && _vehicleArmed && !_activeVehicle.fixedWing && !_activeVehicle.manualControlRover && (!_activeVehicle.quadRover || _activeVehicle.manualControlProfileKnown) && !_vehicleInLandMode
     property bool showStartMission:         _guidedActionsEnabled && _missionAvailable && !_missionActive && !_vehicleFlying && _canStartMission
-    property bool showContinueMission:      _guidedActionsEnabled && _missionAvailable && !_missionActive && _vehicleArmed && _vehicleFlying && (_currentMissionIndex < _visualItemsCount - 1)
-    property bool showPause:                _guidedActionsEnabled && _vehicleArmed && _activeVehicle.supports.pauseVehicle && _vehicleFlying && !_vehiclePaused && !_fixedWingOnApproach
+    property bool showContinueMission:      _guidedActionsEnabled && _missionAvailable && !_missionActive && _vehicleArmed && _vehicleOperational && (_currentMissionIndex < _visualItemsCount - 1)
+    property bool showPause:                _guidedActionsEnabled && _vehicleArmed && _activeVehicle.supports.pauseVehicle && _vehicleOperational && !_vehiclePaused && !_fixedWingOnApproach
     property bool showChangeAlt:            _guidedActionsEnabled && _vehicleFlying && _activeVehicle.supports.guidedMode && _vehicleArmed && !_missionActive
     property bool showChangeLoiterRadius:   _guidedActionsEnabled && _vehicleFlying && _activeVehicle.supports.guidedMode && _vehicleArmed && !_missionActive && _vehicleInFwdFlight && fwdFlightGotoMapCircle.visible
     property bool showChangeSpeed:          _guidedActionsEnabled && _vehicleFlying && _activeVehicle.supports.guidedMode && _vehicleArmed && !_missionActive && _speedLimitsAvailable
     property bool showOrbit:                _guidedActionsEnabled && _vehicleFlying && __orbitSupported && !_missionActive && _activeVehicle.homePosition.isValid && !isNaN(_activeVehicle.homePosition.altitude)
     property bool showROI:                  _guidedActionsEnabled && _vehicleFlying && __roiSupported
     property bool showLandAbort:            _guidedActionsEnabled && _vehicleFlying && _fixedWingOnApproach
-    property bool showGotoLocation:         _guidedActionsEnabled && _vehicleFlying
+    property bool showGotoLocation:         _guidedActionsEnabled && _vehicleOperational && _activeVehicle.supports.guidedMode
     property bool showSetHome:              _guidedActionsEnabled
     property bool showSetEstimatorOrigin:   _activeVehicle && !(_activeVehicle.sensorsPresentBits & MAVLinkEnums.MAV_SYS_STATUS_SENSOR_GPS)
     property bool showChangeHeading:        _guidedActionsEnabled && _vehicleFlying
@@ -159,6 +159,7 @@ Item {
     property bool   _missionActive:         _activeVehicle ? _vehicleArmed && (_vehicleInLandMode || _vehicleInRTLMode || _vehicleInMissionMode) : false
     property bool   _vehicleArmed:          _activeVehicle ? _activeVehicle.armed  : false
     property bool   _vehicleFlying:         _activeVehicle ? _activeVehicle.flying  : false
+    readonly property bool _vehicleOperational: _vehicleFlying || (_vehicleArmed && _activeVehicle && _activeVehicle.manualControlRover)
     property bool   _vehicleLanding:        _activeVehicle ? _activeVehicle.landing  : false
     property bool   _vehiclePaused:         false
     property bool   _vehicleInMissionMode:  false
@@ -225,7 +226,7 @@ Item {
             } else {
                 console.error("setupSlider called for inapproproate change speed action", _vehicleInFwdFlight, _activeVehicle.haveMRSpeedLimits)
             }
-        } else if (actionCode === actionChangeAlt || actionCode === actionOrbit || actionCode === actionGoto || actionCode === actionPause) {
+        } else if (actionCode === actionChangeAlt || actionCode === actionOrbit || actionCode === actionGoto || (actionCode === actionPause && !_activeVehicle.manualControlRover)) {
             guidedValueSlider.setupSlider(
                 GuidedValueSlider.SliderType.Altitude,
                 _flyViewSettings.guidedMinimumAltitude.value,
@@ -235,7 +236,10 @@ Item {
         }
     }
 
-    on_ActiveVehicleChanged: _outputState()
+    on_ActiveVehicleChanged: {
+        closeAll()
+        _outputState()
+    }
 
     Component.onCompleted:              _outputState()
     on_VehicleArmedChanged:             _outputState()
@@ -369,8 +373,12 @@ Item {
     }
 
     function closeAll() {
-        confirmDialog.visible = false
-        guidedValueSlider.visible = false
+        if (confirmDialog) {
+            confirmDialog.confirmCancelled()
+        }
+        if (guidedValueSlider) {
+            guidedValueSlider.visible = false
+        }
     }
 
     // Called when an action is about to be executed in order to confirm
@@ -380,6 +388,7 @@ Item {
         confirmDialog.action = actionCode
         confirmDialog.actionData = actionData
         confirmDialog.hideTrigger = true
+        confirmDialog.actionVehicle = _activeVehicle
         confirmDialog.mapIndicator = mapIndicator
         confirmDialog.optionText = ""
         _actionData = actionData
@@ -505,7 +514,7 @@ Item {
             confirmDialog.title = pauseTitle
             confirmDialog.message = pauseMessage
             confirmDialog.hideTrigger = Qt.binding(function() { return !showPause })
-            guidedValueSlider.visible = true
+            guidedValueSlider.visible = !_activeVehicle.manualControlRover
             break;
         case actionMVPause:
             confirmDialog.title = mvPauseTitle
@@ -551,22 +560,28 @@ Item {
 
     // Executes the specified action
     // Returns false if the action failed and any associated map indicator should be restored
-    function executeAction(actionCode, actionData, sliderOutputValue, optionChecked) {
+    function executeAction(actionCode, actionData, sliderOutputValue, optionChecked, actionVehicle) {
         var i;
         var selectedVehicles;
+        const hasExpectedVehicle = arguments.length >= 5
+        const targetVehicle = hasExpectedVehicle ? actionVehicle : _activeVehicle
+        if (!targetVehicle || (hasExpectedVehicle && targetVehicle !== _activeVehicle)) {
+            closeAll()
+            return false
+        }
         switch (actionCode) {
         case actionRTL:
-            _activeVehicle.guidedModeRTL(optionChecked)
+            targetVehicle.guidedModeRTL(optionChecked)
             break
         case actionLand:
-            _activeVehicle.guidedModeLand()
+            targetVehicle.guidedModeLand()
             break
         case actionTakeoff:
-            if (_activeVehicle.supports.guidedTakeoffWithAltitude) {
+            if (targetVehicle.supports.guidedTakeoffWithAltitude) {
                 var valueInMeters = _unitsConversion.appSettingsVerticalDistanceUnitsToMeters(sliderOutputValue)
-                _activeVehicle.guidedModeTakeoff(valueInMeters)
+                targetVehicle.guidedModeTakeoff(valueInMeters)
             } else {
-                _activeVehicle.startTakeoff()
+                targetVehicle.startTakeoff()
             }
             break
         case actionResumeMission:
@@ -575,7 +590,7 @@ Item {
             break
         case actionStartMission:
         case actionContinueMission:
-            _activeVehicle.startMission()
+            targetVehicle.startMission()
             break
         case actionMVStartMission:
             selectedVehicles = QGroundControl.multiVehicleManager.selectedVehicles
@@ -587,7 +602,7 @@ Item {
             }
             break
         case actionArm:
-            _activeVehicle.armed = true
+            targetVehicle.armed = true
             break
         case actionMVArm:
             selectedVehicles = QGroundControl.multiVehicleManager.selectedVehicles
@@ -596,10 +611,10 @@ Item {
             }
             break
         case actionForceArm:
-            _activeVehicle.forceArm()
+            targetVehicle.forceArm()
             break
         case actionDisarm:
-            _activeVehicle.armed = false
+            targetVehicle.armed = false
             break
         case actionMVDisarm:
             selectedVehicles = QGroundControl.multiVehicleManager.selectedVehicles
@@ -608,15 +623,15 @@ Item {
             }
             break
         case actionEmergencyStop:
-            _activeVehicle.emergencyStop()
+            targetVehicle.emergencyStop()
             break
         case actionChangeAlt:
             var valueInMeters = _unitsConversion.appSettingsVerticalDistanceUnitsToMeters(sliderOutputValue)
-            var altitudeChangeInMeters = valueInMeters - _activeVehicle.altitudeRelative.rawValue
-            _activeVehicle.guidedModeChangeAltitude(altitudeChangeInMeters, false /* pauseVehicle */)
+            var altitudeChangeInMeters = valueInMeters - targetVehicle.altitudeRelative.rawValue
+            targetVehicle.guidedModeChangeAltitude(altitudeChangeInMeters, false /* pauseVehicle */)
             break
         case actionChangeLoiterRadius:
-            if (!_activeVehicle.guidedModeGotoLocation(
+            if (!targetVehicle.guidedModeGotoLocation(
                 fwdFlightGotoMapCircle.coordinate,
                 (fwdFlightGotoMapCircle.clockwiseRotation ? 1 : -1) *
                         Math.abs(fwdFlightGotoMapCircle.radius.rawValue)
@@ -625,9 +640,9 @@ Item {
             }
             break
         case actionGoto:
-            if (!_activeVehicle.guidedModeGotoLocation(
+            if (!targetVehicle.guidedModeGotoLocation(
                 actionData,
-                _vehicleInFwdFlight /* forwardFlightLoiterRadius */
+                targetVehicle.inFwdFlight /* forwardFlightLoiterRadius */
                     ? _flyViewSettings.forwardFlightGoToLocationLoiterRad.value
                     : 0
             )) {
@@ -635,19 +650,23 @@ Item {
             }
             break
         case actionSetWaypoint:
-            _activeVehicle.setCurrentMissionSequence(actionData)
+            targetVehicle.setCurrentMissionSequence(actionData)
             break
         case actionOrbit:
             var valueInMeters = _unitsConversion.appSettingsVerticalDistanceUnitsToMeters(sliderOutputValue)
-            _activeVehicle.guidedModeOrbit(orbitMapCircle.center, orbitMapCircle.radius() * (orbitMapCircle.clockwiseRotation ? 1 : -1), _activeVehicle.homePosition.altitude + valueInMeters)
+            targetVehicle.guidedModeOrbit(orbitMapCircle.center, orbitMapCircle.radius() * (orbitMapCircle.clockwiseRotation ? 1 : -1), targetVehicle.homePosition.altitude + valueInMeters)
             break
         case actionLandAbort:
-            _activeVehicle.abortLanding(50)     // hardcoded value for climbOutAltitude that is currently ignored
+            targetVehicle.abortLanding(50)     // hardcoded value for climbOutAltitude that is currently ignored
             break
         case actionPause:
-            var valueInMeters = _unitsConversion.appSettingsVerticalDistanceUnitsToMeters(sliderOutputValue)
-            var altitudeChangeInMeters = valueInMeters - _activeVehicle.altitudeRelative.rawValue
-            _activeVehicle.guidedModeChangeAltitude(altitudeChangeInMeters, true /* pauseVehicle */)
+            if (targetVehicle.manualControlRover) {
+                targetVehicle.pauseVehicle()
+            } else {
+                var valueInMeters = _unitsConversion.appSettingsVerticalDistanceUnitsToMeters(sliderOutputValue)
+                var altitudeChangeInMeters = valueInMeters - targetVehicle.altitudeRelative.rawValue
+                targetVehicle.guidedModeChangeAltitude(altitudeChangeInMeters, true /* pauseVehicle */)
+            }
             break
         case actionMVPause:
             selectedVehicles = QGroundControl.multiVehicleManager.selectedVehicles
@@ -656,30 +675,30 @@ Item {
             }
             break
         case actionROI:
-            _activeVehicle.guidedModeROI(actionData)
+            targetVehicle.guidedModeROI(actionData)
             break
         case actionChangeSpeed:
-            if (_activeVehicle) {
+            if (targetVehicle) {
                 // We need to convert back to m/s as that is what mavlink standard uses for MAV_CMD_DO_CHANGE_SPEED
                 var metersSecondSpeed = _unitsConversion.appSettingsSpeedUnitsToMetersSecond(sliderOutputValue)
-                if (_vehicleInFwdFlight) {
-                   _activeVehicle.guidedModeChangeEquivalentAirspeedMetersSecond(metersSecondSpeed)
+                if (targetVehicle.inFwdFlight) {
+                   targetVehicle.guidedModeChangeEquivalentAirspeedMetersSecond(metersSecondSpeed)
                 } else {
-                    _activeVehicle.guidedModeChangeGroundSpeedMetersSecond(metersSecondSpeed)
+                    targetVehicle.guidedModeChangeGroundSpeedMetersSecond(metersSecondSpeed)
                 }
             }
             break
         case actionSetHome:
-            _activeVehicle.doSetHome(actionData)
+            targetVehicle.doSetHome(actionData)
             break
         case actionSetEstimatorOrigin:
-            _activeVehicle.setEstimatorOrigin(actionData)
+            targetVehicle.setEstimatorOrigin(actionData)
             break
         case actionSetFlightMode:
-            _activeVehicle.flightMode = actionData
+            targetVehicle.flightMode = actionData
             break
         case actionChangeHeading:
-            _activeVehicle.guidedModeChangeHeading(actionData)
+            targetVehicle.guidedModeChangeHeading(actionData)
             break
         default:
             if (!customController.customExecuteAction(actionCode, actionData, sliderOutputValue, optionChecked)) {

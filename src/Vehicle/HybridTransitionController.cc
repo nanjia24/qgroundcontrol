@@ -39,11 +39,95 @@ HybridTransitionController::HybridTransitionController(Vehicle* vehicle, HybridV
     connect(_state, &HybridVehicleState::statusAccepted, this, &HybridTransitionController::_handleStatusAccepted);
     connect(_state, &HybridVehicleState::freshnessChanged, this, &HybridTransitionController::_handleFreshnessChanged);
     connect(_state, &HybridVehicleState::rebootConfirmed, this, &HybridTransitionController::handleVehicleReboot);
+    connect(_state, &HybridVehicleState::stateChanged, this, &HybridTransitionController::requestAvailabilityChanged);
 }
 
 bool HybridTransitionController::busy() const
 {
     return isBusyState(_transactionState);
+}
+
+bool HybridTransitionController::canRequestTransform() const
+{
+    return (_transactionState == Idle) && _state->canRequestTransform();
+}
+
+QString HybridTransitionController::transactionStateText() const
+{
+    switch (_transactionState) {
+        case Idle:
+            return tr("Ready");
+        case Queued:
+            return tr("Queued");
+        case Detached:
+            return tr("In progress");
+        case AwaitingStatus:
+            return tr("Confirming");
+        case NoMotionAccepted:
+            return tr("No movement");
+        case Unconfirmed:
+            return tr("Unconfirmed");
+        case SupersededUnconfirmed:
+            return tr("Superseded");
+        case VehicleRebootedUnconfirmed:
+            return tr("Vehicle restarted");
+        case Faulted:
+            return tr("Failed");
+        default:
+            return tr("Transition state unknown");
+    }
+}
+
+QString HybridTransitionController::requestUnavailableReason() const
+{
+    switch (_transactionState) {
+        case Queued:
+            return tr("Transition command is queued");
+        case Detached:
+            return tr("Transition is in progress");
+        case AwaitingStatus:
+            return tr("Waiting for the target shape to be confirmed");
+        case NoMotionAccepted:
+            return tr("Command was accepted without confirmed movement");
+        case Unconfirmed:
+            return tr("Transition result is unconfirmed");
+        case SupersededUnconfirmed:
+            return tr("Transition status was superseded by a newer sequence");
+        case VehicleRebootedUnconfirmed:
+            return tr("Vehicle restarted during the transition");
+        case Faulted:
+            return tr("Transition failed; waiting for healthy synchronized status");
+        case Idle:
+            break;
+        default:
+            return tr("Transition state is unknown");
+    }
+    if (_state->resetCandidateActive()) {
+        return tr("Waiting for vehicle restart synchronization");
+    }
+    if (!_state->hasValidStatus()) {
+        if (_state->localMonotonicStatusReceiptTime() < 0) {
+            return tr("Waiting for hybrid status");
+        }
+        if (_state->stale()) {
+            return tr("Hybrid status is stale");
+        }
+        return tr("Waiting for hybrid status");
+    }
+    if ((_state->currentState() == HybridVehicleState::TransitionFault) ||
+        (_state->faultReason() != HYBRID_VEHICLE_FAULT_NONE)) {
+        return _state->faultReasonText();
+    }
+    if ((_state->currentState() != HybridVehicleState::Quad) && (_state->currentState() != HybridVehicleState::Rover)) {
+        return tr("Hybrid shape is not stable");
+    }
+    if (!_state->landDetectionSampleFresh()) {
+        return tr("Land detection status is not current");
+    }
+    if (!_state->landed()) {
+        return tr("Vehicle must be landed before transforming");
+    }
+    return QString();
 }
 
 bool HybridTransitionController::requestTransform(int targetState)
@@ -292,6 +376,7 @@ void HybridTransitionController::_setTransactionState(TransactionState state)
     const bool wasBusy = busy();
     _transactionState = state;
     emit transactionStateChanged();
+    emit requestAvailabilityChanged();
     if (wasBusy != busy()) {
         emit busyChanged();
     }

@@ -1,8 +1,5 @@
 #pragma once
 
-#include <functional>
-#include <memory>
-
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QFile>
 #include <QtCore/QObject>
@@ -13,6 +10,9 @@
 #include <QtCore/QVariantList>
 #include <QtPositioning/QGeoCoordinate>
 #include <QtQmlIntegration/QtQmlIntegration>
+#include <atomic>
+#include <functional>
+#include <memory>
 
 #include "QGCMAVLink.h"
 #include "VehicleFactGroup.h"
@@ -168,6 +168,10 @@ public:
     Q_PROPERTY(bool                 fixedWing                   READ fixedWing                                                      NOTIFY vehicleTypeChanged)
     Q_PROPERTY(bool                 multiRotor                  READ multiRotor                                                     NOTIFY vehicleTypeChanged)
     Q_PROPERTY(bool                 quadRover                   READ quadRover                                                      NOTIFY vehicleTypeChanged)
+    Q_PROPERTY(bool effectiveMultiRotor READ effectiveMultiRotor NOTIFY effectiveVehicleClassChanged)
+    Q_PROPERTY(bool effectiveRover READ effectiveRover NOTIFY effectiveVehicleClassChanged)
+    Q_PROPERTY(bool manualControlProfileKnown READ manualControlProfileKnown NOTIFY manualControlProfileChanged)
+    Q_PROPERTY(bool manualControlRover READ manualControlRover NOTIFY manualControlProfileChanged)
     Q_PROPERTY(bool                 vtol                        READ vtol                                                           NOTIFY vehicleTypeChanged)
     Q_PROPERTY(bool                 rover                       READ rover                                                          NOTIFY vehicleTypeChanged)
     Q_PROPERTY(bool                 sub                         READ sub                                                            NOTIFY vehicleTypeChanged)
@@ -470,6 +474,10 @@ public:
     bool fixedWing() const;
     bool multiRotor() const;
     bool quadRover() const;
+    bool effectiveMultiRotor() const;
+    bool effectiveRover() const;
+    bool manualControlProfileKnown() const;
+    bool manualControlRover() const;
     bool vtol() const;
     bool rover() const;
     bool sub() const;
@@ -765,6 +773,8 @@ signals:
     void defaultHoverSpeedChanged       (double hoverSpeed);
     void firmwareTypeChanged            ();
     void vehicleTypeChanged             ();
+    void effectiveVehicleClassChanged();
+    void manualControlProfileChanged();
     void hobbsMeterChanged              ();
     void capabilitiesKnownChanged       (bool capabilitiesKnown);
     void initialPlanRequestCompleteChanged(bool initialPlanRequestComplete);
@@ -857,6 +867,7 @@ private slots:
     void _orbitTelemetryTimeout             ();
     void _updateFlightTime                  ();
     void _gotProgressUpdate                 (float progressValue);
+    void _updateManualControlProfile();
 
 private:
     void _activeVehicleChanged          (Vehicle* newActiveVehicle);
@@ -1133,6 +1144,8 @@ public:
     RemoteIDManager*                _remoteIDManager            = nullptr;
     HybridVehicleState*             _hybridVehicleState         = nullptr;
     HybridTransitionController*     _hybridTransitionController = nullptr;
+    std::atomic_bool _hybridManualControlProfileKnown{false};
+    std::atomic_bool _hybridManualControlRover{false};
     StandardModes*                  _standardModes              = nullptr;
 
     // All terrain query workflows (doSetHome, ROI, altAboveTerrain) live in the coordinator.

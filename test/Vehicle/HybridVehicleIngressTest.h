@@ -11,6 +11,7 @@ private slots:
     void _validMavlink2StatusUpdatesVehicleState();
     void _invalidSourcesAndOutOfOrderStatusAreIgnored();
     void _systemTimeRebootResetsVehicleState();
+    void _manualControlProfileSurvivesStatusLoss();
     void _ordinaryPx4VehicleIgnoresHybridStatus();
 
 private:

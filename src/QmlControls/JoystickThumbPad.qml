@@ -62,8 +62,8 @@ Item {
         calculateYAxisMutex = true
     }
 
-    function calculateXAxis() {
-        if(!_joyRoot.visible) {
+    function calculateXAxis(force) {
+        if(!_joyRoot.visible && !force) {
             return;
         }
         var xAxisTemp = stickPositionX / width
@@ -72,8 +72,8 @@ Item {
         xAxis = xAxisTemp
     }
 
-    function calculateYAxis() {
-        if(!_joyRoot.visible) {
+    function calculateYAxis(force) {
+        if(!_joyRoot.visible && !force) {
             return;
         }
         if(!calculateYAxisMutex) {
@@ -86,6 +86,16 @@ Item {
             rangeUp -= 1
         }
         yAxis = rangeUp
+    }
+
+    function syncAxes() {
+        if (_joyRoot.width <= 0 || _joyRoot.height <= 0) {
+            xAxis = 0
+            yAxis = yAxisPositiveRangeOnly && yAxisReCenter ? 0.5 : 0
+            return
+        }
+        calculateXAxis(true)
+        calculateYAxis(true)
     }
 
     function reCenter() {

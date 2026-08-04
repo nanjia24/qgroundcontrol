@@ -7,16 +7,19 @@
 #include "MultiVehicleManager.h"
 #include "ParameterManager.h"
 #include "Vehicle.h"
+#include "VehicleSupports.h"
 
 namespace {
 
-mavlink_hybrid_vehicle_status_t makeStatus(HybridVehicleState::CurrentState state, uint64_t timestamp)
+mavlink_hybrid_vehicle_status_t makeStatus(HybridVehicleState::CurrentState state, uint64_t timestamp,
+                                           uint8_t faultReason = HYBRID_VEHICLE_FAULT_NONE)
 {
     mavlink_hybrid_vehicle_status_t status{};
     status.timestamp = timestamp;
     status.current_state = static_cast<uint8_t>(state);
     status.target_state = HYBRID_VEHICLE_SHAPE_NONE;
     status.position_normalized = 0.25F;
+    status.fault_reason = faultReason;
     return status;
 }
 
@@ -121,6 +124,54 @@ void HybridVehicleIngressTest::_systemTimeRebootResetsVehicleState()
 
     injectStatus(mockLink(), vehicle()->id(), MAV_COMP_ID_AUTOPILOT1, makeStatus(HybridVehicleState::Quad, 102));
     QTRY_COMPARE(vehicle()->hybridVehicleState()->currentState(), HybridVehicleState::Quad);
+}
+
+void HybridVehicleIngressTest::_manualControlProfileSurvivesStatusLoss()
+{
+    _connectQuadRoverMockLink();
+    QSignalSpy profileSpy(vehicle(), &Vehicle::manualControlProfileChanged);
+    QVERIFY(profileSpy.isValid());
+
+    QVERIFY(!vehicle()->manualControlProfileKnown());
+    QVERIFY(!vehicle()->manualControlRover());
+    mockLink()->clearReceivedMavlinkMessageCounts();
+    vehicle()->sendJoystickDataThreadSafe(0.F, 0.F, 0.F, 0.F, 0, 0, NAN, NAN, NAN, NAN, NAN, NAN, NAN, NAN);
+    QTest::qWait(50);
+    QCOMPARE(mockLink()->receivedMavlinkMessageCount(MAVLINK_MSG_ID_MANUAL_CONTROL), 0);
+
+    injectStatus(mockLink(), vehicle()->id(), MAV_COMP_ID_AUTOPILOT1,
+                 makeStatus(HybridVehicleState::Rover, 100, HYBRID_VEHICLE_FAULT_STALL));
+    QTest::qWait(50);
+    QVERIFY(!vehicle()->manualControlProfileKnown());
+    QCOMPARE(mockLink()->receivedMavlinkMessageCount(MAVLINK_MSG_ID_MANUAL_CONTROL), 0);
+
+    injectStatus(mockLink(), vehicle()->id(), MAV_COMP_ID_AUTOPILOT1, makeStatus(HybridVehicleState::Rover, 101));
+    QTRY_VERIFY(vehicle()->manualControlProfileKnown());
+    QVERIFY(vehicle()->manualControlRover());
+    QVERIFY(vehicle()->supports()->negativeThrust());
+    QVERIFY(profileSpy.count() >= 1);
+
+    mockLink()->clearReceivedMavlinkMessageCounts();
+    vehicle()->sendJoystickDataThreadSafe(0.F, 0.F, 0.F, -0.5F, 0, 0, NAN, NAN, NAN, NAN, NAN, NAN, NAN, NAN);
+    QTRY_COMPARE(mockLink()->receivedMavlinkMessageCount(MAVLINK_MSG_ID_MANUAL_CONTROL), 1);
+
+    QTRY_VERIFY_WITH_TIMEOUT(vehicle()->hybridVehicleState()->stale(), 4000);
+    QVERIFY(vehicle()->manualControlProfileKnown());
+    QVERIFY(vehicle()->manualControlRover());
+    QVERIFY(vehicle()->supports()->negativeThrust());
+    mockLink()->clearReceivedMavlinkMessageCounts();
+    vehicle()->sendJoystickDataThreadSafe(0.F, 0.F, 0.F, -0.5F, 0, 0, NAN, NAN, NAN, NAN, NAN, NAN, NAN, NAN);
+    QTRY_COMPARE(mockLink()->receivedMavlinkMessageCount(MAVLINK_MSG_ID_MANUAL_CONTROL), 1);
+
+    injectStatus(mockLink(), vehicle()->id(), MAV_COMP_ID_AUTOPILOT1,
+                 makeStatus(HybridVehicleState::TransitionFault, 102));
+    QVERIFY(vehicle()->manualControlRover());
+    QVERIFY(vehicle()->supports()->negativeThrust());
+
+    injectStatus(mockLink(), vehicle()->id(), MAV_COMP_ID_AUTOPILOT1, makeStatus(HybridVehicleState::Quad, 103));
+    QTRY_VERIFY(!vehicle()->manualControlRover());
+    QVERIFY(!vehicle()->supports()->negativeThrust());
+    QVERIFY(profileSpy.count() >= 2);
 }
 
 void HybridVehicleIngressTest::_ordinaryPx4VehicleIgnoresHybridStatus()

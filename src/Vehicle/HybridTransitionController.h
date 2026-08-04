@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QtCore/QObject>
+#include <QtCore/QString>
 #include <QtCore/QTimer>
 
 #include "VehicleTypes.h"
@@ -12,7 +13,10 @@ class HybridTransitionController final : public QObject, public VehicleTypes
 {
     Q_OBJECT
     Q_PROPERTY(TransactionState transactionState READ transactionState NOTIFY transactionStateChanged)
+    Q_PROPERTY(QString transactionStateText READ transactionStateText NOTIFY transactionStateChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
+    Q_PROPERTY(bool canRequestTransform READ canRequestTransform NOTIFY requestAvailabilityChanged)
+    Q_PROPERTY(QString requestUnavailableReason READ requestUnavailableReason NOTIFY requestAvailabilityChanged)
     Q_PROPERTY(uint commandResult READ commandResult NOTIFY commandResultChanged)
     Q_PROPERTY(int requestedTarget READ requestedTarget NOTIFY requestedTargetChanged)
     Q_PROPERTY(bool hasExpectedSequence READ hasExpectedSequence NOTIFY expectedSequenceChanged)
@@ -37,7 +41,13 @@ public:
 
     TransactionState transactionState() const { return _transactionState; }
 
+    QString transactionStateText() const;
+
     bool busy() const;
+
+    bool canRequestTransform() const;
+
+    QString requestUnavailableReason() const;
 
     uint commandResult() const { return static_cast<uint>(_commandResult); }
 
@@ -58,6 +68,7 @@ signals:
     void commandResultChanged();
     void requestedTargetChanged();
     void expectedSequenceChanged();
+    void requestAvailabilityChanged();
 
 private:
     static void _resultHandler(void* resultHandlerData, int compId, const mavlink_command_ack_t& ack,

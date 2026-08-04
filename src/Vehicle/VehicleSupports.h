@@ -16,20 +16,20 @@ public:
     explicit VehicleSupports(Vehicle *vehicle);
 
     Q_PROPERTY(bool throttleModeCenterZero          READ throttleModeCenterZero         CONSTANT)
-    Q_PROPERTY(bool negativeThrust                  READ negativeThrust                 CONSTANT)
+    Q_PROPERTY(bool negativeThrust READ negativeThrust NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool jsButton                        READ jsButton                       CONSTANT)
     Q_PROPERTY(bool radio                           READ radio                          CONSTANT)
     Q_PROPERTY(bool motorInterference               READ motorInterference              CONSTANT)
     Q_PROPERTY(bool smartRTL                        READ smartRTL                       CONSTANT)
     Q_PROPERTY(bool terrainFrame                    READ terrainFrame                   NOTIFY terrainFrameChanged)
-    Q_PROPERTY(bool guidedMode                      READ guidedMode                     CONSTANT)
-    Q_PROPERTY(bool pauseVehicle                    READ pauseVehicle                   CONSTANT)
-    Q_PROPERTY(bool orbitMode                       READ orbitMode                      CONSTANT)
-    Q_PROPERTY(bool roiMode                         READ roiMode                        CONSTANT)
-    Q_PROPERTY(bool takeoffMissionCommand           READ takeoffMissionCommand          CONSTANT)
-    Q_PROPERTY(bool guidedTakeoffWithAltitude       READ guidedTakeoffWithAltitude      CONSTANT)
-    Q_PROPERTY(bool guidedTakeoffWithoutAltitude    READ guidedTakeoffWithoutAltitude   CONSTANT)
-    Q_PROPERTY(bool changeHeading                   READ changeHeading                  CONSTANT)
+    Q_PROPERTY(bool guidedMode READ guidedMode NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool pauseVehicle READ pauseVehicle NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool orbitMode READ orbitMode NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool roiMode READ roiMode NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool takeoffMissionCommand READ takeoffMissionCommand NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool guidedTakeoffWithAltitude READ guidedTakeoffWithAltitude NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool guidedTakeoffWithoutAltitude READ guidedTakeoffWithoutAltitude NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool changeHeading READ changeHeading NOTIFY capabilitiesChanged)
 
     bool throttleModeCenterZero() const;
     bool negativeThrust() const;
@@ -49,6 +49,7 @@ public:
 
 signals:
     void terrainFrameChanged();
+    void capabilitiesChanged();
 
 private:
     Vehicle *_vehicle = nullptr;

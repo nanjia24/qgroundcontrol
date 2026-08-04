@@ -52,6 +52,7 @@ QUrl PX4FlightBehavior::setupSource() const
         case MAV_TYPE_HEXAROTOR:
         case MAV_TYPE_OCTOROTOR:
         case MAV_TYPE_TRICOPTER:
+        case MAV_TYPE_QUAD_ROVER:
             qmlFile = "qrc:/qml/QGroundControl/AutoPilotPlugins/PX4/PX4FlightBehaviorCopter.qml";
             break;
         case MAV_TYPE_VTOL_TAILSITTER_DUOROTOR:

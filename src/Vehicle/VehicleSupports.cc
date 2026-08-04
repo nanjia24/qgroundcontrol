@@ -8,6 +8,9 @@ VehicleSupports::VehicleSupports(Vehicle *vehicle)
     , _vehicle(vehicle)
 {
     connect(_vehicle, &Vehicle::firmwareTypeChanged, this, &VehicleSupports::terrainFrameChanged);
+    connect(_vehicle, &Vehicle::firmwareTypeChanged, this, &VehicleSupports::capabilitiesChanged);
+    connect(_vehicle, &Vehicle::effectiveVehicleClassChanged, this, &VehicleSupports::capabilitiesChanged);
+    connect(_vehicle, &Vehicle::manualControlProfileChanged, this, &VehicleSupports::capabilitiesChanged);
 }
 
 bool VehicleSupports::throttleModeCenterZero() const
