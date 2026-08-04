@@ -181,3 +181,16 @@
 - [x] Pass the final focused State/Ingress/Controller/mode/queue/mission/link regression set.
 - [x] Pass the final serial `Unit|Vehicle|MissionManager|MAVLink` broad regression.
 - [x] Record final evidence and remaining protocol/hardware risks in README/LOG.
+
+## 2026-08-04 Windows desktop UX and functionality
+
+- [x] Push an immutable remote backup of the completed reliability-hardening head.
+- [x] Limit evaluation and validation to Windows desktop QGC.
+- [x] Assess native and Quad-Rover usability/function gaps and review MicoAir, CUAV, Mission Planner, UgCS, Auterion, and DJI evidence.
+- [x] Preserve airframe 22001 identity over stale firmware metadata caches, including same-group imagery.
+- [x] Add a healthy last-confirmed manual-control profile and align virtual/USB joystick behavior.
+- [x] Make transform and Guided Action confirmations vehicle-safe across active-vehicle changes.
+- [x] Add retained-shape ground/flight Guided Actions and a Hybrid preflight checklist.
+- [x] Complete Windows Debug build, focused Hybrid/airframe/native-path tests, QML lint, XML/dependency checks, and isolated startup smoke.
+- [ ] Complete physical target-aircraft acceptance and attach MAVLink 2, shape, transition, fault, joystick, mission, and checklist evidence.
+- [ ] Execute the assessment's remaining P1/P2 backlog in separately reviewed slices.

@@ -171,3 +171,12 @@
 - After the clean rebuild, direct `RequestMessageTest` and `RequestMetaDataTypeStateMachineTest` both exited 0. The 10-test focused gate passed 10/10 in 264.03 seconds; the final serial broad gate passed 180/180 in 2058.72 seconds; the final post-format VehicleLinkManager run passed 1/1 in 53.24 seconds.
 - Final static/dependency evidence: changed-line clang-format 22 files/210 ranges with zero failures; `git diff --check` exit 0; CTest timeouts HashCheck/Mission editor/PlanMaster 240/360/180 seconds; `qgc_hybrid` r2 checkout at `04ad1d63e9c11ed6767a35dae4e52adaca3538c5`; APM enabled; zero compiler launchers and zero Ninja ccache references.
 - Remaining protocol risk is explicit: without a boot/session or request nonce, pure QGC cannot perfectly reject every coherent prior-session replay or a matching old failure ACK/status pair. Target-aircraft MAVLink 2 acceptance remains required.
+
+2026-08-04:
+- The Windows-only assessment is anchored to baseline `0baf101a0`; MicoAir live-product details are marked dated observation rather than immutable source evidence. Public competitor claims are not treated as aircraft acceptance.
+- A QGC airframe overlay must replace both an autostart entry and the metadata of an already-populated same-name group. Replacing only ID 22001 can otherwise retain a stale cached group image.
+- Mode availability is not a manual-control availability signal. Quad-Rover manual control uses a separate last healthy stable shape profile, blocks only before that first profile, and retains it through stale/fault/transition/reboot recovery.
+- A hidden `Timer` continues to fire, while the existing `JoystickThumbPad` skipped axis recomputation when hidden. The accepted fix gates sending on visibility/restoration and explicitly synchronizes cached axes before resuming.
+- A Guided Action confirmation cannot rely only on a current-state hide binding. The accepted fix captures the initiating Vehicle, cancels delayed/visible confirmation on active-vehicle changes, and validates the same Vehicle again at execution.
+- Checklist UI reset must explicitly invalidate `Vehicle::checkListState`; assigning an already-false `allChecksPassed` property does not emit its change handler.
+- Windows Debug relinked after every review round. The final focused Hybrid/airframe gate passed 5/5 in 92.97 seconds; joystick/APM native-path tests passed 4/4; both QML lint targets exited 0; isolated offscreen startup survived 15 seconds. Existing unrelated qmllint warnings remain and are not reported as zero.

@@ -178,3 +178,14 @@ record below.
 - The final cache keeps APM MAVLink/plugin enabled and resolves `qgc_hybrid`, tag `qgc-hybrid-change1-v1.16.1-r2`, MAVLink 2, and checkout `04ad1d63e9c11ed6767a35dae4e52adaca3538c5`. Generated headers contain command 50000, status 60000, and ArduPilot `SENSOR_OFFSETS`; compiler launchers are empty and generated Ninja files contain zero ccache references.
 - The clean-build focused gate passed 10/10 in 264.03 seconds. The final serial `Unit|Vehicle|MissionManager|MAVLink` selection passed 180/180 in 2058.72 seconds, and the final post-format VehicleLinkManager check passed 1/1 in 53.24 seconds.
 - Pure QGC still cannot distinguish a coherent replay from an old boot/session, or an old failure ACK plus matching old status, from a new transaction with absolute certainty. Closing that protocol limit requires a PX4/MAVLink boot or transaction nonce. Physical target-aircraft acceptance remains open.
+
+## 2026-08-04 Windows desktop operator-workflow slice
+
+- Work continues on `codex/quad-rover-windows-ux` from hardening head `0baf101a01fd9a8044f9200e559ba224cf74ff14`. The immutable backup is `origin/codex/quad-rover-hardening-20260804` at the same commit.
+- Scope is Windows desktop QGC only. No PX4 source, firmware configuration, MAVLink XML, or release tag changed.
+- `docs/superpowers/specs/2026-08-04-windows-desktop-ux-functional-assessment.md` records source-backed native/Hybrid gaps and dated evidence from MicoAir, CUAV, Mission Planner, UgCS, Auterion, and DJI.
+- The implementation adds cache-resistant airframe 22001 identity, applicable PX4 setup pages, a retained manual-control shape profile, virtual/USB joystick policy, hold-to-confirm transforms, readable Hybrid state/fault/recovery text, retained-shape Guided Actions, and a Hybrid checklist.
+- Confirmed Guided Actions are bound to the initiating vehicle and canceled on active-vehicle changes. Virtual joystick sending is disabled while hidden or restoring, and hidden stick axes are explicitly synchronized before sending resumes.
+- Windows Debug linked successfully. `PX4AirframeLoaderTest`, four Hybrid tests, three joystick tests, and `APMAirframeComponentControllerTest` passed. FlyView and QmlControls qmllint targets exited 0. An isolated offscreen `--allow-multiple --swrast` smoke instance remained alive for 15 seconds with no QML-load or fatal match.
+- The build cache still has APM enabled and resolves `qgc_hybrid` r2; the MAVLink checkout remains `04ad1d63e9c11ed6767a35dae4e52adaca3538c5`.
+- Physical aircraft acceptance and the assessment's P1/P2 backlog remain open.
