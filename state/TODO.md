@@ -169,3 +169,15 @@
   - [x] Task 9: add compact state-driven toolbar controls (`d64ec186b`, `856d7483a`; review clean after one fix round).
   - [x] Task 10: run final integration gates and prepare handoff (`08588c3a2` registered the omitted ingress test; Release/Debug builds passed; focused 6/6 and broad 180/180 passed; `3f366f56c` closed the final mission-category coverage finding and passed independent review).
 - [ ] Complete physical PX4/QGC acceptance on the target aircraft and attach the source commit, CMake cache, resolved MAVLink commit, desktop binary, automated logs, MAVLink 2 capture, and evidence for Quad, Rover, transition, landed rejection, fault, and a mission item.
+
+## 2026-08-03 QGC-only hardening
+
+- [x] Harden HRT/SYSTEM_TIME reboot detection, status validity, and selective mode-policy notifications without changing PX4.
+- [x] Reserve command 50000 across the full controller transaction and cancel queue entries by exact token.
+- [x] Preserve first-ACK retry behavior, restart every retry ACK window, and keep COMMAND_LONG confirmation at 0/1/2.
+- [x] Require post-request status corroboration before a baseline-sequence terminal failure ACK can end a new transaction.
+- [x] Scope Windows HashCheck and MissionCommandTreeEditor timeout corrections to the proven test/platform pair.
+- [x] Complete VS2022 Debug rebuild, changed-line formatting, dependency-pin checks, and static consistency gates.
+- [x] Pass the final focused State/Ingress/Controller/mode/queue/mission/link regression set.
+- [x] Pass the final serial `Unit|Vehicle|MissionManager|MAVLink` broad regression.
+- [x] Record final evidence and remaining protocol/hardware risks in README/LOG.

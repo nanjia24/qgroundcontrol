@@ -168,3 +168,13 @@ record below.
 - Commit `3f366f56c` strengthened the command-50000 exposure test to scan every mission category for Quad-Rover and ordinary PX4 vehicle classes. Independent scoped review approved the fix with no Critical, Important, or Minor findings, and independently passed `MissionCommandTreeTest` 1/1 in 15.10 seconds.
 - `pre-commit` is unavailable in this environment and is recorded as unavailable, not passing.
 - Desktop automation does not constitute physical acceptance. MAVLink 2 capture plus real Quad, Rover, transition, landed rejection, fault, and mission-item evidence remain required against the PX4 hardware.
+
+## 2026-08-03 QGC-only reliability hardening
+
+- Scope was limited to QGC. No PX4 source, MAVLink release, firmware configuration, or aircraft acceptance procedure was changed.
+- Hybrid status reboot/freshness handling now rejects replay and stale position data conservatively, restores validity atomically, and keeps mode-policy notifications selective. Command 50000 retains one reliable queue entry through the first ACK, reserves the command for the full controller transaction, correlates every ACK strictly, restarts each retry window, and requires matching post-request status before accepting a baseline-sequence failure.
+- Windows test metadata now records HashCheck 240 seconds without shortening sanitizer builds, MissionCommandTreeEditor 360 seconds plus `QTEST_FUNCTION_TIMEOUT=345000`, and PlanMasterController 180 seconds. The final broad run measured PlanMasterController at 110.93 seconds.
+- The final VS2022 Debug recovery build completed 2038 steps and linked `Debug/QGroundControl.exe`; subsequent incremental builds finished with `ninja: no work to do`. Changed-line clang-format checked 22 files/210 ranges with zero failures, and `git diff --check` passed.
+- The final cache keeps APM MAVLink/plugin enabled and resolves `qgc_hybrid`, tag `qgc-hybrid-change1-v1.16.1-r2`, MAVLink 2, and checkout `04ad1d63e9c11ed6767a35dae4e52adaca3538c5`. Generated headers contain command 50000, status 60000, and ArduPilot `SENSOR_OFFSETS`; compiler launchers are empty and generated Ninja files contain zero ccache references.
+- The clean-build focused gate passed 10/10 in 264.03 seconds. The final serial `Unit|Vehicle|MissionManager|MAVLink` selection passed 180/180 in 2058.72 seconds, and the final post-format VehicleLinkManager check passed 1/1 in 53.24 seconds.
+- Pure QGC still cannot distinguish a coherent replay from an old boot/session, or an old failure ACK plus matching old status, from a new transaction with absolute certainty. Closing that protocol limit requires a PX4/MAVLink boot or transaction nonce. Physical target-aircraft acceptance remains open.
