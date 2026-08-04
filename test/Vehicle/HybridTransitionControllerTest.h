@@ -17,12 +17,16 @@ private slots:
     void _wrongAddressDoesNotDetach();
     void _directTerminalAcceptedIsNoMotionOnlyForCurrentShape();
     void _terminalFailuresAllowExplicitRetry();
+    void _lateBaselineFailureRequiresStatusCorroboration();
+    void _firstAckRequiresBaselineOrNextSequence();
     void _noFirstAckEndsWithoutSuccess();
+    void _duplicateQueueEntryDoesNotLeaveControllerBusy();
     void _duplicateRequestsAreRejected();
     void _progressSequenceMatrix_data();
     void _progressSequenceMatrix();
     void _terminalAcceptedWaitsForPhysicalStatus();
     void _terminalFailedEndsDetachedTransaction();
+    void _lateAckFromCompletedTransactionIsIgnored();
     void _statusOnlyCompletion();
     void _mismatchingStatusDoesNotComplete();
     void _firstProgressStatusOwnsTimestampAssociation();

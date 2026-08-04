@@ -2,6 +2,7 @@
 
 #include <QtTest/QSignalSpy>
 #include <array>
+#include <cmath>
 #include <limits>
 
 #include "HybridVehicleState.h"
@@ -11,6 +12,7 @@ namespace {
 
 constexpr uint8_t kAutopilotComponent = MAV_COMP_ID_AUTOPILOT1;
 constexpr uint8_t kWrongComponent = MAV_COMP_ID_CAMERA;
+constexpr int kLiveRebootEvidenceWaitMs = 600;
 
 mavlink_hybrid_vehicle_status_t makeStatus(uint64_t timestamp)
 {
@@ -20,6 +22,7 @@ mavlink_hybrid_vehicle_status_t makeStatus(uint64_t timestamp)
     status.target_state = HYBRID_VEHICLE_SHAPE_NONE;
     status.fault_reason = HYBRID_VEHICLE_FAULT_NONE;
     status.position_normalized = 0.25F;
+    status.flags = HYBRID_VEHICLE_STATUS_FLAGS_POSITION_VALID;
     return status;
 }
 
@@ -54,7 +57,7 @@ void HybridVehicleStateTest::_decodesStatesAndScalarFields()
     status.sensor_source = HYBRID_VEHICLE_SENSOR_TMAG5273;
     status.actuator_backend = HYBRID_VEHICLE_ACTUATOR_HX8;
     status.actuator_protection_flags = 0xA5;
-    status.flags = 0x5A;
+    status.flags = 0x5A | HYBRID_VEHICLE_STATUS_FLAGS_POSITION_VALID;
     status.command_timestamp = 998;
 
     state.handleStatus(kAutopilotComponent, status);
@@ -70,7 +73,7 @@ void HybridVehicleStateTest::_decodesStatesAndScalarFields()
     QCOMPARE(state.sensorSource(), uint8_t(HYBRID_VEHICLE_SENSOR_TMAG5273));
     QCOMPARE(state.actuatorBackend(), uint8_t(HYBRID_VEHICLE_ACTUATOR_HX8));
     QCOMPARE(state.actuatorProtectionFlags(), uint8_t(0xA5));
-    QCOMPARE(state.flags(), uint16_t(0x5A));
+    QCOMPARE(state.flags(), uint16_t(0x5A | HYBRID_VEHICLE_STATUS_FLAGS_POSITION_VALID));
     QCOMPARE(state.commandTimestamp(), uint64_t(998));
     QVERIFY(state.localMonotonicStatusReceiptTime() >= 0);
     QVERIFY(state.hasValidStatus());
@@ -143,17 +146,72 @@ void HybridVehicleStateTest::_nanPositionIsInvalid()
     QVERIFY(qIsNaN(state.positionNormalized()));
 }
 
+void HybridVehicleStateTest::_finitePositionRequiresValidFlag()
+{
+    HybridVehicleState state(kAutopilotComponent);
+    auto status = makeStatus(1000);
+    status.flags &= ~HYBRID_VEHICLE_STATUS_FLAGS_POSITION_VALID;
+
+    state.handleStatus(kAutopilotComponent, status);
+
+    QVERIFY(std::isfinite(state.positionNormalized()));
+    QVERIFY(!state.positionNormalizedValid());
+
+    status.timestamp = 2000;
+    status.flags |= HYBRID_VEHICLE_STATUS_FLAGS_POSITION_VALID;
+    state.handleStatus(kAutopilotComponent, status);
+    QVERIFY(state.positionNormalizedValid());
+}
+
 void HybridVehicleStateTest::_statusBecomesStale()
 {
     HybridVehicleState state(kAutopilotComponent);
     QSignalSpy stateSpy(&state, &HybridVehicleState::stateChanged);
     QSignalSpy freshnessSpy(&state, &HybridVehicleState::freshnessChanged);
+    QSignalSpy modePolicySpy(&state, &HybridVehicleState::modePolicyInputsChanged);
     state.handleStatus(kAutopilotComponent, makeStatus(1000));
+    QVERIFY(state.positionNormalizedValid());
+    QCOMPARE(modePolicySpy.count(), 1);
 
     QTRY_VERIFY_WITH_TIMEOUT(state.stale(), 4000);
     QVERIFY(!state.hasValidStatus());
+    QVERIFY(!state.positionNormalizedValid());
     QCOMPARE(stateSpy.count(), 2);
     QVERIFY(freshnessSpy.count() >= 2);
+    QCOMPARE(modePolicySpy.count(), 2);
+}
+
+void HybridVehicleStateTest::_modePolicyInputsSignalIsSelective()
+{
+    HybridVehicleState state(kAutopilotComponent);
+    QSignalSpy modePolicySpy(&state, &HybridVehicleState::modePolicyInputsChanged);
+    auto status = makeStatus(1000);
+
+    state.handleStatus(kAutopilotComponent, status);
+    QCOMPARE(modePolicySpy.count(), 1);
+
+    status.timestamp = 2000;
+    status.transition_elapsed_ms = 100;
+    status.position_normalized = 0.5F;
+    status.target_state = HYBRID_VEHICLE_SHAPE_ROVER;
+    state.handleStatus(kAutopilotComponent, status);
+    QCOMPARE(modePolicySpy.count(), 1);
+
+    status.timestamp = 3000;
+    status.fault_reason = HYBRID_VEHICLE_FAULT_STALL;
+    state.handleStatus(kAutopilotComponent, status);
+    QCOMPARE(modePolicySpy.count(), 2);
+
+    status.timestamp = 4000;
+    status.current_state = HYBRID_VEHICLE_STATE_ROVER;
+    state.handleStatus(kAutopilotComponent, status);
+    QCOMPARE(modePolicySpy.count(), 3);
+
+    state.resetForNewVehicleSession();
+    QCOMPARE(modePolicySpy.count(), 4);
+
+    state.resetForNewVehicleSession();
+    QCOMPARE(modePolicySpy.count(), 4);
 }
 
 void HybridVehicleStateTest::_rejectsWrongComponentAndNonMonotonicStatus()
@@ -242,14 +300,19 @@ void HybridVehicleStateTest::_rebootStatusThenSystemTime()
     HybridVehicleState state(kAutopilotComponent);
     QSignalSpy rebootSpy(&state, &HybridVehicleState::rebootConfirmed);
     QSignalSpy syncSpy(&state, &HybridVehicleState::requestQGCTimeSync);
-    state.handleSystemTime(kAutopilotComponent, 5000);
-    state.handleStatus(kAutopilotComponent, makeStatus(900000));
-    state.handleStatus(kAutopilotComponent, makeStatus(100));
+    state.handleSystemTime(kAutopilotComponent, 9000);
+    state.handleStatus(kAutopilotComponent, makeStatus(9000000));
+    state.handleStatus(kAutopilotComponent, makeStatus(100000));
     QVERIFY(state.resetCandidateActive());
     QVERIFY(!state.hasValidStatus());
     QCOMPARE(syncSpy.count(), 2);
 
-    state.handleSystemTime(kAutopilotComponent, 20);
+    state.handleSystemTime(kAutopilotComponent, 100);
+    QCOMPARE(rebootSpy.count(), 0);
+    QTest::qWait(kLiveRebootEvidenceWaitMs);
+    state.handleStatus(kAutopilotComponent, makeStatus(1100000));
+    QCOMPARE(rebootSpy.count(), 0);
+    state.handleSystemTime(kAutopilotComponent, 1100);
 
     QCOMPARE(rebootSpy.count(), 1);
     QVERIFY(!state.hasValidStatus());
@@ -260,43 +323,245 @@ void HybridVehicleStateTest::_rebootSystemTimeThenStatus()
 {
     HybridVehicleState state(kAutopilotComponent);
     QSignalSpy rebootSpy(&state, &HybridVehicleState::rebootConfirmed);
-    state.handleSystemTime(kAutopilotComponent, 5000);
-    state.handleStatus(kAutopilotComponent, makeStatus(900000));
-    state.handleSystemTime(kAutopilotComponent, 20);
+    state.handleSystemTime(kAutopilotComponent, 9000);
+    state.handleStatus(kAutopilotComponent, makeStatus(9000000));
+    state.handleSystemTime(kAutopilotComponent, 100);
     QVERIFY(state.resetCandidateActive());
 
-    state.handleStatus(kAutopilotComponent, makeStatus(100));
+    state.handleStatus(kAutopilotComponent, makeStatus(100000));
+    QCOMPARE(rebootSpy.count(), 0);
+    QTest::qWait(kLiveRebootEvidenceWaitMs);
+    state.handleSystemTime(kAutopilotComponent, 1100);
+    QCOMPARE(rebootSpy.count(), 0);
+    state.handleStatus(kAutopilotComponent, makeStatus(1100000));
 
     QCOMPARE(rebootSpy.count(), 1);
     QVERIFY(!state.hasValidStatus());
 }
 
+void HybridVehicleStateTest::_rebootStatusThenFirstSystemTime()
+{
+    HybridVehicleState state(kAutopilotComponent);
+    QSignalSpy rebootSpy(&state, &HybridVehicleState::rebootConfirmed);
+    state.handleStatus(kAutopilotComponent, makeStatus(9000000));
+
+    state.handleStatus(kAutopilotComponent, makeStatus(100000));
+    state.handleSystemTime(kAutopilotComponent, 100);
+    QCOMPARE(rebootSpy.count(), 0);
+    QVERIFY(state.resetCandidateActive());
+    QTest::qWait(kLiveRebootEvidenceWaitMs);
+    state.handleStatus(kAutopilotComponent, makeStatus(1100000));
+    state.handleSystemTime(kAutopilotComponent, 1100);
+
+    QCOMPARE(rebootSpy.count(), 1);
+    QVERIFY(!state.hasValidStatus());
+    QVERIFY(!state.resetCandidateActive());
+}
+
+void HybridVehicleStateTest::_rebootFirstSystemTimeThenStatus()
+{
+    HybridVehicleState state(kAutopilotComponent);
+    QSignalSpy rebootSpy(&state, &HybridVehicleState::rebootConfirmed);
+    state.handleStatus(kAutopilotComponent, makeStatus(9000000));
+
+    state.handleSystemTime(kAutopilotComponent, 100);
+    state.handleStatus(kAutopilotComponent, makeStatus(100000));
+    QCOMPARE(rebootSpy.count(), 0);
+    QVERIFY(state.resetCandidateActive());
+    QTest::qWait(kLiveRebootEvidenceWaitMs);
+    state.handleSystemTime(kAutopilotComponent, 1100);
+    state.handleStatus(kAutopilotComponent, makeStatus(1100000));
+
+    QCOMPARE(rebootSpy.count(), 1);
+    QVERIFY(!state.hasValidStatus());
+    QVERIFY(!state.resetCandidateActive());
+}
+
+void HybridVehicleStateTest::_rebootBootTimeCanAdvancePastStaleBaseline()
+{
+    HybridVehicleState state(kAutopilotComponent);
+    QSignalSpy rebootSpy(&state, &HybridVehicleState::rebootConfirmed);
+    state.handleStatus(kAutopilotComponent, makeStatus(100000));
+    state.handleSystemTime(kAutopilotComponent, 100);
+    state.handleStatus(kAutopilotComponent, makeStatus(9000000));
+
+    state.handleStatus(kAutopilotComponent, makeStatus(1100000));
+    state.handleSystemTime(kAutopilotComponent, 1100);
+    QCOMPARE(rebootSpy.count(), 0);
+    QVERIFY(state.resetCandidateActive());
+    QTest::qWait(kLiveRebootEvidenceWaitMs);
+    state.handleStatus(kAutopilotComponent, makeStatus(2100000));
+    state.handleSystemTime(kAutopilotComponent, 2100);
+
+    QCOMPARE(rebootSpy.count(), 1);
+    QVERIFY(!state.hasValidStatus());
+    QVERIFY(!state.resetCandidateActive());
+}
+
 void HybridVehicleStateTest::_candidateExpiryRestoresOrdinaryFreshness()
+{
+    HybridVehicleState state(kAutopilotComponent);
+    state.handleStatus(kAutopilotComponent, makeStatus(9000000));
+    state.handleSystemTime(kAutopilotComponent, 9000);
+    QVERIFY(state.positionNormalizedValid());
+    QSignalSpy validitySpy(&state, &HybridVehicleState::statusValidityChanged);
+    QSignalSpy modePolicySpy(&state, &HybridVehicleState::modePolicyInputsChanged);
+
+    state.handleSystemTime(kAutopilotComponent, 100);
+    QVERIFY(state.resetCandidateActive());
+    QVERIFY(!state.hasValidStatus());
+    QVERIFY(!state.positionNormalizedValid());
+
+    for (uint64_t timestamp = 10000000; timestamp <= 14000000; timestamp += 1000000) {
+        QTest::qWait(700);
+        state.handleStatus(kAutopilotComponent, makeStatus(timestamp));
+    }
+    QTRY_VERIFY_WITH_TIMEOUT(!state.resetCandidateActive(), 4000);
+    QVERIFY(!state.stale());
+    QVERIFY(state.hasValidStatus());
+    QVERIFY(state.positionNormalizedValid());
+    QCOMPARE(state.currentState(), HybridVehicleState::Quad);
+    QCOMPARE(validitySpy.count(), 2);
+    QCOMPARE(modePolicySpy.count(), 2);
+}
+
+void HybridVehicleStateTest::_forwardStatusRestoresValidityAfterPayloadCommit()
 {
     HybridVehicleState state(kAutopilotComponent);
     state.handleStatus(kAutopilotComponent, makeStatus(900000));
     state.handleStatus(kAutopilotComponent, makeStatus(100));
-    QVERIFY(state.resetCandidateActive());
     QVERIFY(!state.hasValidStatus());
 
-    QTRY_VERIFY_WITH_TIMEOUT(!state.resetCandidateActive(), 4000);
-    QVERIFY(state.stale());
-    QCOMPARE(state.currentState(), HybridVehicleState::Quad);
+    QList<HybridVehicleState::CurrentState> validStateNotifications;
+    connect(&state, &HybridVehicleState::stateChanged, &state, [&state, &validStateNotifications]() {
+        if (state.hasValidStatus()) {
+            validStateNotifications.append(state.currentState());
+        }
+    });
+
+    mavlink_hybrid_vehicle_status_t forwardStatus = makeStatus(1000000);
+    forwardStatus.current_state = HYBRID_VEHICLE_STATE_ROVER;
+    state.handleStatus(kAutopilotComponent, forwardStatus);
+
+    QVERIFY(state.hasValidStatus());
+    QVERIFY(!validStateNotifications.isEmpty());
+    for (const HybridVehicleState::CurrentState observedState : validStateNotifications) {
+        QCOMPARE(observedState, HybridVehicleState::Rover);
+    }
+}
+
+void HybridVehicleStateTest::_staleCandidateRecoveryEmitsValidityOnce()
+{
+    HybridVehicleState state(kAutopilotComponent);
+    state.handleStatus(kAutopilotComponent, makeStatus(9000000));
+    QTRY_VERIFY_WITH_TIMEOUT(state.stale(), 4000);
+
+    QSignalSpy validitySpy(&state, &HybridVehicleState::statusValidityChanged);
+    state.handleStatus(kAutopilotComponent, makeStatus(100000));
+    QVERIFY(state.resetCandidateActive());
+
+    auto forwardStatus = makeStatus(10000000);
+    forwardStatus.current_state = HYBRID_VEHICLE_STATE_ROVER;
+    state.handleStatus(kAutopilotComponent, forwardStatus);
+
+    QCOMPARE(validitySpy.count(), 1);
+    QVERIFY(state.hasValidStatus());
+    QCOMPARE(state.currentState(), HybridVehicleState::Rover);
 }
 
 void HybridVehicleStateTest::_forwardSamplesClearOnlyTheirCandidate()
 {
     HybridVehicleState state(kAutopilotComponent);
-    state.handleSystemTime(kAutopilotComponent, 5000);
-    state.handleStatus(kAutopilotComponent, makeStatus(900000));
-    state.handleSystemTime(kAutopilotComponent, 20);
+    state.handleSystemTime(kAutopilotComponent, 9000);
+    state.handleStatus(kAutopilotComponent, makeStatus(9000000));
+    state.handleStatus(kAutopilotComponent, makeStatus(100000));
+    state.handleSystemTime(kAutopilotComponent, 100);
     QVERIFY(state.resetCandidateActive());
 
-    state.handleStatus(kAutopilotComponent, makeStatus(901000));
+    state.handleStatus(kAutopilotComponent, makeStatus(10000000));
     QVERIFY(state.resetCandidateActive());
     QVERIFY(!state.hasValidStatus());
 
+    state.handleSystemTime(kAutopilotComponent, 10000);
+    QVERIFY(!state.resetCandidateActive());
+    QVERIFY(state.hasValidStatus());
+}
+
+void HybridVehicleStateTest::_sameBootOutOfOrderRollbacksDoNotConfirm()
+{
+    HybridVehicleState state(kAutopilotComponent);
+    QSignalSpy rebootSpy(&state, &HybridVehicleState::rebootConfirmed);
+    state.handleSystemTime(kAutopilotComponent, 9000);
+    state.handleStatus(kAutopilotComponent, makeStatus(9000000));
+
+    state.handleStatus(kAutopilotComponent, makeStatus(7000000));
+    state.handleSystemTime(kAutopilotComponent, 7000);
+    state.handleStatus(kAutopilotComponent, makeStatus(6000000));
     state.handleSystemTime(kAutopilotComponent, 6000);
+
+    QCOMPARE(rebootSpy.count(), 0);
+    QVERIFY(state.resetCandidateActive());
+    QVERIFY(!state.hasValidStatus());
+
+    state.handleStatus(kAutopilotComponent, makeStatus(10000000));
+    state.handleSystemTime(kAutopilotComponent, 10000);
+    QCOMPARE(rebootSpy.count(), 0);
+    QVERIFY(!state.resetCandidateActive());
+    QVERIFY(state.hasValidStatus());
+}
+
+void HybridVehicleStateTest::_cachedRollbackBurstDoesNotConfirm()
+{
+    HybridVehicleState state(kAutopilotComponent);
+    QSignalSpy rebootSpy(&state, &HybridVehicleState::rebootConfirmed);
+    state.handleSystemTime(kAutopilotComponent, 9000);
+    state.handleStatus(kAutopilotComponent, makeStatus(9000000));
+
+    state.handleStatus(kAutopilotComponent, makeStatus(100000));
+    state.handleStatus(kAutopilotComponent, makeStatus(1100000));
+    state.handleStatus(kAutopilotComponent, makeStatus(2100000));
+    state.handleSystemTime(kAutopilotComponent, 100);
+    state.handleSystemTime(kAutopilotComponent, 1100);
+    state.handleSystemTime(kAutopilotComponent, 2100);
+
+    QCOMPARE(rebootSpy.count(), 0);
+    QVERIFY(state.resetCandidateActive());
+
+    QTest::qWait(kLiveRebootEvidenceWaitMs);
+    state.handleStatus(kAutopilotComponent, makeStatus(2100000));
+    state.handleSystemTime(kAutopilotComponent, 2100);
+    QCOMPARE(rebootSpy.count(), 0);
+
+    state.handleStatus(kAutopilotComponent, makeStatus(10000000));
+    state.handleSystemTime(kAutopilotComponent, 10000);
+    QVERIFY(!state.resetCandidateActive());
+    QVERIFY(state.hasValidStatus());
+}
+
+void HybridVehicleStateTest::_mismatchedBootEvidenceBlocksHrtFallback()
+{
+    HybridVehicleState state(kAutopilotComponent);
+    QSignalSpy rebootSpy(&state, &HybridVehicleState::rebootConfirmed);
+    state.handleSystemTime(kAutopilotComponent, 20000);
+    state.handleStatus(kAutopilotComponent, makeStatus(20000000));
+
+    state.handleStatus(kAutopilotComponent, makeStatus(1000000));
+    state.handleSystemTime(kAutopilotComponent, 8000);
+    QTest::qWait(kLiveRebootEvidenceWaitMs);
+    state.handleStatus(kAutopilotComponent, makeStatus(2000000));
+    state.handleSystemTime(kAutopilotComponent, 9000);
+    state.handleStatus(kAutopilotComponent, makeStatus(3000000));
+
+    QCOMPARE(rebootSpy.count(), 0);
+    QVERIFY(state.resetCandidateActive());
+
+    state.handleSystemTime(kAutopilotComponent, 21000);
+    QCOMPARE(rebootSpy.count(), 0);
+    QVERIFY(state.resetCandidateActive());
+    state.handleStatus(kAutopilotComponent, makeStatus(4000000));
+    QCOMPARE(rebootSpy.count(), 0);
+    QVERIFY(state.resetCandidateActive());
+    state.handleStatus(kAutopilotComponent, makeStatus(21000000));
     QVERIFY(!state.resetCandidateActive());
     QVERIFY(state.hasValidStatus());
 }
@@ -306,15 +571,16 @@ void HybridVehicleStateTest::_fallbackRequiresThreeIncreasingLowHrtSamples()
     HybridVehicleState state(kAutopilotComponent);
     QSignalSpy rebootSpy(&state, &HybridVehicleState::rebootConfirmed);
     QSignalSpy syncSpy(&state, &HybridVehicleState::requestQGCTimeSync);
-    state.handleStatus(kAutopilotComponent, makeStatus(900000));
-    state.handleStatus(kAutopilotComponent, makeStatus(100));
+    state.handleStatus(kAutopilotComponent, makeStatus(9000000));
+    state.handleStatus(kAutopilotComponent, makeStatus(100000));
     QCOMPARE(syncSpy.count(), 2);
     QCOMPARE(rebootSpy.count(), 0);
-    state.handleStatus(kAutopilotComponent, makeStatus(90));
+    state.handleStatus(kAutopilotComponent, makeStatus(90000));
     QCOMPARE(rebootSpy.count(), 0);
-    state.handleStatus(kAutopilotComponent, makeStatus(200));
+    state.handleStatus(kAutopilotComponent, makeStatus(1090000));
     QCOMPARE(rebootSpy.count(), 0);
-    state.handleStatus(kAutopilotComponent, makeStatus(300));
+    QTest::qWait(kLiveRebootEvidenceWaitMs);
+    state.handleStatus(kAutopilotComponent, makeStatus(2090000));
 
     QCOMPARE(rebootSpy.count(), 1);
     QVERIFY(!state.hasValidStatus());

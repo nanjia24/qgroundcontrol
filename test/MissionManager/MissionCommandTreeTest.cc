@@ -1,13 +1,14 @@
 #include "MissionCommandTreeTest.h"
 
+#include <algorithm>
+
+#include "ArduCopterFirmwarePlugin.h"
 #include "MissionCommandList.h"
 #include "MissionCommandTree.h"
 #include "MissionCommandUIInfo.h"
 #include "PX4FirmwarePlugin.h"
 #include "UnitTest.h"
 #include "Vehicle.h"
-
-#include <algorithm>
 
 void MissionCommandTreeTest::init()
 {
@@ -198,6 +199,14 @@ void MissionCommandTreeTest::testAllTrees()
             delete vehicle;
         }
     }
+}
+
+void MissionCommandTreeTest::testArduPilotQuadRoverClassDoesNotWarn()
+{
+    QTest::failOnWarning(QRegularExpression(QStringLiteral(".*bad VehicleClass_t.*")));
+
+    ArduCopterFirmwarePlugin apmFirmwarePlugin;
+    QCOMPARE(apmFirmwarePlugin.missionCommandOverrides(QGCMAVLink::VehicleClassQuadRover), QString());
 }
 
 void MissionCommandTreeTest::testHybridTransitionCommandIsQuadRoverOnly()

@@ -101,10 +101,10 @@ void HybridFlightModePolicyTest::_unavailableStatesRejectModesAndCommands()
         const auto restoreHybridTransitionAcks =
             qScopeGuard([this]() { mockLink()->setHoldHybridTransitionAcks(false); });
         QVERIFY(vehicle()->hybridTransitionController()->requestTransform(HybridVehicleState::TargetRover));
-        _injectAck(MAV_RESULT_IN_PROGRESS, 41);
+        _injectAck(MAV_RESULT_IN_PROGRESS, 8);
         QTRY_COMPARE(vehicle()->hybridTransitionController()->transactionState(), HybridTransitionController::Detached);
         _injectStatus(HybridVehicleState::Transitioning, HybridVehicleState::TargetRover, HYBRID_VEHICLE_FAULT_NONE, 0,
-                      42, MAV_RESULT_IN_PROGRESS, 410);
+                      9, MAV_RESULT_IN_PROGRESS, 410);
         QTRY_COMPARE(vehicle()->hybridTransitionController()->transactionState(),
                      HybridTransitionController::SupersededUnconfirmed);
     } else {

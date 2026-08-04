@@ -21,6 +21,7 @@ private slots:
     void _strictAckMatching();
     void _hybridTransitionRetriesBeforeFirstMatchingAck();
     void _cancelCommand();
+    void _stoppedQueueRejectsSend();
 
 private:
     struct TestCase_t

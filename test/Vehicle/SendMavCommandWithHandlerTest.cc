@@ -1,5 +1,6 @@
 #include "SendMavCommandWithHandlerTest.h"
 
+#include <QtCore/QElapsedTimer>
 #include <QtCore/QScopeGuard>
 
 #include "MAVLinkProtocol.h"
@@ -70,7 +71,9 @@ void SendMavCommandWithHandlerTest::_testCaseWorker(TestCase_t& testCase)
     _resultHandlerCalled = false;
     _progressHandlerCalled = false;
     _mockLink->clearReceivedMavCommandCounts();
-    vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_AUTOPILOT1, testCase.command);
+    const Vehicle::MavCmdQueueEntryToken token =
+        vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_AUTOPILOT1, testCase.command);
+    QVERIFY(token != Vehicle::InvalidMavCmdQueueEntryToken);
     if (testCase.expectInProgressResult) {
         QVERIFY_TRUE_WAIT(_progressHandlerCalled, TestTimeout::longMs());
     }
@@ -104,7 +107,9 @@ void SendMavCommandWithHandlerTest::_duplicateCommand()
     QVERIFY_TRUE_WAIT(_mockLink->receivedMavCommandCount(testCase.command) == 1, TestTimeout::shortMs());
     QVERIFY(!_resultHandlerCalled);
     QVERIFY(!_progressHandlerCalled);
-    vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_AUTOPILOT1, testCase.command);
+    const Vehicle::MavCmdQueueEntryToken token =
+        vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_AUTOPILOT1, testCase.command);
+    QCOMPARE(token, Vehicle::InvalidMavCmdQueueEntryToken);
     // Duplicate command response should happen immediately
     QVERIFY(_resultHandlerCalled);
     QVERIFY(vehicle->_findMavCommandListEntryIndex(MAV_COMP_ID_AUTOPILOT1, testCase.command) != -1);
@@ -131,7 +136,9 @@ void SendMavCommandWithHandlerTest::_compIdAllFailure()
     handlerInfo.resultHandler = _compIdAllFailureMavCmdResultHandler;
     _resultHandlerCalled = false;
     _mockLink->clearReceivedMavCommandCounts();
-    vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_ALL, testCase.command);
+    const Vehicle::MavCmdQueueEntryToken token =
+        vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_ALL, testCase.command);
+    QCOMPARE(token, Vehicle::InvalidMavCmdQueueEntryToken);
     QCOMPARE(_resultHandlerCalled, true);
     QCOMPARE(vehicle->_findMavCommandListEntryIndex(MAV_COMP_ID_ALL, testCase.command), -1);
     QCOMPARE(_mockLink->receivedMavCommandCount(testCase.command), testCase.expectedSendCount);
@@ -229,15 +236,27 @@ void SendMavCommandWithHandlerTest::_hybridTransitionRetriesBeforeFirstMatchingA
     _mockLink->setHoldHybridTransitionAcks(true);
     const auto restoreHybridTransitionAcks = qScopeGuard([this]() { _mockLink->setHoldHybridTransitionAcks(false); });
     _mockLink->clearReceivedMavCommandCounts();
-    vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand, 17.0f);
-    QVERIFY_TRUE_WAIT(_mockLink->receivedMavCommandCount(kHybridTransitionCommand) >= 2, TestTimeout::longMs());
+    const Vehicle::MavCmdQueueEntryToken token =
+        vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand, 17.0f);
+    QVERIFY(token != Vehicle::InvalidMavCmdQueueEntryToken);
+    QTRY_COMPARE(_mockLink->receivedMavCommandCount(kHybridTransitionCommand), 1);
+    QCOMPARE(_mockLink->lastHybridTransitionRequest().confirmation, 0);
+    QTRY_COMPARE(_mockLink->receivedMavCommandCount(kHybridTransitionCommand), 2);
+    QCOMPARE(_mockLink->lastHybridTransitionRequest().confirmation, 1);
     QVERIFY(vehicle->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand));
+
+    QElapsedTimer secondAckWindow;
+    secondAckWindow.start();
+    QTRY_COMPARE_WITH_TIMEOUT(_mockLink->receivedMavCommandCount(kHybridTransitionCommand), 3,
+                              MavCommandQueue::kTestMaxWaitMs);
+    QVERIFY(secondAckWindow.elapsed() >= (MavCommandQueue::kTestAckTimeoutMs - 100));
+    QCOMPARE(_mockLink->lastHybridTransitionRequest().confirmation, 2);
 
     const int sendCountBeforeDuplicate = _mockLink->receivedMavCommandCount(kHybridTransitionCommand);
     vehicle->sendMavCommand(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand, false, 42.0f);
     QCOMPARE(_mockLink->receivedMavCommandCount(kHybridTransitionCommand), sendCountBeforeDuplicate);
 
-    vehicle->_mavCmdQueue->cancelCommand(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand);
+    QVERIFY(vehicle->_mavCmdQueue->cancelCommand(token));
     QVERIFY(!vehicle->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand));
 }
 
@@ -254,10 +273,32 @@ void SendMavCommandWithHandlerTest::_cancelCommand()
     handlerInfo.ackMatcher = _strictAckMatcher;
     handlerInfo.ackMatcherData = &matcherData;
 
-    vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand);
+    const Vehicle::MavCmdQueueEntryToken token =
+        vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand);
+    QVERIFY(token != Vehicle::InvalidMavCmdQueueEntryToken);
     QVERIFY(vehicle->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand));
+    QVERIFY(vehicle->_mavCmdQueue->isPending(token));
 
-    vehicle->_mavCmdQueue->cancelCommand(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand);
+    QVERIFY(!vehicle->_mavCmdQueue->cancelCommand(Vehicle::InvalidMavCmdQueueEntryToken));
+    QVERIFY(vehicle->_mavCmdQueue->cancelCommand(token));
+    QVERIFY(!vehicle->_mavCmdQueue->cancelCommand(token));
+    QVERIFY(!vehicle->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand));
+    QCOMPARE(handlerData.resultHandlerCallCount, 0);
+}
+
+void SendMavCommandWithHandlerTest::_stoppedQueueRejectsSend()
+{
+    Vehicle* const vehicle = MultiVehicleManager::instance()->activeVehicle();
+    AckHandlerData_t handlerData;
+    Vehicle::MavCmdAckHandlerInfo_t handlerInfo = {};
+    handlerInfo.resultHandler = _countResultHandler;
+    handlerInfo.resultHandlerData = &handlerData;
+
+    vehicle->_mavCmdQueue->stop();
+    const Vehicle::MavCmdQueueEntryToken token =
+        vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand);
+
+    QCOMPARE(token, Vehicle::InvalidMavCmdQueueEntryToken);
     QVERIFY(!vehicle->isMavCommandPending(MAV_COMP_ID_AUTOPILOT1, kHybridTransitionCommand));
     QCOMPARE(handlerData.resultHandlerCallCount, 0);
 }

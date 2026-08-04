@@ -110,11 +110,16 @@ void HybridVehicleIngressTest::_systemTimeRebootResetsVehicleState()
     injectSystemTime(mockLink(), vehicle(), 5000);
     injectStatus(mockLink(), vehicle()->id(), MAV_COMP_ID_AUTOPILOT1, makeStatus(HybridVehicleState::Quad, 100));
     injectSystemTime(mockLink(), vehicle(), 20);
+    QTest::qWait(300);
+    QCOMPARE(vehicle()->hybridVehicleState()->currentState(), HybridVehicleState::Rover);
+
+    injectStatus(mockLink(), vehicle()->id(), MAV_COMP_ID_AUTOPILOT1, makeStatus(HybridVehicleState::Quad, 101));
+    injectSystemTime(mockLink(), vehicle(), 21);
 
     QTRY_COMPARE(vehicle()->hybridVehicleState()->currentState(), HybridVehicleState::Unknown);
     QVERIFY(vehicle()->hybridVehicleState()->stale());
 
-    injectStatus(mockLink(), vehicle()->id(), MAV_COMP_ID_AUTOPILOT1, makeStatus(HybridVehicleState::Quad, 101));
+    injectStatus(mockLink(), vehicle()->id(), MAV_COMP_ID_AUTOPILOT1, makeStatus(HybridVehicleState::Quad, 102));
     QTRY_COMPARE(vehicle()->hybridVehicleState()->currentState(), HybridVehicleState::Quad);
 }
 

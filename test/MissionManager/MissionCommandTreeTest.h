@@ -19,6 +19,7 @@ private slots:
     void testJsonLoad();
     void testOverride();
     void testAllTrees();
+    void testArduPilotQuadRoverClassDoesNotWarn();
     void testHybridTransitionCommandIsQuadRoverOnly();
     void testUnknownCommandFallbacks();
 
