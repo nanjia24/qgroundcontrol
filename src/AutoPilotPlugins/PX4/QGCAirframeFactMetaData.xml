@@ -1,0 +1,11 @@
+<airframes>
+  <version>1</version>
+  <airframe_version_major>1</airframe_version_major>
+  <airframe_version_minor>1</airframe_version_minor>
+  <airframe_group name="Quad-Rover" image="QuadRoverHybrid">
+    <airframe name="Quad-Rover Hybrid" id="22001">
+      <class>Quad-Rover</class>
+      <type>Quad-Rover</type>
+    </airframe>
+  </airframe_group>
+</airframes>

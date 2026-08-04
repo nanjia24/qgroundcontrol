@@ -20,7 +20,7 @@ public:
 
     static QMap<QString, AirframeComponentAirframes::AirframeType_t*>& get();
     static void clear();
-    static void insert(QString& group, QString& image, QString& name, int id);
+    static void insert(QString& group, QString& image, QString& name, int id, bool replaceGroupMetadata = false);
 
 protected:
     static QMap<QString, AirframeType_t*> rgAirframeTypes;

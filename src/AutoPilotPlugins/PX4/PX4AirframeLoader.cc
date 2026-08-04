@@ -13,6 +13,11 @@
 
 QGC_LOGGING_CATEGORY(PX4AirframeLoaderLog, "AutoPilotPlugins.PX4AirframeLoader")
 
+namespace {
+constexpr const char* kBuiltInAirframeMetaData = ":/AutoPilotPlugins/PX4/AirframeFactMetaData.xml";
+constexpr const char* kQGCAirframeMetaData = ":/AutoPilotPlugins/PX4/QGCAirframeFactMetaData.xml";
+}  // namespace
+
 bool PX4AirframeLoader::_airframeMetaDataLoaded = false;
 
 PX4AirframeLoader::PX4AirframeLoader(AutoPilotPlugin* autopilot, QObject* parent)
@@ -52,34 +57,50 @@ void PX4AirframeLoader::loadAirframeMetaData(void)
         airframeFilename = aiframeMetaDataFile();
     }
     if (airframeFilename.isEmpty() || !QFile(airframeFilename).exists()) {
-        airframeFilename = ":/AutoPilotPlugins/PX4/AirframeFactMetaData.xml";
+        airframeFilename = QString::fromLatin1(kBuiltInAirframeMetaData);
     }
 
+    if (!_loadAirframeMetaDataFile(airframeFilename, false)) {
+        AirframeComponentAirframes::clear();
+
+        const QString builtInAirframeFilename = QString::fromLatin1(kBuiltInAirframeMetaData);
+        if (airframeFilename == builtInAirframeFilename || !_loadAirframeMetaDataFile(builtInAirframeFilename, false)) {
+            AirframeComponentAirframes::clear();
+            return;
+        }
+    }
+
+    // Firmware metadata caches intentionally remain the base. This QGC-owned overlay only replaces the
+    // airframe IDs declared in its dedicated resource, instead of merging the full built-in PX4 catalog.
+    if (!_loadAirframeMetaDataFile(QString::fromLatin1(kQGCAirframeMetaData), true)) {
+        AirframeComponentAirframes::clear();
+        return;
+    }
+
+    _airframeMetaDataLoaded = true;
+}
+
+bool PX4AirframeLoader::_loadAirframeMetaDataFile(const QString& airframeFilename, bool replaceExistingAirframes)
+{
     qCDebug(PX4AirframeLoaderLog) << "Loading meta data file:" << airframeFilename;
 
     QFile xmlFile(airframeFilename);
     if (!xmlFile.exists()) {
-        qCWarning(PX4AirframeLoaderLog) << "Internal error";
-        return;
+        qCWarning(PX4AirframeLoaderLog) << "Airframe XML does not exist:" << airframeFilename;
+        return false;
     }
 
-    bool success = xmlFile.open(QIODevice::ReadOnly);
-
-    if (!success) {
-        qCWarning(PX4AirframeLoaderLog) << "Failed opening airframe XML";
-        return;
+    if (!xmlFile.open(QIODevice::ReadOnly)) {
+        qCWarning(PX4AirframeLoaderLog) << "Failed opening airframe XML:" << airframeFilename;
+        return false;
     }
 
     QXmlStreamReader xml(xmlFile.readAll());
     xmlFile.close();
-    if (xml.hasError()) {
-        qCWarning(PX4AirframeLoaderLog) << "Badly formed XML" << xml.errorString();
-        return;
-    }
 
-    QString         airframeGroup;
-    QString         image;
-    int             xmlState = XmlStateNone;
+    QString airframeGroup;
+    QString image;
+    int xmlState = XmlStateNone;
 
     while (!xml.atEnd()) {
         if (xml.isStartElement()) {
@@ -88,14 +109,14 @@ void PX4AirframeLoader::loadAirframeMetaData(void)
             if (elementName == "airframes") {
                 if (xmlState != XmlStateNone) {
                     qCWarning(PX4AirframeLoaderLog) << "Badly formed XML";
-                    return;
+                    return false;
                 }
                 xmlState = XmlStateFoundAirframes;
 
             } else if (elementName == "version") {
                 if (xmlState != XmlStateFoundAirframes) {
                     qCWarning(PX4AirframeLoaderLog) << "Badly formed XML";
-                    return;
+                    return false;
                 }
                 xmlState = XmlStateFoundVersion;
 
@@ -104,12 +125,13 @@ void PX4AirframeLoader::loadAirframeMetaData(void)
                 int intVersion = strVersion.toInt(&convertOk);
                 if (!convertOk) {
                     qCWarning(PX4AirframeLoaderLog) << "Badly formed XML";
-                    return;
+                    return false;
                 }
                 if (intVersion < 1) {
                     // We can't read these old files
-                    qDebug() << "Airframe version stamp too old, skipping load. Found:" << intVersion << "Want: 3 File:" << airframeFilename;
-                    return;
+                    qDebug() << "Airframe version stamp too old, skipping load. Found:" << intVersion
+                             << "Want: 3 File:" << airframeFilename;
+                    return false;
                 }
 
             } else if (elementName == "airframe_version_major") {
@@ -121,13 +143,13 @@ void PX4AirframeLoader::loadAirframeMetaData(void)
                 if (xmlState != XmlStateFoundVersion) {
                     // We didn't get a version stamp, assume older version we can't read
                     qDebug() << "Parameter version stamp not found, skipping load" << airframeFilename;
-                    return;
+                    return false;
                 }
                 xmlState = XmlStateFoundGroup;
 
                 if (!xml.attributes().hasAttribute("name") || !xml.attributes().hasAttribute("image")) {
                     qCWarning(PX4AirframeLoaderLog) << "Badly formed XML";
-                    return;
+                    return false;
                 }
                 airframeGroup = xml.attributes().value("name").toString();
                 image = xml.attributes().value("image").toString();
@@ -136,28 +158,38 @@ void PX4AirframeLoader::loadAirframeMetaData(void)
             } else if (elementName == "airframe") {
                 if (xmlState != XmlStateFoundGroup) {
                     qCWarning(PX4AirframeLoaderLog) << "Badly formed XML";
-                    return;
+                    return false;
                 }
                 xmlState = XmlStateFoundAirframe;
 
                 if (!xml.attributes().hasAttribute("name") || !xml.attributes().hasAttribute("id")) {
                     qCWarning(PX4AirframeLoaderLog) << "Badly formed XML";
-                    return;
+                    return false;
                 }
 
                 QString name = xml.attributes().value("name").toString();
-                QString id = xml.attributes().value("id").toString();
+                bool convertOk = false;
+                int id = xml.attributes().value("id").toInt(&convertOk);
+                if (!convertOk) {
+                    qCWarning(PX4AirframeLoaderLog) << "Badly formed XML";
+                    return false;
+                }
 
-                qCDebug(PX4AirframeLoaderLog) << "Found airframe name:" << name << " type:" << airframeGroup << " id:" << id;
+                qCDebug(PX4AirframeLoaderLog)
+                    << "Found airframe name:" << name << " type:" << airframeGroup << " id:" << id;
+
+                if (replaceExistingAirframes) {
+                    _removeAirframe(id);
+                }
 
                 // Now that we know type we can airframe meta data object and add it to the system
-                AirframeComponentAirframes::insert(airframeGroup, image, name, id.toInt());
+                AirframeComponentAirframes::insert(airframeGroup, image, name, id, replaceExistingAirframes);
 
             } else {
                 // We should be getting meta data now
                 if (xmlState != XmlStateFoundAirframe) {
                     qCWarning(PX4AirframeLoaderLog) << "Badly formed XML";
-                    return;
+                    return false;
                 }
             }
         } else if (xml.isEndElement()) {
@@ -175,5 +207,38 @@ void PX4AirframeLoader::loadAirframeMetaData(void)
         xml.readNext();
     }
 
-    _airframeMetaDataLoaded = true;
+    if (xml.hasError()) {
+        qCWarning(PX4AirframeLoaderLog) << "Badly formed XML" << xml.errorString();
+        return false;
+    }
+
+    return true;
+}
+
+void PX4AirframeLoader::_removeAirframe(int autostartId)
+{
+    auto& airframeTypes = AirframeComponentAirframes::get();
+    auto groupIterator = airframeTypes.begin();
+
+    while (groupIterator != airframeTypes.end()) {
+        AirframeComponentAirframes::AirframeType_t* group = groupIterator.value();
+        auto airframeIterator = group->rgAirframeInfo.begin();
+
+        while (airframeIterator != group->rgAirframeInfo.end()) {
+            AirframeComponentAirframes::AirframeInfo_t* airframe = *airframeIterator;
+            if (airframe->autostartId == autostartId) {
+                airframeIterator = group->rgAirframeInfo.erase(airframeIterator);
+                delete airframe;
+            } else {
+                ++airframeIterator;
+            }
+        }
+
+        if (group->rgAirframeInfo.isEmpty()) {
+            delete group;
+            groupIterator = airframeTypes.erase(groupIterator);
+        } else {
+            ++groupIterator;
+        }
+    }
 }

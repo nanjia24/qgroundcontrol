@@ -12,6 +12,8 @@ class PX4AirframeLoader : QObject
 {
     Q_OBJECT
 
+    friend class PX4AirframeLoaderTest;
+
 public:
     /// @param uas Uas which this set of facts is associated with
     PX4AirframeLoader(AutoPilotPlugin* autpilot, QObject* parent = nullptr);
@@ -22,6 +24,9 @@ public:
     static QString aiframeMetaDataFile(void);
 
 private:
+    static bool _loadAirframeMetaDataFile(const QString& airframeFilename, bool replaceExistingAirframes);
+    static void _removeAirframe(int autostartId);
+
     enum {
         XmlStateNone,
         XmlStateFoundAirframes,

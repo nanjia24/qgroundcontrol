@@ -143,6 +143,12 @@ add_qgc_test(HashCheckTest LABELS Integration Vehicle SERIAL TIMEOUT ${_hash_che
 add_qgc_test(ParameterManagerTest LABELS Integration Vehicle SERIAL TIMEOUT ${QGC_TEST_TIMEOUT_EXTENDED})
 
 # ----------------------------------------------------------------------------
+# AutoPilotPlugins
+# ----------------------------------------------------------------------------
+add_subdirectory(AutoPilotPlugins)
+add_qgc_test(PX4AirframeLoaderTest LABELS Unit)
+
+# ----------------------------------------------------------------------------
 # FollowMe
 # ----------------------------------------------------------------------------
 add_subdirectory(FollowMe)

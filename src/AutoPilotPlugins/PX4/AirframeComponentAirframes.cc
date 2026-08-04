@@ -26,12 +26,20 @@ QMap<QString, AirframeComponentAirframes::AirframeType_t*>& AirframeComponentAir
     return rgAirframeTypes;
 }
 
-void AirframeComponentAirframes::insert(QString& group, QString& image, QString& name, int id)
+void AirframeComponentAirframes::insert(QString& group, QString& image, QString& name, int id,
+                                        bool replaceGroupMetadata)
 {
-    AirframeType_t *g;
+    AirframeType_t* g;
     if (!rgAirframeTypes.contains(group)) {
         g = new AirframeType_t;
+        rgAirframeTypes.insert(group, g);
+    } else {
+        g = rgAirframeTypes.value(group);
+    }
+
+    if (g->name.isEmpty() || replaceGroupMetadata) {
         g->name = group;
+        g->imageResource.clear();
 
         if (image.length() > 0) {
             g->imageResource = QString(":/qmlimages/Airframe/%1.svg").arg(image);
@@ -45,13 +53,9 @@ void AirframeComponentAirframes::insert(QString& group, QString& image, QString&
         if (g->imageResource.isEmpty()) {
             g->imageResource = QString("qrc:/qmlimages/Airframe/AirframeUnknown.svg");
         }
-
-        rgAirframeTypes.insert(group, g);
-    } else {
-        g = rgAirframeTypes.value(group);
     }
 
-    AirframeInfo_t *i = new AirframeInfo_t;
+    AirframeInfo_t* i = new AirframeInfo_t;
     i->name = name;
     i->autostartId = id;
 
