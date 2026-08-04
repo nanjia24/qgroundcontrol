@@ -291,7 +291,7 @@ void Vehicle::_commonInit(LinkInterface* link)
     _mavCmdQueue = new MavCommandQueue(this);
     connect(_mavCmdQueue, &MavCommandQueue::commandResult, this, &Vehicle::mavCommandResult);
     _hybridTransitionController = new HybridTransitionController(this, _hybridVehicleState);
-    connect(_hybridVehicleState, &HybridVehicleState::stateChanged, this, &Vehicle::flightModesChanged);
+    connect(_hybridVehicleState, &HybridVehicleState::modePolicyInputsChanged, this, &Vehicle::flightModesChanged);
     connect(_hybridTransitionController, &HybridTransitionController::transactionStateChanged, this,
             &Vehicle::flightModesChanged);
     _reqMsgCoord = new RequestMessageCoordinator(this, _mavCmdQueue);
@@ -2229,9 +2229,13 @@ void Vehicle::sendCommand(int compId, int command, bool showError, double param1
                 static_cast<float>(param7));
 }
 
-void Vehicle::sendMavCommandWithHandler(const MavCmdAckHandlerInfo_t* ackHandlerInfo, int compId, MAV_CMD command, float param1, float param2, float param3, float param4, float param5, float param6, float param7)
+Vehicle::MavCmdQueueEntryToken Vehicle::sendMavCommandWithHandler(const MavCmdAckHandlerInfo_t* ackHandlerInfo,
+                                                                  int compId, MAV_CMD command, float param1,
+                                                                  float param2, float param3, float param4,
+                                                                  float param5, float param6, float param7)
 {
-    _mavCmdQueue->sendCommandWithHandler(ackHandlerInfo, compId, command, param1, param2, param3, param4, param5, param6, param7);
+    return _mavCmdQueue->sendCommandWithHandler(ackHandlerInfo, compId, command, param1, param2, param3, param4, param5,
+                                                param6, param7);
 }
 
 void Vehicle::sendMavCommandInt(int compId, MAV_CMD command, MAV_FRAME frame, bool showError, float param1, float param2, float param3, float param4, double param5, double param6, float param7)
@@ -2304,9 +2308,8 @@ void Vehicle::_handleCommandAck(mavlink_message_t& message)
 
     // Delegate queue-matching + user callbacks to MavCommandQueue.
     const bool queueHandledAck = _mavCmdQueue->handleCommandAck(message, ack);
-    if (!queueHandledAck && _hybridTransitionController &&
-        (_hybridTransitionController->transactionState() == HybridTransitionController::Detached)) {
-        _hybridTransitionController->handleDetachedAck(message, ack);
+    if (!queueHandledAck && _hybridTransitionController) {
+        _hybridTransitionController->handleUnmatchedAck(message, ack);
     }
 
     // Advance PID tuning setup/teardown.

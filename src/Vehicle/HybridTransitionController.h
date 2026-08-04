@@ -49,7 +49,7 @@ public:
 
     Q_INVOKABLE bool requestTransform(int targetState);
 
-    void handleDetachedAck(const mavlink_message_t& message, const mavlink_command_ack_t& ack);
+    void handleUnmatchedAck(const mavlink_message_t& message, const mavlink_command_ack_t& ack);
     void handleVehicleReboot();
 
 signals:
@@ -76,9 +76,12 @@ private:
     void _setExpectedSequence(uint32_t sequence);
     void _clearExpectedSequence();
     void _cancelQueuedCommand();
+    void _releaseCommandReservation();
     void _finishWithoutPhysicalSuccess(MAV_RESULT result);
     void _finishAwaitingIndependentResync(TransactionState state, bool requireSequence, uint32_t sequence);
+    bool _ackAddressMatches(const mavlink_message_t& message, const mavlink_command_ack_t& ack) const;
     bool _strictAckMatches(const mavlink_message_t& message, const mavlink_command_ack_t& ack) const;
+    bool _requestedShapeWasAlreadyStable() const;
     bool _statusIsRequestedStableShape() const;
     bool _statusIsHealthyStableAccepted() const;
 
@@ -91,6 +94,7 @@ private:
     int _requestedTarget = 0;
     qint64 _preRequestStatusReceiptTime = -1;
     uint64_t _preRequestCommandTimestamp = 0;
+    uint32_t _preRequestTransitionSequence = 0;
     int _preRequestCurrentState = 0;
     bool _preRequestHadValidStatus = false;
     bool _havePostRequestStatus = false;
@@ -98,6 +102,10 @@ private:
     uint32_t _expectedSequence = 0;
     bool _haveAssociatedCommandTimestamp = false;
     uint64_t _associatedCommandTimestamp = 0;
+    bool _havePendingBaselineFailureAck = false;
+    MAV_RESULT _pendingBaselineFailureResult = MAV_RESULT_UNSUPPORTED;
     bool _resyncRequiresSequence = false;
     uint32_t _resyncSequence = 0;
+    MavCmdQueueEntryToken _queuedCommandToken = InvalidMavCmdQueueEntryToken;
+    MavCmdQueueReservationToken _commandReservationToken = InvalidMavCmdQueueReservationToken;
 };

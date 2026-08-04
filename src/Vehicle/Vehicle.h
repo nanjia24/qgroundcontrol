@@ -626,10 +626,10 @@ public:
     // MavCmdProgressHandler, MavCmdResultHandler, MavCmdAckHandlerInfo_t are inherited from VehicleTypes.
 
     /// Sends the command and calls the callback with the result
-    void sendMavCommandWithHandler(
-        const MavCmdAckHandlerInfo_t* ackHandlerInfo,   ///> nullptr to signale no handlers
-        int compId, MAV_CMD command,
-        float param1 = 0.0f, float param2 = 0.0f, float param3 = 0.0f, float param4 = 0.0f, float param5 = 0.0f, float param6 = 0.0f, float param7 = 0.0f);
+    MavCmdQueueEntryToken sendMavCommandWithHandler(
+        const MavCmdAckHandlerInfo_t* ackHandlerInfo,  ///> nullptr to signale no handlers
+        int compId, MAV_CMD command, float param1 = 0.0f, float param2 = 0.0f, float param3 = 0.0f, float param4 = 0.0f,
+        float param5 = 0.0f, float param6 = 0.0f, float param7 = 0.0f);
 
     /// Sends the command and calls the callback with the result
     ///     @param resultHandler    Callback for result, nullptr for no callback

@@ -57,12 +57,16 @@ bool HybridTransitionController::requestTransform(int targetState)
     emit requestedTargetChanged();
     _preRequestStatusReceiptTime = _state->localMonotonicStatusReceiptTime();
     _preRequestCommandTimestamp = _state->commandTimestamp();
+    _preRequestTransitionSequence = _state->transitionSequence();
     _preRequestCurrentState = _state->currentState();
     _preRequestHadValidStatus = _state->hasValidStatus();
     _havePostRequestStatus = false;
     _haveAssociatedCommandTimestamp = false;
     _associatedCommandTimestamp = 0;
+    _havePendingBaselineFailureAck = false;
+    _pendingBaselineFailureResult = MAV_RESULT_UNSUPPORTED;
     _resyncRequiresSequence = false;
+    _queuedCommandToken = InvalidMavCmdQueueEntryToken;
     _clearExpectedSequence();
     _setCommandResult(MAV_RESULT_UNSUPPORTED);
 
@@ -75,14 +79,48 @@ bool HybridTransitionController::requestTransform(int targetState)
     handlerInfo.ackMatcherData = this;
     handlerInfo.detachOnProgress = true;
 
-    _vehicle->sendMavCommandWithHandler(&handlerInfo, MAV_COMP_ID_AUTOPILOT1, MAV_CMD_DO_HYBRID_TRANSITION,
-                                        static_cast<float>(targetState), 0.F, 0.F, 0.F, 0.F, 0.F, 0.F);
+    _commandReservationToken =
+        _vehicle->_mavCmdQueue->reserveCommand(MAV_COMP_ID_AUTOPILOT1, MAV_CMD_DO_HYBRID_TRANSITION);
+    if (_commandReservationToken == InvalidMavCmdQueueReservationToken) {
+        _setCommandResult(MAV_RESULT_FAILED);
+        return false;
+    }
+
     _setTransactionState(Queued);
+    const MavCmdQueueEntryToken token = _vehicle->_mavCmdQueue->sendCommandWithHandler(
+        &handlerInfo, MAV_COMP_ID_AUTOPILOT1, MAV_CMD_DO_HYBRID_TRANSITION, static_cast<float>(targetState), 0.F, 0.F,
+        0.F, 0.F, 0.F, 0.F, _commandReservationToken);
+    if (token == InvalidMavCmdQueueEntryToken) {
+        if (_transactionState == Queued) {
+            _finishWithoutPhysicalSuccess(MAV_RESULT_FAILED);
+        }
+        return false;
+    }
+    if (_transactionState == Queued) {
+        _queuedCommandToken = token;
+    } else if (_vehicle->_mavCmdQueue->isPending(token)) {
+        _vehicle->_mavCmdQueue->cancelCommand(token);
+    }
     return true;
 }
 
-void HybridTransitionController::handleDetachedAck(const mavlink_message_t& message, const mavlink_command_ack_t& ack)
+void HybridTransitionController::handleUnmatchedAck(const mavlink_message_t& message, const mavlink_command_ack_t& ack)
 {
+    if (!_ackAddressMatches(message, ack)) {
+        return;
+    }
+
+    if (_transactionState == Queued) {
+        const uint32_t sequence = static_cast<uint32_t>(ack.result_param2);
+        if ((sequence == _preRequestTransitionSequence) && (ack.result != MAV_RESULT_IN_PROGRESS) &&
+            (ack.result != MAV_RESULT_ACCEPTED)) {
+            _havePendingBaselineFailureAck = true;
+            _pendingBaselineFailureResult = static_cast<MAV_RESULT>(ack.result);
+            _evaluateActiveStatus();
+        }
+        return;
+    }
+
     if ((_transactionState != Detached) || !_strictAckMatches(message, ack)) {
         return;
     }
@@ -127,6 +165,7 @@ bool HybridTransitionController::_ackMatcher(void* matcherData, const mavlink_me
 
 void HybridTransitionController::_handleResult(const mavlink_command_ack_t& ack, MavCmdResultFailureCode_t failureCode)
 {
+    _queuedCommandToken = InvalidMavCmdQueueEntryToken;
     _setCommandResult(static_cast<MAV_RESULT>(ack.result));
 
     if ((failureCode != MavCmdResultCommandResultOnly) || (ack.result != MAV_RESULT_ACCEPTED)) {
@@ -135,14 +174,13 @@ void HybridTransitionController::_handleResult(const mavlink_command_ack_t& ack,
     }
 
     const bool directResult = _transactionState == Queued;
-    const bool requestedShapeWasAlreadyStable =
-        _preRequestHadValidStatus && (((_requestedTarget == HybridVehicleState::TargetQuad) &&
-                                       (_preRequestCurrentState == HybridVehicleState::Quad)) ||
-                                      ((_requestedTarget == HybridVehicleState::TargetRover) &&
-                                       (_preRequestCurrentState == HybridVehicleState::Rover)));
-    if (directResult && requestedShapeWasAlreadyStable) {
+    if (directResult && _requestedShapeWasAlreadyStable()) {
         _finishAwaitingIndependentResync(NoMotionAccepted, false, 0);
         return;
+    }
+
+    if (directResult) {
+        _setExpectedSequence(static_cast<uint32_t>(ack.result_param2));
     }
 
     _setTransactionState(AwaitingStatus);
@@ -156,6 +194,7 @@ void HybridTransitionController::_handleProgress(const mavlink_command_ack_t& ac
         return;
     }
 
+    _queuedCommandToken = InvalidMavCmdQueueEntryToken;
     _setCommandResult(MAV_RESULT_IN_PROGRESS);
     _setExpectedSequence(static_cast<uint32_t>(ack.result_param2));
     _setTransactionState(Detached);
@@ -202,6 +241,13 @@ void HybridTransitionController::_evaluateActiveStatus()
     }
 
     if (!_haveExpectedSequence) {
+        if ((_transactionState == Queued) && _havePendingBaselineFailureAck &&
+            (_state->transitionSequence() == _preRequestTransitionSequence) &&
+            (_state->commandTimestamp() != _preRequestCommandTimestamp) &&
+            (_state->commandResult() == static_cast<uint8_t>(_pendingBaselineFailureResult))) {
+            _cancelQueuedCommand();
+            _finishWithoutPhysicalSuccess(_pendingBaselineFailureResult);
+        }
         return;
     }
 
@@ -237,6 +283,9 @@ void HybridTransitionController::_evaluateIndependentResync()
 
 void HybridTransitionController::_setTransactionState(TransactionState state)
 {
+    if (state == Idle) {
+        _releaseCommandReservation();
+    }
     if (_transactionState == state) {
         return;
     }
@@ -279,8 +328,17 @@ void HybridTransitionController::_clearExpectedSequence()
 
 void HybridTransitionController::_cancelQueuedCommand()
 {
-    if (_transactionState == Queued) {
-        _vehicle->_mavCmdQueue->cancelCommand(MAV_COMP_ID_AUTOPILOT1, MAV_CMD_DO_HYBRID_TRANSITION);
+    if ((_transactionState == Queued) && (_queuedCommandToken != InvalidMavCmdQueueEntryToken)) {
+        _vehicle->_mavCmdQueue->cancelCommand(_queuedCommandToken);
+        _queuedCommandToken = InvalidMavCmdQueueEntryToken;
+    }
+}
+
+void HybridTransitionController::_releaseCommandReservation()
+{
+    if (_commandReservationToken != InvalidMavCmdQueueReservationToken) {
+        _vehicle->_mavCmdQueue->releaseCommandReservation(_commandReservationToken);
+        _commandReservationToken = InvalidMavCmdQueueReservationToken;
     }
 }
 
@@ -299,13 +357,48 @@ void HybridTransitionController::_finishAwaitingIndependentResync(TransactionSta
     _setTransactionState(state);
 }
 
-bool HybridTransitionController::_strictAckMatches(const mavlink_message_t& message,
-                                                   const mavlink_command_ack_t& ack) const
+bool HybridTransitionController::_ackAddressMatches(const mavlink_message_t& message,
+                                                    const mavlink_command_ack_t& ack) const
 {
     return (ack.command == MAV_CMD_DO_HYBRID_TRANSITION) && (message.sysid == _vehicle->id()) &&
            (message.compid == MAV_COMP_ID_AUTOPILOT1) &&
            (ack.target_system == MAVLinkProtocol::instance()->getSystemId()) &&
            (ack.target_component == MAVLinkProtocol::getComponentId());
+}
+
+bool HybridTransitionController::_strictAckMatches(const mavlink_message_t& message,
+                                                   const mavlink_command_ack_t& ack) const
+{
+    if (!_ackAddressMatches(message, ack)) {
+        return false;
+    }
+
+    const uint32_t sequence = static_cast<uint32_t>(ack.result_param2);
+    if (_haveExpectedSequence) {
+        return sequence == _expectedSequence;
+    }
+    if ((_transactionState != Queued) || !_preRequestHadValidStatus) {
+        return false;
+    }
+
+    const uint32_t nextSequence = _preRequestTransitionSequence + 1U;
+    switch (ack.result) {
+        case MAV_RESULT_IN_PROGRESS:
+            return sequence == nextSequence;
+        case MAV_RESULT_ACCEPTED:
+            return _requestedShapeWasAlreadyStable() ? (sequence == _preRequestTransitionSequence)
+                                                     : (sequence == nextSequence);
+        default:
+            return false;
+    }
+}
+
+bool HybridTransitionController::_requestedShapeWasAlreadyStable() const
+{
+    return _preRequestHadValidStatus && (((_requestedTarget == HybridVehicleState::TargetQuad) &&
+                                          (_preRequestCurrentState == HybridVehicleState::Quad)) ||
+                                         ((_requestedTarget == HybridVehicleState::TargetRover) &&
+                                          (_preRequestCurrentState == HybridVehicleState::Rover)));
 }
 
 bool HybridTransitionController::_statusIsRequestedStableShape() const

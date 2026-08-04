@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 /// @file VehicleTypes.h
 /// Lightweight header containing types extracted from the Vehicle class.
 /// Including this instead of the full Vehicle.h avoids pulling in the 1400+
@@ -14,6 +16,11 @@
 
 struct VehicleTypes
 {
+    using MavCmdQueueEntryToken = std::uint64_t;
+    static constexpr MavCmdQueueEntryToken InvalidMavCmdQueueEntryToken = 0;
+    using MavCmdQueueReservationToken = std::uint64_t;
+    static constexpr MavCmdQueueReservationToken InvalidMavCmdQueueReservationToken = 0;
+
     typedef enum {
         MavCmdResultCommandResultOnly,          ///< commandResult specifies full success/fail info
         MavCmdResultFailureNoResponseToCommand, ///< No response from vehicle to command

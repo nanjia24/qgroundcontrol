@@ -584,6 +584,9 @@ QString APMFirmwarePlugin::missionCommandOverrides(QGCMAVLink::VehicleClass_t ve
         return QStringLiteral(":/json/APM-MavCmdInfoFixedWing.json");
     case QGCMAVLink::VehicleClassMultiRotor:
         return QStringLiteral(":/json/APM-MavCmdInfoMultiRotor.json");
+    case QGCMAVLink::VehicleClassQuadRover:
+        // Quad-Rover is a known PX4-specific class with no ArduPilot command overrides.
+        return QString();
     case QGCMAVLink::VehicleClassVTOL:
         return QStringLiteral(":/json/APM-MavCmdInfoVTOL.json");
     case QGCMAVLink::VehicleClassSub:

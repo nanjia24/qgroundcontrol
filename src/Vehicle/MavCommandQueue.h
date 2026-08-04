@@ -30,7 +30,10 @@ public:
     void sendCommandDelayed    (int compId, MAV_CMD command, bool showError, int milliseconds, float param1 = 0.0f, float param2 = 0.0f, float param3 = 0.0f, float param4 = 0.0f, float param5 = 0.0f, float param6 = 0.0f, float param7 = 0.0f);
     void sendCommandInt        (int compId, MAV_CMD command, MAV_FRAME frame, bool showError, float param1, float param2, float param3, float param4, double param5, double param6, float param7);
 
-    void sendCommandWithHandler    (const MavCmdAckHandlerInfo_t* ackHandlerInfo, int compId, MAV_CMD command, float param1 = 0.0f, float param2 = 0.0f, float param3 = 0.0f, float param4 = 0.0f, float param5 = 0.0f, float param6 = 0.0f, float param7 = 0.0f);
+    MavCmdQueueEntryToken sendCommandWithHandler(
+        const MavCmdAckHandlerInfo_t* ackHandlerInfo, int compId, MAV_CMD command, float param1 = 0.0f,
+        float param2 = 0.0f, float param3 = 0.0f, float param4 = 0.0f, float param5 = 0.0f, float param6 = 0.0f,
+        float param7 = 0.0f, MavCmdQueueReservationToken reservationToken = InvalidMavCmdQueueReservationToken);
     void sendCommandIntWithHandler (const MavCmdAckHandlerInfo_t* ackHandlerInfo, int compId, MAV_CMD command, MAV_FRAME frame, float param1 = 0.0f, float param2 = 0.0f, float param3 = 0.0f, float param4 = 0.0f, double param5 = 0.0, double param6 = 0.0, float param7 = 0.0f);
 
     void sendCommandWithLambdaFallback(std::function<void()> lambda, int compId, MAV_CMD command, bool showError, float param1 = 0.0f, float param2 = 0.0f, float param3 = 0.0f, float param4 = 0.0f, float param5 = 0.0f, float param6 = 0.0f, float param7 = 0.0f);
@@ -38,12 +41,21 @@ public:
     /// Full-control entry point used by higher-level coordinators (e.g. RequestMessageCoordinator)
     /// that need to set commandInt/frame/handlers explicitly. Consumers should prefer the
     /// typed send* wrappers above.
-    void sendWorker(bool commandInt, bool showError, const MavCmdAckHandlerInfo_t* ackHandlerInfo,
-                    int compId, MAV_CMD command, MAV_FRAME frame,
-                    float param1, float param2, float param3, float param4, double param5, double param6, float param7);
+    MavCmdQueueEntryToken sendWorker(bool commandInt, bool showError, const MavCmdAckHandlerInfo_t* ackHandlerInfo,
+                                     int compId, MAV_CMD command, MAV_FRAME frame, float param1, float param2,
+                                     float param3, float param4, double param5, double param6, float param7,
+                                     MavCmdQueueReservationToken reservationToken = InvalidMavCmdQueueReservationToken);
 
     /// True if a matching (targetCompId, command) is already queued or awaiting ack.
     bool isPending(int targetCompId, MAV_CMD command) const;
+
+    /// True while the exact entry returned by sendCommandWithHandler is pending.
+    bool isPending(MavCmdQueueEntryToken token) const;
+
+    /// Reserve a command tuple for a higher-level controller before it sends the first entry.
+    /// A reservation blocks all ordinary queue send paths until it is released.
+    MavCmdQueueReservationToken reserveCommand(int targetCompId, MAV_CMD command);
+    bool releaseCommandReservation(MavCmdQueueReservationToken token);
 
     /// Index of a matching entry in the pending queue, or -1. Exposed for test use.
     int findEntryIndex(int targetCompId, MAV_CMD command) const;
@@ -52,8 +64,8 @@ public:
     /// Returns true only when a pending entry accepted the acknowledgement.
     bool handleCommandAck(const mavlink_message_t& message, const mavlink_command_ack_t& ack);
 
-    /// Remove one pending command without firing callbacks.
-    void cancelCommand(int targetCompId, MAV_CMD command);
+    /// Remove the exact pending entry without firing callbacks.
+    bool cancelCommand(MavCmdQueueEntryToken token);
 
     /// Stop the response timer and clear pending entries without firing callbacks.
     /// Used during vehicle shutdown to prevent post-destruction callbacks.
@@ -77,6 +89,7 @@ private slots:
 private:
     typedef struct MavCommandListEntry {
         int                     targetCompId        = 0;
+        MavCmdQueueEntryToken token = InvalidMavCmdQueueEntryToken;
         bool                    useCommandInt       = false;
         MAV_CMD                 command;
         MAV_FRAME               frame;
@@ -95,7 +108,15 @@ private:
         int                     ackTimeoutMSecs     = 0;
     } MavCommandListEntry_t;
 
+    typedef struct MavCommandReservation
+    {
+        MavCmdQueueReservationToken token = InvalidMavCmdQueueReservationToken;
+        int targetCompId = 0;
+        MAV_CMD command;
+    } MavCommandReservation_t;
+
     void _sendFromList(int index);
+    int _findReservationIndex(int targetCompId, MAV_CMD command) const;
     static bool _shouldRetry(MAV_CMD command);
     static bool _canBeDuplicated(MAV_CMD command);
     static int _responseCheckIntervalMSecs();
@@ -104,8 +125,11 @@ private:
 
     Vehicle*                         _vehicle = nullptr;
     QList<MavCommandListEntry_t>     _list;
+    QList<MavCommandReservation_t> _reservations;
     QTimer                           _responseCheckTimer;
     bool                             _stopped = false;  // set by stop(), gates all send paths
+    MavCmdQueueEntryToken _nextEntryToken = 1;
+    MavCmdQueueReservationToken _nextReservationToken = 1;
 
     static constexpr int _ackTimeoutMSecsHighLatency = 120000;
 };

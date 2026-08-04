@@ -40,6 +40,7 @@ void MavCommandQueue::stop()
     _responseCheckTimer.stop();
     _responseCheckTimer.disconnect();
     _list.clear();
+    _reservations.clear();
 }
 
 void MavCommandQueue::sendCommand(int compId, MAV_CMD command, bool showError, float param1, float param2, float param3, float param4, float param5, float param6, float param7)
@@ -71,15 +72,14 @@ void MavCommandQueue::sendCommandInt(int compId, MAV_CMD command, MAV_FRAME fram
                param1, param2, param3, param4, param5, param6, param7);
 }
 
-void MavCommandQueue::sendCommandWithHandler(const MavCmdAckHandlerInfo_t* ackHandlerInfo, int compId, MAV_CMD command, float param1, float param2, float param3, float param4, float param5, float param6, float param7)
+MavCommandQueue::MavCmdQueueEntryToken MavCommandQueue::sendCommandWithHandler(
+    const MavCmdAckHandlerInfo_t* ackHandlerInfo, int compId, MAV_CMD command, float param1, float param2, float param3,
+    float param4, float param5, float param6, float param7, MavCmdQueueReservationToken reservationToken)
 {
-    sendWorker(false,                   // commandInt
-               false,                   // showError
-               ackHandlerInfo,
-               compId,
-               command,
-               MAV_FRAME_GLOBAL,
-               param1, param2, param3, param4, param5, param6, param7);
+    return sendWorker(false,  // commandInt
+                      false,  // showError
+                      ackHandlerInfo, compId, command, MAV_FRAME_GLOBAL, param1, param2, param3, param4, param5, param6,
+                      param7, reservationToken);
 }
 
 void MavCommandQueue::sendCommandIntWithHandler(const MavCmdAckHandlerInfo_t* ackHandlerInfo, int compId, MAV_CMD command, MAV_FRAME frame, float param1, float param2, float param3, float param4, double param5, double param6, float param7)
@@ -154,6 +154,51 @@ void MavCommandQueue::sendCommandWithLambdaFallback(std::function<void()> lambda
 bool MavCommandQueue::isPending(int targetCompId, MAV_CMD command) const
 {
     return findEntryIndex(targetCompId, command) != -1;
+}
+
+bool MavCommandQueue::isPending(MavCmdQueueEntryToken token) const
+{
+    if (token == InvalidMavCmdQueueEntryToken) {
+        return false;
+    }
+    for (const MavCommandListEntry_t& entry : _list) {
+        if (entry.token == token) {
+            return true;
+        }
+    }
+    return false;
+}
+
+MavCommandQueue::MavCmdQueueReservationToken MavCommandQueue::reserveCommand(int targetCompId, MAV_CMD command)
+{
+    if (_stopped || (targetCompId == MAV_COMP_ID_ALL) || isPending(targetCompId, command) ||
+        (_findReservationIndex(targetCompId, command) != -1)) {
+        return InvalidMavCmdQueueReservationToken;
+    }
+
+    MavCommandReservation_t reservation;
+    reservation.token = _nextReservationToken++;
+    if (_nextReservationToken == InvalidMavCmdQueueReservationToken) {
+        _nextReservationToken = 1;
+    }
+    reservation.targetCompId = targetCompId;
+    reservation.command = command;
+    _reservations.append(reservation);
+    return reservation.token;
+}
+
+bool MavCommandQueue::releaseCommandReservation(MavCmdQueueReservationToken token)
+{
+    if (token == InvalidMavCmdQueueReservationToken) {
+        return false;
+    }
+    for (int i = 0; i < _reservations.count(); ++i) {
+        if (_reservations[i].token == token) {
+            _reservations.removeAt(i);
+            return true;
+        }
+    }
+    return false;
 }
 
 int MavCommandQueue::findEntryIndex(int targetCompId, MAV_CMD command) const
@@ -241,28 +286,39 @@ QString MavCommandQueue::_formatCommand(MAV_CMD command, float param1)
     return commandStr;
 }
 
-void MavCommandQueue::sendWorker(bool commandInt, bool showError,
-                                 const MavCmdAckHandlerInfo_t* ackHandlerInfo,
-                                 int targetCompId, MAV_CMD command, MAV_FRAME frame,
-                                 float param1, float param2, float param3, float param4, double param5, double param6, float param7)
+MavCommandQueue::MavCmdQueueEntryToken MavCommandQueue::sendWorker(
+    bool commandInt, bool showError, const MavCmdAckHandlerInfo_t* ackHandlerInfo, int targetCompId, MAV_CMD command,
+    MAV_FRAME frame, float param1, float param2, float param3, float param4, double param5, double param6, float param7,
+    MavCmdQueueReservationToken reservationToken)
 {
     if (_stopped) {
-        return;
+        return InvalidMavCmdQueueEntryToken;
     }
 
     // We can't send commands to compIdAll using this method. The reason being that we would get responses back possibly from multiple components
     // which this code can't handle.
     // We also can't send the majority of commands again if we are already waiting for a response from that same command. If we did that we would not be able to discern
     // which ack was associated with which command.
-    if ((targetCompId == MAV_COMP_ID_ALL) || (isPending(targetCompId, command) && !_canBeDuplicated(command))) {
-        bool    compIdAll       = targetCompId == MAV_COMP_ID_ALL;
+    const int reservationIndex = _findReservationIndex(targetCompId, command);
+    const bool ownsReservation =
+        (reservationIndex != -1) && (_reservations[reservationIndex].token == reservationToken);
+    const bool reservationConflict = ((reservationIndex != -1) && !ownsReservation) ||
+                                     ((reservationToken != InvalidMavCmdQueueReservationToken) && !ownsReservation);
+    if ((targetCompId == MAV_COMP_ID_ALL) || reservationConflict ||
+        (isPending(targetCompId, command) && !_canBeDuplicated(command))) {
+        const bool compIdAll = targetCompId == MAV_COMP_ID_ALL;
         QString rawCommandName  = MissionCommandTree::instance()->rawName(command);
 
-        qCDebug(MavCommandQueueLog) << QStringLiteral("sendWorker failing %1").arg(compIdAll ? "MAV_COMP_ID_ALL not supported" : "duplicate command") << rawCommandName << param1 << param2 << param3 << param4 << param5 << param6 << param7;
+        qCDebug(MavCommandQueueLog) << QStringLiteral("sendWorker failing %1")
+                                           .arg(compIdAll ? "MAV_COMP_ID_ALL not supported"
+                                                          : "duplicate or reserved command")
+                                    << rawCommandName << param1 << param2 << param3 << param4 << param5 << param6
+                                    << param7;
 
         MavCmdResultFailureCode_t failureCode = compIdAll ? MavCmdResultCommandResultOnly : MavCmdResultFailureDuplicateCommand;
         if (ackHandlerInfo && ackHandlerInfo->resultHandler) {
             mavlink_command_ack_t ack = {};
+            ack.command = command;
             ack.result = MAV_RESULT_FAILED;
             (*ackHandlerInfo->resultHandler)(ackHandlerInfo->resultHandlerData, targetCompId, ack, failureCode);
         } else {
@@ -271,7 +327,7 @@ void MavCommandQueue::sendWorker(bool commandInt, bool showError,
         if (showError) {
             QGC::showAppMessage(tr("Unable to send command: %1.").arg(compIdAll ? tr("Internal error - MAV_COMP_ID_ALL not supported") : tr("Waiting on previous response to same command.")));
         }
-        return;
+        return InvalidMavCmdQueueEntryToken;
     }
 
     SharedLinkInterfacePtr sharedLink = _vehicle->vehicleLinkManager()->primaryLink().lock();
@@ -291,10 +347,14 @@ void MavCommandQueue::sendWorker(bool commandInt, bool showError,
         if (showError) {
             QGC::showAppMessage(tr("Unable to send command: Vehicle is not connected."));
         }
-        return;
+        return InvalidMavCmdQueueEntryToken;
     }
 
     MavCommandListEntry_t entry;
+    entry.token = _nextEntryToken++;
+    if (_nextEntryToken == InvalidMavCmdQueueEntryToken) {
+        _nextEntryToken = 1;
+    }
     entry.useCommandInt     = commandInt;
     entry.targetCompId      = targetCompId;
     entry.command           = command;
@@ -319,6 +379,18 @@ void MavCommandQueue::sendWorker(bool commandInt, bool showError,
 
     _list.append(entry);
     _sendFromList(_list.count() - 1);
+    return entry.token;
+}
+
+int MavCommandQueue::_findReservationIndex(int targetCompId, MAV_CMD command) const
+{
+    for (int i = 0; i < _reservations.count(); ++i) {
+        const MavCommandReservation_t& reservation = _reservations[i];
+        if ((reservation.targetCompId == targetCompId) && (reservation.command == command)) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 void MavCommandQueue::_sendFromList(int index)
@@ -353,6 +425,8 @@ void MavCommandQueue::_sendFromList(int index)
         }
         return;
     }
+
+    _list[index].elapsedTimer.start();
 
     if (commandEntry.tryCount > 1 && !_vehicle->px4Firmware() && commandEntry.command == MAV_CMD_START_RX_PAIR) {
         // The implementation of this command comes from the IO layer and is shared across stacks. So for other firmwares
@@ -396,8 +470,8 @@ void MavCommandQueue::_sendFromList(int index)
         cmd.target_system =     _vehicle->id();
         cmd.target_component =  commandEntry.targetCompId;
         cmd.command =           commandEntry.command;
-        // MAVLink spec: confirmation increments on each resend.
-        cmd.confirmation =      static_cast<uint8_t>(qMin(commandEntry.tryCount - 1, 255));
+        // MAVLink spec: confirmation is zero for the first send and increments on each resend.
+        cmd.confirmation = static_cast<uint8_t>(qMin(commandEntry.tryCount, 255));
         cmd.param1 =            commandEntry.rgParam1;
         cmd.param2 =            commandEntry.rgParam2;
         cmd.param3 =            commandEntry.rgParam3;
@@ -509,12 +583,18 @@ bool MavCommandQueue::handleCommandAck(const mavlink_message_t& message, const m
     return true;
 }
 
-void MavCommandQueue::cancelCommand(int targetCompId, MAV_CMD command)
+bool MavCommandQueue::cancelCommand(MavCmdQueueEntryToken token)
 {
-    const int entryIndex = findEntryIndex(targetCompId, command);
-    if (entryIndex != -1) {
-        _list.removeAt(entryIndex);
+    if (token == InvalidMavCmdQueueEntryToken) {
+        return false;
     }
+    for (int i = 0; i < _list.count(); ++i) {
+        if (_list[i].token == token) {
+            _list.removeAt(i);
+            return true;
+        }
+    }
+    return false;
 }
 
 QString MavCommandQueue::failureCodeToString(MavCmdResultFailureCode_t failureCode)
