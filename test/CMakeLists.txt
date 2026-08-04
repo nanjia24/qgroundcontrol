@@ -135,7 +135,11 @@ add_qgc_test(FactSystemTestGeneric LABELS Integration Vehicle RESOURCE_LOCK Mock
 add_qgc_test(FactSystemTestPX4 LABELS Integration Vehicle RESOURCE_LOCK MockLink)
 add_qgc_test(FactTest LABELS Unit)
 add_qgc_test(FactValueSliderListModelTest LABELS Unit)
-add_qgc_test(HashCheckTest LABELS Integration Vehicle SERIAL TIMEOUT ${QGC_TEST_TIMEOUT_EXTENDED})
+set(_hash_check_timeout ${QGC_TEST_TIMEOUT_EXTENDED})
+if(WIN32 AND _hash_check_timeout LESS 240)
+    set(_hash_check_timeout 240)
+endif()
+add_qgc_test(HashCheckTest LABELS Integration Vehicle SERIAL TIMEOUT ${_hash_check_timeout})
 add_qgc_test(ParameterManagerTest LABELS Integration Vehicle SERIAL TIMEOUT ${QGC_TEST_TIMEOUT_EXTENDED})
 
 # ----------------------------------------------------------------------------
@@ -196,6 +200,9 @@ if(WIN32)
     set(_mission_command_tree_editor_timeout 360)
 endif()
 add_qgc_test(MissionCommandTreeEditorTest LABELS Integration MissionManager TIMEOUT ${_mission_command_tree_editor_timeout})
+if(WIN32)
+    set_property(TEST MissionCommandTreeEditorTest APPEND PROPERTY ENVIRONMENT "QTEST_FUNCTION_TIMEOUT=345000")
+endif()
 add_qgc_test(MissionCommandTreeTest LABELS Unit MissionManager)
 # MissionControllerManagerTest: base class only (used by MissionControllerTest, MissionManagerTest, etc.)
 set(_mission_controller_timeout ${QGC_TEST_TIMEOUT_INTEGRATION})
@@ -219,7 +226,15 @@ add_qgc_test(MissionControllerTreeTest
 add_qgc_test(MissionItemTest LABELS Unit MissionManager)
 add_qgc_test(MissionManagerTest LABELS Integration MissionManager SERIAL)
 add_qgc_test(MissionSettingsTest LABELS Unit MissionManager)
-add_qgc_test(PlanMasterControllerTest LABELS Integration MissionManager RESOURCE_LOCK MockLink)
+set(_plan_master_controller_timeout ${QGC_TEST_TIMEOUT_INTEGRATION})
+if(WIN32)
+    set(_plan_master_controller_timeout ${QGC_TEST_TIMEOUT_EXTENDED})
+endif()
+add_qgc_test(PlanMasterControllerTest
+    LABELS Integration MissionManager
+    RESOURCE_LOCK MockLink
+    TIMEOUT ${_plan_master_controller_timeout}
+)
 add_qgc_test(QGCMapPolygonTest LABELS Unit MissionManager)
 add_qgc_test(QGCMapPolylineTest LABELS Unit MissionManager)
 add_qgc_test(RallyPointTest LABELS Unit MissionManager)

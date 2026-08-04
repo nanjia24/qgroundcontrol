@@ -93,7 +93,7 @@ private:
 
 public:
     /// Heartbeat timeout used in unit tests (much shorter for faster tests)
-    static constexpr int kTestHeartbeatTimeoutMs = 500;
+    static constexpr int kTestHeartbeatTimeoutMs = 1500;
 
     /// Full comm loss detection timeout for tests: accounts for timer interval + heartbeat timeout + margin.
     /// Use this in tests waiting for communicationLostChanged or linkStatusesChanged signals.

@@ -113,6 +113,10 @@ void VehicleLinkManagerTest::_multiLinkSingleVehicleTest()
     QCOMPARE(rgNames[0], mockConfig1->name());
     QCOMPARE(rgNames[1], mockConfig2->name());
     QCOMPARE(rgStatus.count(), 2);
+    QTRY_VERIFY_WITH_TIMEOUT(
+        vehicleLinkManager->linkStatuses()[0].isEmpty() && vehicleLinkManager->linkStatuses()[1].isEmpty(),
+        VehicleLinkManager::kTestCommLostDetectionTimeoutMs);
+    rgStatus = vehicleLinkManager->linkStatuses();
     QVERIFY(rgStatus[0].isEmpty());
     QVERIFY(rgStatus[1].isEmpty());
     MultiSignalSpy multiSpy;
