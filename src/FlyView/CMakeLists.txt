@@ -13,6 +13,7 @@ qt_add_qml_module(FlyViewModule
         CustomGuidedActionsController.qml
         DefaultChecklist.qml
         FixedWingChecklist.qml
+        GuidedActionSelection.js
         HybridChecklist.qml
         FlightDisplayViewDummy.qml
         FlightDisplayViewGStreamer.qml
@@ -75,6 +76,7 @@ qt_add_qml_module(FlyViewModule
         TerrainProgress.qml
         VehicleWarnings.qml
         VirtualJoystick.qml
+        VirtualJoystickLogic.js
         VTOLChecklist.qml
     NO_PLUGIN
 )

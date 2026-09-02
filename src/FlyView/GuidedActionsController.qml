@@ -9,6 +9,7 @@ import QGroundControl
 import QGroundControl.Controls
 import QGroundControl.FlightMap
 import QGroundControl.Logging
+import "GuidedActionSelection.js" as GuidedActionSelection
 
 /// This provides the smarts behind the guided mode commands, minus the user interface. This way you can change UI
 /// without affecting the underlying functionality.
@@ -111,7 +112,10 @@ Item {
 
     readonly property int customActionStart:                10000 // Custom actions ids should start here so that they don't collide with the built in actions
 
-    property var    _activeVehicle:             QGroundControl.multiVehicleManager.activeVehicle
+    property var    activeVehicle:              QGroundControl.multiVehicleManager.activeVehicle
+    property var    selectedVehicles:           QGroundControl.multiVehicleManager.selectedVehicles
+    property var    _activeVehicle:             activeVehicle
+    property string _lastExecutionRejectionReason
     property var    _flyViewSettings:           QGroundControl.settingsManager.flyViewSettings
     property var    _unitsConversion:           QGroundControl.unitsConversion
     property bool   _useChecklist:              QGroundControl.settingsManager.appSettings.useChecklist.rawValue && QGroundControl.corePlugin.options.preFlightChecklistUrl.toString().length
@@ -387,8 +391,9 @@ Item {
         closeAll()
         confirmDialog.action = actionCode
         confirmDialog.actionData = actionData
-        confirmDialog.hideTrigger = true
+        confirmDialog.hideTrigger = false
         confirmDialog.actionVehicle = _activeVehicle
+        confirmDialog.actionVehicles = GuidedActionSelection.snapshot(selectedVehicles)
         confirmDialog.mapIndicator = mapIndicator
         confirmDialog.optionText = ""
         _actionData = actionData
@@ -407,7 +412,7 @@ Item {
         case actionMVArm:
             confirmDialog.title = mvArmTitle
             confirmDialog.message = mvArmMessage
-            confirmDialog.hideTrigger = true
+            confirmDialog.hideTrigger = false
             break;
         case actionForceArm:
             confirmDialog.title = forceArmTitle
@@ -425,7 +430,7 @@ Item {
         case actionMVDisarm:
             confirmDialog.title = mvDisarmTitle
             confirmDialog.message = mvDisarmMessage
-            confirmDialog.hideTrigger = true
+            confirmDialog.hideTrigger = false
             break;
         case actionEmergencyStop:
             confirmDialog.title = emergencyStopTitle
@@ -447,7 +452,7 @@ Item {
         case actionMVStartMission:
             confirmDialog.title = mvStartMissionTitle
             confirmDialog.message = mvStartMissionMessage
-            confirmDialog.hideTrigger = true
+            confirmDialog.hideTrigger = false
             break;
         case actionContinueMission:
             showImmediate = false
@@ -519,7 +524,7 @@ Item {
         case actionMVPause:
             confirmDialog.title = mvPauseTitle
             confirmDialog.message = mvPauseMessage
-            confirmDialog.hideTrigger = true
+            confirmDialog.hideTrigger = false
             break;
         case actionROI:
             confirmDialog.title = roiTitle
@@ -527,7 +532,7 @@ Item {
             confirmDialog.hideTrigger = Qt.binding(function() { return !showROI })
             break;
         case actionChangeSpeed:
-            confirmDialog.hideTrigger = true
+            confirmDialog.hideTrigger = false
             confirmDialog.title = changeSpeedTitle
             confirmDialog.message = changeSpeedMessage
             guidedValueSlider.visible = true
@@ -560,14 +565,31 @@ Item {
 
     // Executes the specified action
     // Returns false if the action failed and any associated map indicator should be restored
-    function executeAction(actionCode, actionData, sliderOutputValue, optionChecked, actionVehicle) {
+    function executeAction(actionCode, actionData, sliderOutputValue, optionChecked, actionVehicle, actionVehicles) {
         var i;
-        var selectedVehicles;
+        var selectedVehicleSnapshot;
+        _lastExecutionRejectionReason = ""
         const hasExpectedVehicle = arguments.length >= 5
         const targetVehicle = hasExpectedVehicle ? actionVehicle : _activeVehicle
         if (!targetVehicle || (hasExpectedVehicle && targetVehicle !== _activeVehicle)) {
+            _lastExecutionRejectionReason = "active vehicle changed"
             closeAll()
             return false
+        }
+        const multiVehicleAction = actionCode === actionMVStartMission || actionCode === actionMVArm ||
+                                   actionCode === actionMVDisarm || actionCode === actionMVPause
+        if (multiVehicleAction) {
+            if (arguments.length < 6 ||
+                !GuidedActionSelection.matches(_root.selectedVehicles, actionVehicles)) {
+                _lastExecutionRejectionReason = arguments.length < 6 ? "selection snapshot missing" :
+                                                "selected vehicles changed: " + GuidedActionSelection.describe(_root.selectedVehicles, actionVehicles)
+                closeAll()
+                return false
+            }
+            // The system-ID set is the confirmation contract. Resolve it back to
+            // the current model so a reconnected Vehicle wrapper receives the
+            // command instead of the stale object captured by the dialog.
+            selectedVehicleSnapshot = GuidedActionSelection.snapshot(_root.selectedVehicles)
         }
         switch (actionCode) {
         case actionRTL:
@@ -593,9 +615,8 @@ Item {
             targetVehicle.startMission()
             break
         case actionMVStartMission:
-            selectedVehicles = QGroundControl.multiVehicleManager.selectedVehicles
-            for (i = 0; i < selectedVehicles.count; i++) {
-                var vehicle = selectedVehicles.get(i)
+            for (i = 0; i < selectedVehicleSnapshot.length; i++) {
+                var vehicle = selectedVehicleSnapshot[i].vehicle
                 if (vehicle.armed === true){
                     vehicle.startMission()
                 }
@@ -605,9 +626,8 @@ Item {
             targetVehicle.armed = true
             break
         case actionMVArm:
-            selectedVehicles = QGroundControl.multiVehicleManager.selectedVehicles
-            for (i = 0; i < selectedVehicles.count; i++) {
-                selectedVehicles.get(i).armed = true
+            for (i = 0; i < selectedVehicleSnapshot.length; i++) {
+                selectedVehicleSnapshot[i].vehicle.armed = true
             }
             break
         case actionForceArm:
@@ -617,9 +637,8 @@ Item {
             targetVehicle.armed = false
             break
         case actionMVDisarm:
-            selectedVehicles = QGroundControl.multiVehicleManager.selectedVehicles
-            for (i = 0; i < selectedVehicles.count; i++) {
-                selectedVehicles.get(i).armed = false
+            for (i = 0; i < selectedVehicleSnapshot.length; i++) {
+                selectedVehicleSnapshot[i].vehicle.armed = false
             }
             break
         case actionEmergencyStop:
@@ -669,9 +688,8 @@ Item {
             }
             break
         case actionMVPause:
-            selectedVehicles = QGroundControl.multiVehicleManager.selectedVehicles
-            for (i = 0; i < selectedVehicles.count; i++) {
-                selectedVehicles.get(i).pauseVehicle()
+            for (i = 0; i < selectedVehicleSnapshot.length; i++) {
+                selectedVehicleSnapshot[i].vehicle.pauseVehicle()
             }
             break
         case actionROI:

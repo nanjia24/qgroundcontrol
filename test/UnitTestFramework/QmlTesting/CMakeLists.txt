@@ -10,9 +10,17 @@ endif()
 
 target_sources(${CMAKE_PROJECT_NAME}
     PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/HybridOperatorQmlTest.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/HybridOperatorQmlTest.h
         ${CMAKE_CURRENT_SOURCE_DIR}/QmlTesting.h
         ${CMAKE_CURRENT_SOURCE_DIR}/QmlTestRunner.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/QmlTestRunner.h
+)
+
+qt_add_resources(${CMAKE_PROJECT_NAME} "HybridOperatorQmlTest_resources"
+    PREFIX "/qml"
+    FILES
+        HybridOperatorSafetyTest.qml
 )
 
 target_include_directories(${CMAKE_PROJECT_NAME}

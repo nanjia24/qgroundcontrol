@@ -192,5 +192,8 @@
 - [x] Make transform and Guided Action confirmations vehicle-safe across active-vehicle changes.
 - [x] Add retained-shape ground/flight Guided Actions and a Hybrid preflight checklist.
 - [x] Complete Windows Debug build, focused Hybrid/airframe/native-path tests, QML lint, XML/dependency checks, and isolated startup smoke.
+- [x] Close final review hazards for left-handed Quad throttle restoration and mutable multi-vehicle confirmation targets.
+- [x] Add QML logic tests for all handedness/auto-center/Quad-Rover combinations and multi-vehicle selection drift.
+- [x] Add a production-component QML integration gate and close the confirmation lifecycle, selection shadowing, and cross-component wrapper findings it exposed.
 - [ ] Complete physical target-aircraft acceptance and attach MAVLink 2, shape, transition, fault, joystick, mission, and checklist evidence.
 - [ ] Execute the assessment's remaining P1/P2 backlog in separately reviewed slices.

@@ -18,6 +18,7 @@ Item {
     property int    action
     property var    actionData
     property var    actionVehicle
+    property var    actionVehicles
     property bool   hideTrigger:        false
     property var    mapIndicator
     property alias  optionText:         optionCheckBox.text
@@ -49,10 +50,11 @@ Item {
         visible = false
         hideTrigger = false
         actionVehicle = null
+        actionVehicles = undefined
         visibleTimer.stop()
-        messageDisplay.opacity = 1.0
         messageFadeTimer.stop()
         messageOpacityAnimation.stop()
+        messageDisplay.opacity = 1.0
         if (mapIndicator) {
             mapIndicator.actionCancelled()
             mapIndicator = undefined
@@ -63,6 +65,30 @@ Item {
         visible = true
         messageDisplay.opacity = 1.0
         messageFadeTimer.start()
+    }
+
+    function accept() {
+        control.visible = false
+        var sliderOutputValue = 0
+        if (guidedValueSlider.visible) {
+            sliderOutputValue = guidedValueSlider.getOutputValue()
+            guidedValueSlider.visible = false
+        }
+        hideTrigger = false
+        let actionVehicleCopy = control.actionVehicle
+        let actionVehiclesCopy = control.actionVehicles
+        control.actionVehicle = null
+        control.actionVehicles = undefined
+        let success = guidedController.executeAction(control.action, control.actionData, sliderOutputValue, control.optionChecked, actionVehicleCopy, actionVehiclesCopy)
+        if (mapIndicator) {
+            if (success) {
+                mapIndicator.actionConfirmed()
+            } else {
+                mapIndicator.actionCancelled()
+            }
+            mapIndicator = undefined
+        }
+        return success
     }
 
     Timer {
@@ -84,26 +110,7 @@ Item {
             text:               control.title
             enabled:            true
 
-            onActivated: {
-                control.visible = false
-                var sliderOutputValue = 0
-                if (guidedValueSlider.visible) {
-                    sliderOutputValue = guidedValueSlider.getOutputValue()
-                    guidedValueSlider.visible = false
-                }
-                hideTrigger = false
-                let actionVehicleCopy = control.actionVehicle
-                control.actionVehicle = null
-                let success = guidedController.executeAction(control.action, control.actionData, sliderOutputValue, control.optionChecked, actionVehicleCopy)
-                if (mapIndicator) {
-                    if (success) {
-                        mapIndicator.actionConfirmed()
-                    } else {
-                        mapIndicator.actionCancelled()
-                    }
-                    mapIndicator = undefined
-                }
-            }
+            onActivated: control.accept()
         }
 
         QGCCheckBox {

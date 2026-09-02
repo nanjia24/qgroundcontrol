@@ -58,6 +58,7 @@ endif()
 # ----------------------------------------------------------------------------
 add_subdirectory(UnitTestFramework)
 add_qgc_test(MultiSignalSpyTest LABELS Unit)
+add_qgc_test(HybridOperatorQmlTest LABELS Unit Vehicle)
 add_qgc_test(QmlTestRunner LABELS Unit)
 add_qgc_test(TestBaseClassesTest LABELS Unit)
 add_qgc_test(TestFixturesTest LABELS Unit)

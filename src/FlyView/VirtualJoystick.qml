@@ -2,17 +2,20 @@ import QtQuick
 
 import QGroundControl
 import QGroundControl.Controls
+import "VirtualJoystickLogic.js" as VirtualJoystickLogic
 
 Item {
-    // The following properties must be passed in from the Loader
-    // property bool autoCenterThrottle - true: throttle will snap back to center when released
-    // property bool leftHandedMode - true: virtual joystick layout will be reversed
-
     id: virtualJoysticks
 
-    property var   _activeVehicle:            QGroundControl.multiVehicleManager.activeVehicle
+    required property bool autoCenterThrottle ///< true: throttle snaps back to center on release
+    required property bool leftHandedMode     ///< true: virtual joystick layout is reversed
+    property var   activeVehicle:             QGroundControl.multiVehicleManager.activeVehicle
+    property bool  sendingEnabled:            QGroundControl.settingsManager.appSettings.virtualJoystick.value
+    property var   _activeVehicle:            activeVehicle
     property bool  _initialConnectComplete:   _activeVehicle ? _activeVehicle.initialConnectComplete : false
-    property real  leftYAxisValue:            autoCenterThrottle ? height / 2 : height
+    readonly property bool _autoCenterThrottle: autoCenterThrottle
+    readonly property bool _leftHandedMode:     leftHandedMode
+    property real  _throttleYAxisValue:         0
     property var   calibration:               false
     property real  uiTotalWidth:           0
     property real  uiRealX:                 0
@@ -23,6 +26,7 @@ Item {
                                                     (virtualJoysticks._activeJoystickSending && joystickManager.activeJoystick && joystickManager.activeJoystick.settings.throttleModeCenterZero.rawValue))
     readonly property bool _manualControlAvailable: !!virtualJoysticks._activeVehicle &&
                                                     (!virtualJoysticks._activeVehicle.quadRover || virtualJoysticks._activeVehicle.manualControlProfileKnown)
+    readonly property real throttleYAxis: virtualJoysticks._leftHandedMode ? rightStick.yAxis : leftStick.yAxis
 
     function _clampAxis(axisValue) {
         return Math.max(-1, Math.min(axisValue, 1))
@@ -57,12 +61,12 @@ Item {
     function _restoreVirtualJoystickPositions() {
         leftStick.reCenter()
         rightStick.reCenter()
-        if (!leftStick.yAxisReCenter) {
-            leftStick.stickPositionY = leftStick.yAxisPositiveRangeOnly ? leftStick.height : leftStick.height / 2
-        }
+        const throttleStick = virtualJoysticks._leftHandedMode ? rightStick : leftStick
+        const resetThrottle = VirtualJoystickLogic.resetYAxis(throttleStick.yAxisPositiveRangeOnly, throttleStick.yAxisReCenter)
+        virtualJoysticks._setStickAxes(throttleStick, 0, resetThrottle, throttleStick.yAxisPositiveRangeOnly)
         leftStick.syncAxes()
         rightStick.syncAxes()
-        leftYAxisValue = leftStick.yAxis
+        virtualJoysticks._throttleYAxisValue = throttleStick.yAxis
     }
 
     function _scheduleVirtualJoystickRestore() {
@@ -78,7 +82,7 @@ Item {
 
     Timer {
         interval:   40  // 25Hz, same as real joystick rate
-        running:    QGroundControl.settingsManager.appSettings.virtualJoystick.value && virtualJoysticks.visible
+        running:    virtualJoysticks.sendingEnabled && virtualJoysticks.visible
         repeat:     true
         onTriggered: {
             if (virtualJoysticks._activeVehicle &&
@@ -86,8 +90,8 @@ Item {
                 virtualJoysticks._manualControlAvailable &&
                 !virtualJoysticks._restorePending &&
                 !virtualJoysticks._activeJoystickSending) {
-                leftHandedMode ? virtualJoysticks._activeVehicle.virtualTabletJoystickValue(leftStick.xAxis, leftStick.yAxis, rightStick.xAxis, rightStick.yAxis) : virtualJoysticks._activeVehicle.virtualTabletJoystickValue(rightStick.xAxis, rightStick.yAxis, leftStick.xAxis, leftStick.yAxis)
-                leftYAxisValue = leftStick.yAxis // We keep Y axis value from the throttle stick for using it while there is a resize
+                virtualJoysticks._leftHandedMode ? virtualJoysticks._activeVehicle.virtualTabletJoystickValue(leftStick.xAxis, leftStick.yAxis, rightStick.xAxis, rightStick.yAxis) : virtualJoysticks._activeVehicle.virtualTabletJoystickValue(rightStick.xAxis, rightStick.yAxis, leftStick.xAxis, leftStick.yAxis)
+                virtualJoysticks._throttleYAxisValue = virtualJoysticks._leftHandedMode ? rightStick.yAxis : leftStick.yAxis
             }
         }
     }
@@ -108,6 +112,8 @@ Item {
     on_ActiveVehicleChanged:          { virtualJoysticks._scheduleVirtualJoystickRestore() }
     on_ManualControlAvailableChanged: { virtualJoysticks._scheduleVirtualJoystickRestore() }
     on_CenterThrottleDisplayChanged:  { virtualJoysticks._scheduleVirtualJoystickRestore() }
+    on_AutoCenterThrottleChanged:     { virtualJoysticks._scheduleVirtualJoystickRestore() }
+    on_LeftHandedModeChanged:         { virtualJoysticks._scheduleVirtualJoystickRestore() }
     on_ActiveJoystickSendingChanged: {
         if (!virtualJoysticks._activeJoystickSending) {
             virtualJoysticks._restoreVirtualJoystickPositions()
@@ -116,15 +122,16 @@ Item {
 
     function calibrateJoysticks() {
         if( virtualJoysticks.visible ) {
-        keepXAxisWhileChanged()
-        leftYAxisValue = leftStick.yAxisReCentered() // Keep track of the correct leftYAxisValue while the width is adjusted at first start up
+            virtualJoysticks._restoreVirtualJoystickPositions()
         }
     }
 
     function keepYAxisWhileChanged () {
         if( virtualJoysticks.visible ) {
-            leftStick.resize( leftYAxisValue )
-            rightStick.reCenter()
+            const throttleStick = virtualJoysticks._leftHandedMode ? rightStick : leftStick
+            const attitudeStick = virtualJoysticks._leftHandedMode ? leftStick : rightStick
+            throttleStick.resize(virtualJoysticks._throttleYAxisValue)
+            attitudeStick.reCenter()
         }
     }
 
@@ -143,8 +150,8 @@ Item {
         anchors.bottom:         parent.bottom
         width:                  parent.height
         height:                 parent.height
-        yAxisPositiveRangeOnly: _activeVehicle && !_activeVehicle.manualControlRover && !leftHandedMode && !_centerThrottleDisplay
-        yAxisReCenter:          autoCenterThrottle
+        yAxisPositiveRangeOnly: VirtualJoystickLogic.yAxisPositiveRangeOnly(true, virtualJoysticks._leftHandedMode, virtualJoysticks._centerThrottleDisplay)
+        yAxisReCenter:          VirtualJoystickLogic.yAxisReCenter(true, virtualJoysticks._leftHandedMode, virtualJoysticks._autoCenterThrottle)
         inputEnabled:           !virtualJoysticks._activeJoystickSending && virtualJoysticks._manualControlAvailable && !virtualJoysticks._restorePending
     }
 
@@ -156,8 +163,10 @@ Item {
         anchors.bottom:         parent.bottom
         width:                  parent.height
         height:                 parent.height
-        yAxisPositiveRangeOnly: _activeVehicle && !_activeVehicle.manualControlRover && leftHandedMode && !_centerThrottleDisplay
-        yAxisReCenter:          true
+        yAxisPositiveRangeOnly: VirtualJoystickLogic.yAxisPositiveRangeOnly(false, virtualJoysticks._leftHandedMode, virtualJoysticks._centerThrottleDisplay)
+        yAxisReCenter:          VirtualJoystickLogic.yAxisReCenter(false, virtualJoysticks._leftHandedMode, virtualJoysticks._autoCenterThrottle)
         inputEnabled:           !virtualJoysticks._activeJoystickSending && virtualJoysticks._manualControlAvailable && !virtualJoysticks._restorePending
     }
+
+    Component.onCompleted: virtualJoysticks._scheduleVirtualJoystickRestore()
 }
