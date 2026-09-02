@@ -197,3 +197,18 @@
 - [x] Add a production-component QML integration gate and close the confirmation lifecycle, selection shadowing, and cross-component wrapper findings it exposed.
 - [ ] Complete physical target-aircraft acceptance and attach MAVLink 2, shape, transition, fault, joystick, mission, and checklist evidence.
 - [ ] Execute the assessment's remaining P1/P2 backlog in separately reviewed slices.
+
+## 2026-09-02 Hybrid Quad-Rover realtime tuning merge
+
+- [x] Create `codex/quad-rover-realtime-tuning` from validated Windows UX head `c9064aaa0` in an isolated worktree.
+- [x] Audit the Mini Rover source commit without cherry-picking it and identify overlapping Hybrid files for manual merge.
+- [x] Read-only verify PX4 `feature/testc4-rover-tuning` and its combined MAVLink wire schema.
+- [x] Verify the existing protected `qgc-hybrid-rover-tuning-v1.16.1-r1` tag resolves to `21922689c6fb113884df0f66582d8e602286fdc1`, generates fresh C headers, and passes a C++ root-header probe.
+- [x] Pin QGC to the combined immutable MAVLink release and extend its contract tests.
+- [x] Merge Rover tuning Facts, per-vehicle telemetry, link-pinned stream lifecycle, and command-511 serialization into the current Hybrid architecture.
+- [x] Add a dedicated Quad-Rover tuning container with Multirotor and four Rover pages; keep type 22 on the ordinary VTOL path.
+- [x] Add routing, protocol, stream, FactGroup, Vehicle, link, QML math, and Hybrid regression coverage.
+- [x] Complete a fresh Windows MSVC Debug configure/build, focused tests, dependency/cache checks, targeted qmllint, and isolated startup smoke. The full PX4 qmllint target still reports the unrelated generated `PowerComponent.qml` duplicate-id baseline defect.
+- [x] Prepare non-actuating USB acceptance instructions; powered controller waveform acceptance remains user-coordinated.
+- [x] Complete independent review and update state evidence; both Important findings were closed with no new Critical/Important result.
+- [ ] Commit and push the QGC feature branch, then verify the remote head.
