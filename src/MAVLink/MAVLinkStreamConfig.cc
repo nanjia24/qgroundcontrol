@@ -49,6 +49,26 @@ void MAVLinkStreamConfig::setHighRateAltAirspeed()
     setNextState(State::Configuring);
 }
 
+void MAVLinkStreamConfig::setRoverRateTuning()
+{
+    setSingleStream(MAVLINK_MSG_ID_ROVER_RATE_TUNING_STATUS, 20000);
+}
+
+void MAVLinkStreamConfig::setRoverAttitudeTuning()
+{
+    setSingleStream(MAVLINK_MSG_ID_ROVER_ATTITUDE_TUNING_STATUS, 33333);
+}
+
+void MAVLinkStreamConfig::setRoverVelocityTuning()
+{
+    setSingleStream(MAVLINK_MSG_ID_ROVER_VELOCITY_TUNING_STATUS, 40000);
+}
+
+void MAVLinkStreamConfig::setRoverPositionTuning()
+{
+    setSingleStream(MAVLINK_MSG_ID_ROVER_POSITION_TUNING_STATUS, 100000);
+}
+
 void MAVLinkStreamConfig::gotSetMessageIntervalAck()
 {
     switch (_state) {
@@ -56,9 +76,27 @@ void MAVLinkStreamConfig::gotSetMessageIntervalAck()
         nextDesiredRate();
         break;
     case State::RestoringDefaults:
+        if (!_changedIds.empty()) {
+            _changedIds.pop_back();
+        }
         restoreNextDefault();
         break;
     default:
+        break;
+    }
+}
+
+void MAVLinkStreamConfig::gotSetMessageIntervalFailure()
+{
+    switch (_state) {
+    case State::Configuring:
+        abort();
+        restoreDefaults();
+        break;
+    case State::RestoringDefaults:
+        abort();
+        break;
+    case State::Idle:
         break;
     }
 }
@@ -87,15 +125,48 @@ void MAVLinkStreamConfig::nextDesiredRate()
         return;
     }
 
-    const DesiredStreamRate &rate = _desiredRates.last();
+    const DesiredStreamRate rate = _desiredRates.takeLast();
     _changedIds.push_back(rate.messageId);
     _messageIntervalCb(rate.messageId, rate.rate);
-    _desiredRates.pop_back();
+}
+
+void MAVLinkStreamConfig::setSingleStream(int messageId, int rate)
+{
+    _nextDesiredRates = QList<DesiredStreamRate>{{messageId, rate}};
+    setNextState(State::Configuring);
 }
 
 void MAVLinkStreamConfig::restoreDefaults()
 {
     setNextState(State::RestoringDefaults);
+}
+
+void MAVLinkStreamConfig::abort()
+{
+    _state = State::Idle;
+    _desiredRates.clear();
+    _nextState = State::Idle;
+    _nextDesiredRates.clear();
+}
+
+void MAVLinkStreamConfig::abortAndRestoreDefaults()
+{
+    abort();
+    restoreDefaults();
+}
+
+QList<int> MAVLinkStreamConfig::takeChangedStreams()
+{
+    abort();
+    QList<int> messageIds;
+    _changedIds.swap(messageIds);
+    return messageIds;
+}
+
+void MAVLinkStreamConfig::adoptChangedStreams(const QList<int>& messageIds)
+{
+    abort();
+    _changedIds = messageIds;
 }
 
 void MAVLinkStreamConfig::restoreNextDefault()
@@ -121,5 +192,4 @@ void MAVLinkStreamConfig::restoreNextDefault()
 
     const int id = _changedIds.last();
     _messageIntervalCb(id, 0); // restore the default rate
-    _changedIds.pop_back();
 }

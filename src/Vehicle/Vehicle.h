@@ -4,6 +4,7 @@
 #include <QtCore/QFile>
 #include <QtCore/QObject>
 #include <QtCore/QPointer>
+#include <QtCore/QSet>
 #include <QtCore/QSharedPointer>
 #include <QtCore/QTime>
 #include <QtCore/QTimer>
@@ -32,6 +33,7 @@ class BatteryFactGroupListModel;
 class EscStatusFactGroupListModel;
 class GimbalController;
 class RadioStatusFactGroup;
+class RoverTuningFactGroup;
 class TerrainFactGroup;
 class VehicleClockFactGroup;
 class VehicleDistanceSensorFactGroup;
@@ -97,6 +99,7 @@ class Vehicle : public VehicleFactGroup, public VehicleTypes
     Q_MOC_INCLUDE("QGCMapCircle.h")
     Q_MOC_INCLUDE("QmlObjectListModel.h")
     Q_MOC_INCLUDE("RemoteIDManager.h")
+    Q_MOC_INCLUDE("RoverTuningFactGroup.h")
     Q_MOC_INCLUDE("TrajectoryPoints.h")
     Q_MOC_INCLUDE("VehicleLinkManager.h")
     Q_MOC_INCLUDE("VehicleObjectAvoidance.h")
@@ -207,6 +210,8 @@ public:
     Q_PROPERTY(quint64              mavlinkReceivedCount        READ mavlinkReceivedCount                                           NOTIFY mavlinkStatusChanged)
     Q_PROPERTY(quint64              mavlinkLossCount            READ mavlinkLossCount                                               NOTIFY mavlinkStatusChanged)
     Q_PROPERTY(float                mavlinkLossPercent          READ mavlinkLossPercent                                             NOTIFY mavlinkStatusChanged)
+    Q_PROPERTY(bool                 roverTuningMavlink2Supported READ roverTuningMavlink2Supported                                   NOTIFY roverTuningMavlink2SupportedChanged)
+    Q_PROPERTY(QString              roverTuningTelemetryError   READ roverTuningTelemetryError                                      NOTIFY roverTuningTelemetryErrorChanged)
     Q_PROPERTY(GimbalController*    gimbalController            READ gimbalController                                               CONSTANT)
     Q_PROPERTY(bool                 hasGripper                  READ hasGripper                                                     NOTIFY hasGripperChanged)
     Q_PROPERTY(bool                 isROIEnabled                READ isROIEnabled                                                   NOTIFY isROIEnabledChanged)
@@ -259,6 +264,7 @@ public:
     Q_PROPERTY(FactGroup*           generator       READ generatorFactGroup         CONSTANT)
     Q_PROPERTY(FactGroup*           efi             READ efiFactGroup               CONSTANT)
     Q_PROPERTY(FactGroup*           radioStatus     READ radioStatusFactGroup       CONSTANT)
+    Q_PROPERTY(RoverTuningFactGroup* roverTuning    READ roverTuningFactGroup       CONSTANT)
     Q_PROPERTY(Actuators*           actuators       READ actuators                  CONSTANT)
 
     // Dynamic FactGroupListModel properties
@@ -382,6 +388,10 @@ public:
         ModeRateAndAttitude,
         ModeVelocityAndPosition,
         ModeAltitudeAndAirspeed,
+        ModeRoverRate,
+        ModeRoverAttitude,
+        ModeRoverVelocity,
+        ModeRoverPosition,
     };
     Q_ENUM(PIDTuningTelemetryMode)
 
@@ -554,6 +564,8 @@ public:
     Actuators*      actuators                   () const { return _actuators; }
     bool            mavlinkSigning          () const { return _mavlinkSigning; }
     QString         mavlinkSigningKeyName   () const { return _mavlinkSigningKeyName; }
+    bool            roverTuningMavlink2Supported() const;
+    QString         roverTuningTelemetryError() const { return _roverTuningTelemetryError; }
 
     void startCalibration   (QGCMAVLink::CalibrationType calType);
     void stopCalibration    (bool showError);
@@ -580,6 +592,7 @@ public:
     FactGroup* efiFactGroup                 ();
     FactGroup* radioStatusFactGroup         ();
     FactGroup* rpmFactGroup                 ();
+    RoverTuningFactGroup* roverTuningFactGroup() { return _roverTuningFactGroup; }
 
     QmlObjectListModel* batteries           ();
     QmlObjectListModel* escs                ();
@@ -832,6 +845,8 @@ signals:
 
     void mavlinkStatusChanged           ();
     void mavlinkSigningChanged          ();
+    void roverTuningMavlink2SupportedChanged(bool supported);
+    void roverTuningTelemetryErrorChanged();
 
     void isROIEnabledChanged            ();
     void roiCoordChanged                (const QGeoCoordinate& centerCoord);
@@ -867,6 +882,8 @@ private slots:
     void _orbitTelemetryTimeout             ();
     void _updateFlightTime                  ();
     void _gotProgressUpdate                 (float progressValue);
+    void _handleCommunicationLost           (bool communicationLost);
+    void _handlePrimaryLinkChanged           ();
     void _updateManualControlProfile();
 
 private:
@@ -879,7 +896,7 @@ private:
     void _handleBatteryStatus           (mavlink_message_t& message);
     void _handleSysStatus               (mavlink_message_t& message);
     void _handleExtendedSysState        (mavlink_message_t& message);
-    void _handleCommandAck              (mavlink_message_t& message);
+    void _handleCommandAck              (LinkInterface* link, mavlink_message_t& message);
     void _handleGpsRawInt               (mavlink_message_t& message);
     void _handleGlobalPositionInt       (mavlink_message_t& message);
     void _handleHighLatency             (mavlink_message_t& message);
@@ -914,6 +931,19 @@ private:
     void _flightTimerStart              ();
     void _flightTimerStop               ();
     void _setMessageInterval            (int messageId, int rate);
+    void _applyPIDTuningTelemetryMode();
+    void _abortPIDTuningTelemetry();
+    void _continuePIDTuningTelemetryTransition();
+    void _setRoverTuningTelemetryError(const QString& error);
+    void _pidTuningPrimaryLinkAboutToChange();
+    bool _adoptPIDTuningRestoreDebt(const SharedLinkInterfacePtr& link);
+    void _stashPIDTuningRestoreDebt(const SharedLinkInterfacePtr& link, const QList<int>& messageIds);
+    void _updateRoverTuningMavlink2Supported();
+    bool _isRoverTuningMode() const;
+    void _clearPIDTuningStreamAckContexts();
+    static void _pidTuningStreamCommandResultHandler(void* resultHandlerData, int compId,
+                                                     const mavlink_command_ack_t& ack,
+                                                     MavCmdResultFailureCode_t failureCode);
     bool setFlightModeCustom            (const QString& flightMode, uint8_t* base_mode, uint32_t* custom_mode);
     QString _formatMavCommand           (MAV_CMD command, float param1);
 
@@ -1061,6 +1091,21 @@ private:
     static const int _orbitTelemetryTimeoutMsecs = 3000; // No telemetry for this amount and orbit will go inactive
 
     std::unique_ptr<MAVLinkStreamConfig> _mavlinkStreamConfig;
+    PIDTuningTelemetryMode _pidTuningTelemetryMode = ModeDisabled;
+    bool _roverTuningMavlink2Supported = false;
+    bool _pidTuningRestorePending = false;
+    bool _pidTuningApplyPending = false;
+    QString _roverTuningTelemetryError;
+    quint64 _pidTuningStreamGeneration = 0;
+    struct PIDTuningStreamAckContext;
+    QSet<PIDTuningStreamAckContext*> _pidTuningStreamAckContexts;
+    struct PIDTuningRestoreDebt
+    {
+        SharedLinkInterfacePtr link;
+        QList<int> messageIds;
+    };
+    QList<PIDTuningRestoreDebt> _pidTuningRestoreDebts;
+    SharedLinkInterfacePtr _pidTuningCommandLink;
 
     MavCommandQueue*            _mavCmdQueue    = nullptr;
     RequestMessageCoordinator*  _reqMsgCoord    = nullptr;
@@ -1104,6 +1149,7 @@ public:
     const QString _efiFactGroupName =                QStringLiteral("efi");
     const QString _rpmFactGroupName =                QStringLiteral("rpm");
     const QString _radioStatusFactGroupName =        QStringLiteral("radioStatus");
+    const QString _roverTuningFactGroupName =        QStringLiteral("roverTuning");
 
     VehicleFactGroup*               _vehicleFactGroup;
     VehicleGPSFactGroup*                _gpsFactGroup               = nullptr;
@@ -1124,6 +1170,7 @@ public:
     VehicleRPMFactGroup*                _rpmFactGroup               = nullptr;
     TerrainFactGroup*                   _terrainFactGroup           = nullptr;
     RadioStatusFactGroup*               _radioStatusFactGroup       = nullptr;
+    RoverTuningFactGroup*               _roverTuningFactGroup       = nullptr;
 
     // Live SERVO_OUTPUT_RAW values (microseconds). Indexed 0..15 -> SERVO1..SERVO16.
     QVector<int>                       _servoOutputRawValues = QVector<int>(16, -1);

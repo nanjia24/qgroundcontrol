@@ -11,6 +11,8 @@ target_sources(${CMAKE_PROJECT_NAME}
         EscStatusFactGroupListModel.h
         RadioStatusFactGroup.cc
         RadioStatusFactGroup.h
+        RoverTuningFactGroup.cc
+        RoverTuningFactGroup.h
         TerrainFactGroup.cc
         TerrainFactGroup.h
         VehicleClockFactGroup.cc
@@ -68,6 +70,7 @@ set(JSON_FILES
     GeneratorFact.json
     HygrometerFact.json
     RadioStatusFact.json
+    RoverTuningFactGroup.json
     TerrainFactGroup.json
     VehicleFact.json
     VibrationFact.json

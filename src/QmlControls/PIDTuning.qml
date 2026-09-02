@@ -6,9 +6,15 @@ import QtQuick.Layouts
 import QGroundControl
 import QGroundControl.Controls
 import QGroundControl.FactControls
+import "PIDTuningMath.js" as PIDTuningMath
 
-RowLayout {
-    spacing: _margins
+GridLayout {
+    id:            root
+    columns:       _stackPanels ? 1 : 2
+    rowSpacing:    _margins
+    columnSpacing: _margins
+    width:         availableWidth
+    height:        availableHeight
 
     QGCPalette { id: qgcPal }
 
@@ -22,6 +28,11 @@ RowLayout {
     property bool   showAutoModeChange: false
     property bool   showAutoTuning:     false
     property bool   useAutoTuning:      false
+    property bool   useSourceTimestamp: false
+    property bool   useFactMetadataRange: false
+    property bool   parametersEnabled: true
+    property double sourceTimestamp:    NaN
+    property var    sourceResetCounter:  0
 
     property real   _margins:           ScreenTools.defaultFontPixelHeight / 2
     property int    _currentAxis:       0
@@ -29,10 +40,24 @@ RowLayout {
     property var    _yAxis:             yAxis
     property int    _msecs:             0
     property double _last_t:            0
+    property double _sourceTimestampOrigin: NaN
+    property double _lastSourceTimestamp:   NaN
+    property var    _sourceSampleQueue:     []
+    property bool   _plottingActive:        true
+    property var    _configuredVehicle:     null
+    property bool   _componentComplete:      false
     property var    _savedTuningParamValues:    [ ]
 
     readonly property int _tickSeparation:      5
     readonly property int _maxTickSections:     10
+    readonly property bool _stackPanels:        availableWidth < ScreenTools.defaultFontPixelWidth * 82
+    readonly property real _chartPanelHeight:   _stackPanels
+                                                    ? Math.max(0, Math.min(availableHeight - ScreenTools.defaultFontPixelHeight * 6 - _margins,
+                                                                           availableHeight * 0.6))
+                                                    : availableHeight
+    readonly property real _rightPanelHeight:   _stackPanels
+                                                    ? Math.max(0, availableHeight - _chartPanelHeight - _margins)
+                                                    : availableHeight
 
     property string _chartTitle:        ""
     readonly property var _seriesColors: ["#21be2b", "#c62828", "#1565c0", "#f9a825", "#6a1b9a", "#00838f"]
@@ -65,12 +90,153 @@ RowLayout {
         for (var i = 0; i < chart.seriesList.length; ++i) {
             chart.seriesList[i].clear()
         }
-        _xAxis.min = 0
+        _xAxis.min = -chartDisplaySec
         _xAxis.max = 0
         _yAxis.min = 0
-        _yAxis.max = 0
+        _yAxis.max = _tickSeparation
         _msecs = 0
         _last_t = 0
+        _sourceTimestampOrigin = NaN
+        _lastSourceTimestamp = NaN
+        _sourceSampleQueue = []
+    }
+
+    function setPlottingActive(active) {
+        if (_plottingActive === active) {
+            return
+        }
+
+        _plottingActive = active
+        _last_t = 0
+        if (!active) {
+            _sourceSampleQueue = []
+        }
+    }
+
+    function metadataTickStep(fact) {
+        return PIDTuningMath.metadataMajorTickStep(fact ? fact.min : NaN,
+                                                   fact ? fact.max : NaN,
+                                                   fact ? fact.increment : NaN)
+    }
+
+    function appendSample(sampleTimeSec, legacyFirstPoint, sourceValues) {
+        var sourceTimestampSample = sourceValues !== undefined
+        var plot = axis[_currentAxis].plot
+        var len = plot.length
+        var hasFiniteSample = false
+        for (var valueIndex = 0; valueIndex < len; ++valueIndex) {
+            var sampleValue = sourceTimestampSample ? Number(sourceValues[valueIndex]) : Number(plot[valueIndex].value)
+            if (Number.isFinite(sampleValue)) {
+                hasFiniteSample = true
+            }
+        }
+
+        // Inactive Rover frames deliberately contain no finite plot values. Do not
+        // move the axes or dirty an already empty graph for every source frame.
+        if (sourceTimestampSample && !hasFiniteSample) {
+            return false
+        }
+
+        _xAxis.max = sampleTimeSec
+        _xAxis.min = sampleTimeSec - chartDisplaySec
+
+        var firstPoint = sourceTimestampSample ? true : legacyFirstPoint
+        if (sourceTimestampSample) {
+            for (var seriesIndex = 0; seriesIndex < chart.seriesList.length; ++seriesIndex) {
+                if (chart.seriesList[seriesIndex].count > 0) {
+                    firstPoint = false
+                    break
+                }
+            }
+        }
+
+        for (var i = 0; i < len; ++i) {
+            var value = sourceTimestampSample ? Number(sourceValues[i]) : Number(plot[i].value)
+            if (Number.isFinite(value)) {
+                chart.seriesList[i].append(sampleTimeSec, value)
+                if (firstPoint) {
+                    _yAxis.min = value
+                    _yAxis.max = value
+                    if (sourceTimestampSample) {
+                        firstPoint = false
+                    }
+                } else {
+                    adjustYAxisMin(_yAxis, value)
+                    adjustYAxisMax(_yAxis, value)
+                }
+
+                var series = chart.seriesList[i]
+                var minSec = sampleTimeSec - 3 * 60
+                var expiredCount = PIDTuningMath.expiredPointCount(series, minSec)
+                if (expiredCount > 0) {
+                    series.removeMultiple(0, expiredCount)
+                }
+            }
+        }
+
+        if (_yAxis.max <= _yAxis.min) {
+            var range = PIDTuningMath.nonDegenerateAxisRange(_yAxis.min, _yAxis.max, _tickSeparation)
+            _yAxis.min = range.minimum
+            _yAxis.max = range.maximum
+        }
+
+        return hasFiniteSample
+    }
+
+    function queueSourceSample() {
+        var timestamp = Number(sourceTimestamp)
+        if (!Number.isFinite(timestamp) || timestamp <= 0) {
+            resetGraphs()
+            return
+        }
+        if (timestamp === _lastSourceTimestamp) {
+            return
+        }
+
+        if (Number.isFinite(_lastSourceTimestamp) && timestamp < _lastSourceTimestamp) {
+            resetGraphs()
+        }
+
+        _lastSourceTimestamp = timestamp
+        var values = []
+        var plot = axis[_currentAxis].plot
+        for (var i = 0; i < plot.length; ++i) {
+            values.push(Number(plot[i].value))
+        }
+        PIDTuningMath.enqueueSourceSample(_sourceSampleQueue, timestamp, values)
+    }
+
+    function flushSourceSamples() {
+        var samples = _sourceSampleQueue
+        _sourceSampleQueue = []
+        for (var i = 0; i < samples.length; ++i) {
+            var sample = samples[i]
+            var firstSourceSample = !Number.isFinite(_sourceTimestampOrigin)
+            var sourceOrigin = firstSourceSample ? sample.timestamp : _sourceTimestampOrigin
+            if (appendSample((sample.timestamp - sourceOrigin) / 1000000, undefined, sample.values) && firstSourceSample) {
+                _sourceTimestampOrigin = sample.timestamp
+            }
+        }
+    }
+
+    function configureVehicle(vehicle, resetChart) {
+        if (_configuredVehicle === vehicle) {
+            return
+        }
+
+        var previousVehicle = _configuredVehicle
+        _configuredVehicle = null
+        if (previousVehicle) {
+            previousVehicle.setPIDTuningTelemetryMode(Vehicle.ModeDisabled)
+        }
+
+        if (vehicle) {
+            vehicle.setPIDTuningTelemetryMode(tuningMode)
+            _configuredVehicle = vehicle
+        }
+        if (resetChart !== false) {
+            resetGraphs()
+        }
     }
 
     // Save the current set of tuning values so we can reset to them
@@ -115,45 +281,45 @@ RowLayout {
 
     Component.onCompleted: {
         axisIndexChanged()
-        globals.activeVehicle.setPIDTuningTelemetryMode(tuningMode)
-        saveTuningParamValues()
+        configureVehicle(globals.activeVehicle)
+        _componentComplete = true
     }
 
-    Component.onDestruction: globals.activeVehicle.setPIDTuningTelemetryMode(Vehicle.ModeDisabled)
+    Component.onDestruction: configureVehicle(null, false)
     on_CurrentAxisChanged: axisIndexChanged()
+    onSourceResetCounterChanged: {
+        if (_componentComplete && useSourceTimestamp) {
+            resetGraphs()
+        }
+    }
+    onSourceTimestampChanged: {
+        if (_componentComplete && useSourceTimestamp && _plottingActive) {
+            queueSourceSample()
+        }
+    }
+
+    Connections {
+        target: QGroundControl.multiVehicleManager
+
+        function onActiveVehicleChanged(activeVehicle) {
+            configureVehicle(activeVehicle)
+        }
+
+        function onVehicleRemoved(vehicle) {
+            if (vehicle === _configuredVehicle) {
+                configureVehicle(null)
+            }
+        }
+    }
 
     Timer {
         id:         dataTimer
         interval:   10
-        running:    true
+        running:    root._plottingActive && !useSourceTimestamp
         repeat:     true
 
         onTriggered: {
-            _xAxis.max = _msecs / 1000
-            _xAxis.min = _msecs / 1000 - chartDisplaySec
-
-            var firstPoint = _msecs == 0
-
-            var len = axis[_currentAxis].plot.length
-            for (var i = 0; i < len; ++i) {
-                var value = axis[_currentAxis].plot[i].value
-                if (!isNaN(value)) {
-                    chart.seriesList[i].append(_msecs/1000, value)
-                    if (firstPoint) {
-                        _yAxis.min = value
-                        _yAxis.max = value
-                    } else {
-                        adjustYAxisMin(_yAxis, value)
-                        adjustYAxisMax(_yAxis, value)
-                    }
-                    // limit history
-                    var minSec = _msecs/1000 - 3*60
-                    while (chart.seriesList[i].count > 0 && chart.seriesList[i].at(0).x < minSec) {
-                        chart.seriesList[i].remove(0)
-                    }
-                }
-            }
-
+            appendSample(_msecs / 1000, _msecs === 0)
             var t = new Date().getTime() // in ms
             if (_last_t > 0)
                 _msecs += t-_last_t
@@ -163,9 +329,27 @@ RowLayout {
         property int _maxPointCount:    10000 / interval
     }
 
+    Timer {
+        id:         sourceDataTimer
+        interval:   20
+        running:    root._plottingActive && useSourceTimestamp
+        repeat:     true
+
+        onTriggered: {
+            if (_sourceSampleQueue.length === 0) {
+                return
+            }
+            flushSourceSamples()
+        }
+    }
+
     Column {
         id:                 leftPanel
+        Layout.row:         0
+        Layout.column:      0
         Layout.fillWidth:   true
+        Layout.preferredHeight: root._chartPanelHeight
+        Layout.maximumHeight:   root._chartPanelHeight
         Layout.alignment:   Qt.AlignTop
         spacing:            ScreenTools.defaultFontPixelHeight / 4
         clip:               true // chart has redraw problems
@@ -180,11 +364,14 @@ RowLayout {
 
         GraphsView {
             id:                     chart
-            width:                  Math.max(_minChartWidth, availableWidth - rightPanel.width - parent.spacing - _margins)
-            height:                 Math.max(_minChartHeight, availableHeight - leftPanelBottomColumn.height - chartTitleLabel.height - legendRow.height - parent.spacing * 3 - _margins)
+            width:                  root._stackPanels
+                                        ? Math.max(1, availableWidth - _margins)
+                                        : Math.max(_minChartWidth, availableWidth - rightPanel.width - root.columnSpacing - _margins)
+            height:                 root._stackPanels
+                                        ? Math.max(1, root._chartPanelHeight - leftPanelBottomColumn.height - chartTitleLabel.height - legendRow.height - _margins * 4)
+                                        : Math.max(1, availableHeight - leftPanelBottomColumn.height - chartTitleLabel.height - legendRow.height - _margins * 4)
 
             property real _minChartWidth:   ScreenTools.defaultFontPixelWidth * 40
-            property real _minChartHeight:  ScreenTools.defaultFontPixelHeight * 15
 
             theme: GraphsTheme {
                 colorScheme:            qgcPal.globalTheme === QGCPalette.Light ? GraphsTheme.ColorScheme.Light : GraphsTheme.ColorScheme.Dark
@@ -198,7 +385,7 @@ RowLayout {
 
             axisX: ValueAxis {
                 id:                     xAxis
-                min:                    0
+                min:                    -root.chartDisplaySec
                 max:                    0
                 labelFormat:            "%.1f"
                 titleText:              ScreenTools.isShortScreen ? "" : qsTr("sec")
@@ -209,7 +396,7 @@ RowLayout {
             axisY: ValueAxis {
                 id:                     yAxis
                 min:                    0
-                max:                    10
+                max:                    root._tickSeparation
                 titleText:              unit
                 tickInterval:           _tickSeparation
                 titleFont.pointSize:    ScreenTools.defaultFontPointSize
@@ -238,7 +425,7 @@ RowLayout {
                 }
                 onPositionChanged: (mouse) => {
                     if(_startPoint != undefined) {
-                        dataTimer.running = false
+                        setPlottingActive(false)
                         var cp = Qt.point(mouse.x, mouse.y)
                         var dx = (cp.x - _startPoint.x) * _scaling
                         _startPoint = cp
@@ -289,21 +476,19 @@ RowLayout {
                 }
 
                 QGCButton {
-                    text:       dataTimer.running ? qsTr("Stop") : qsTr("Start")
+                    text:       _plottingActive ? qsTr("Stop") : qsTr("Start")
                     onClicked: {
-                        dataTimer.running = !dataTimer.running
-                        _last_t = 0
-                        if (showAutoModeChange && autoModeChange.checked) {
-                            globals.activeVehicle.flightMode = dataTimer.running ? globals.activeVehicle.stabilizedFlightMode : globals.activeVehicle.pauseFlightMode
+                        setPlottingActive(!_plottingActive)
+                        if (showAutoModeChange && autoModeChange.checked && _configuredVehicle) {
+                            _configuredVehicle.flightMode = _plottingActive ? _configuredVehicle.stabilizedFlightMode : _configuredVehicle.pauseFlightMode
                         }
                     }
                 }
                 Connections {
-                    target: globals.activeVehicle
-                    onArmedChanged: {
-                        if (armed && !dataTimer.running) { // start plotting on arming if not already running
-                            dataTimer.running = true
-                            _last_t = 0
+                    target: _configuredVehicle
+                    function onArmedChanged(armed) {
+                        if (armed && !_plottingActive) { // start plotting on arming if not already running
+                            setPlottingActive(true)
                         }
                     }
                 }
@@ -315,7 +500,7 @@ RowLayout {
                 text:   qsTr("Automatic Flight Mode Switching")
                 onClicked: {
                     if (checked)
-                        dataTimer.running = false
+                        setPlottingActive(false)
                 }
             }
 
@@ -327,19 +512,33 @@ RowLayout {
                 }
 
                 QGCLabel {
-                    text:            qsTr("Switches to '%1' when you click Stop.").arg(globals.activeVehicle.pauseFlightMode)
+                    text:            qsTr("Switches to '%1' when you click Stop.").arg(_configuredVehicle ? _configuredVehicle.pauseFlightMode : "")
                     font.pointSize:     ScreenTools.smallFontPointSize
                 }
             }
         }
     }
 
-    ColumnLayout {
+    QGCFlickable {
         id:                 rightPanel
+        Layout.row:         root._stackPanels ? 1 : 0
+        Layout.column:      root._stackPanels ? 0 : 1
+        Layout.fillWidth:   root._stackPanels
+        Layout.preferredWidth: root._stackPanels ? root.availableWidth : ScreenTools.defaultFontPixelWidth * 40
+        Layout.preferredHeight: root._rightPanelHeight
+        Layout.maximumHeight:   root._rightPanelHeight
         Layout.alignment:   Qt.AlignTop
+        contentWidth:       width
+        contentHeight:      rightPanelContent.implicitHeight
+        flickableDirection: Flickable.VerticalFlick
+        clip:               true
 
-        RowLayout {
-            visible: showAutoTuning
+        ColumnLayout {
+            id:     rightPanelContent
+            width:  rightPanel.width
+
+            RowLayout {
+                visible: showAutoTuning
 
             QGCRadioButton {
                 id:         useAutoTuningRadio
@@ -355,12 +554,12 @@ RowLayout {
             }
         }
 
-        AutotuneUI {
-            visible: showAutoTuning && useAutoTuningRadio.checked
-        }
+            AutotuneUI {
+                visible: showAutoTuning && useAutoTuningRadio.checked
+            }
 
-        ColumnLayout {
-            visible: !showAutoTuning || useManualTuningRadio.checked
+            ColumnLayout {
+                visible: !showAutoTuning || useManualTuningRadio.checked
 
             Column {
                 RowLayout {
@@ -396,13 +595,14 @@ RowLayout {
                         heading:                title
                         headingDescription:     description
                         visible:                _currentAxis === paramRepeater.axisIndex
-                        Layout.preferredWidth:  ScreenTools.defaultFontPixelWidth * 40
+                        enabled:                root.parametersEnabled
+                        Layout.fillWidth:       true
 
                         FactSlider {
                             fact:                   controller.getParameterFact(-1, param)
-                            from:                   min
-                            to:                     max
-                            majorTickStepSize:      step
+                            from:                   root.useFactMetadataRange ? fact.min : min
+                            to:                     root.useFactMetadataRange ? fact.max : max
+                            majorTickStepSize:      root.useFactMetadataRange ? root.metadataTickStep(fact) : step
                             Layout.fillWidth:       true
                         }
                     }
@@ -442,10 +642,12 @@ RowLayout {
 
                 QGCButton {
                     text:       qsTr("Restore From Clipboard")
+                    enabled:    root.parametersEnabled
                     onClicked:  resetToSavedTuningParamValues()
                 }
+            }
             }
         }
     }
 
-} // RowLayout
+} // GridLayout

@@ -40,9 +40,14 @@ QStringList PX4TuningComponent::setupCompleteChangedTriggerList(void) const
 
 QUrl PX4TuningComponent::setupSource(void) const
 {
+    return setupSourceForVehicleType(_vehicle->vehicleType());
+}
+
+QUrl PX4TuningComponent::setupSourceForVehicleType(MAV_TYPE vehicleType)
+{
     QString qmlFile;
 
-    switch (_vehicle->vehicleType()) {
+    switch (vehicleType) {
         case MAV_TYPE_FIXED_WING:
             qmlFile = "qrc:/qml/QGroundControl/AutoPilotPlugins/PX4/PX4TuningComponentPlane.qml";
             break;
@@ -52,8 +57,10 @@ QUrl PX4TuningComponent::setupSource(void) const
         case MAV_TYPE_HEXAROTOR:
         case MAV_TYPE_OCTOROTOR:
         case MAV_TYPE_TRICOPTER:
-        case MAV_TYPE_QUAD_ROVER:
             qmlFile = "qrc:/qml/QGroundControl/AutoPilotPlugins/PX4/PX4TuningComponentCopter.qml";
+            break;
+        case MAV_TYPE_QUAD_ROVER:
+            qmlFile = "qrc:/qml/QGroundControl/AutoPilotPlugins/PX4/PX4TuningComponentQuadRover.qml";
             break;
         case MAV_TYPE_VTOL_TAILSITTER_DUOROTOR:
         case MAV_TYPE_VTOL_TAILSITTER_QUADROTOR:

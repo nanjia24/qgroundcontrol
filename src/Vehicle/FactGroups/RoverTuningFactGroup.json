@@ -1,0 +1,230 @@
+{
+    "version": 1,
+    "fileType": "FactMetaData",
+    "QGC.MetaData.Facts": [
+        {
+            "name": "rateYawResponse",
+            "shortDesc": "Yaw rate response",
+            "type": "double",
+            "decimalPlaces": 2,
+            "units": "deg/s"
+        },
+        {
+            "name": "rateYawSetpoint",
+            "shortDesc": "Yaw rate setpoint",
+            "type": "double",
+            "decimalPlaces": 2,
+            "units": "deg/s"
+        },
+        {
+            "name": "rateIntegral",
+            "shortDesc": "Yaw rate integral contribution",
+            "type": "double",
+            "decimalPlaces": 3
+        },
+        {
+            "name": "rateControlOutput",
+            "shortDesc": "Normalized steering output",
+            "type": "double",
+            "decimalPlaces": 3
+        },
+        {
+            "name": "rateValidFlags",
+            "shortDesc": "Rate validity flags",
+            "type": "uint16"
+        },
+        {
+            "name": "rateDriveType",
+            "shortDesc": "Rate drivetrain type",
+            "type": "uint8"
+        },
+        {
+            "name": "rateTimestamp",
+            "shortDesc": "Rate source timestamp",
+            "type": "uint64",
+            "units": "us"
+        },
+        {
+            "name": "attitudeYawResponse",
+            "shortDesc": "Yaw response",
+            "type": "double",
+            "decimalPlaces": 2,
+            "units": "deg"
+        },
+        {
+            "name": "attitudeYawSetpoint",
+            "shortDesc": "Yaw setpoint",
+            "type": "double",
+            "decimalPlaces": 2,
+            "units": "deg"
+        },
+        {
+            "name": "attitudeYawRateSetpoint",
+            "shortDesc": "Yaw rate setpoint",
+            "type": "double",
+            "decimalPlaces": 2,
+            "units": "deg/s"
+        },
+        {
+            "name": "attitudeValidFlags",
+            "shortDesc": "Attitude validity flags",
+            "type": "uint16"
+        },
+        {
+            "name": "attitudeDriveType",
+            "shortDesc": "Attitude drivetrain type",
+            "type": "uint8"
+        },
+        {
+            "name": "attitudeTimestamp",
+            "shortDesc": "Attitude source timestamp",
+            "type": "uint64",
+            "units": "us"
+        },
+        {
+            "name": "velocityBodyXResponse",
+            "shortDesc": "Body-X speed response",
+            "type": "double",
+            "decimalPlaces": 3,
+            "units": "m/s"
+        },
+        {
+            "name": "velocityBodyXSetpoint",
+            "shortDesc": "Body-X speed setpoint",
+            "type": "double",
+            "decimalPlaces": 3,
+            "units": "m/s"
+        },
+        {
+            "name": "velocityIntegralBodyX",
+            "shortDesc": "Body-X integral contribution",
+            "type": "double",
+            "decimalPlaces": 3
+        },
+        {
+            "name": "velocityThrottleBodyX",
+            "shortDesc": "Normalized Body-X throttle",
+            "type": "double",
+            "decimalPlaces": 3
+        },
+        {
+            "name": "velocityBodyYResponse",
+            "shortDesc": "Body-Y speed response",
+            "type": "double",
+            "decimalPlaces": 3,
+            "units": "m/s"
+        },
+        {
+            "name": "velocityBodyYSetpoint",
+            "shortDesc": "Body-Y speed setpoint",
+            "type": "double",
+            "decimalPlaces": 3,
+            "units": "m/s"
+        },
+        {
+            "name": "velocityIntegralBodyY",
+            "shortDesc": "Body-Y integral contribution",
+            "type": "double",
+            "decimalPlaces": 3
+        },
+        {
+            "name": "velocityThrottleBodyY",
+            "shortDesc": "Normalized Body-Y throttle",
+            "type": "double",
+            "decimalPlaces": 3
+        },
+        {
+            "name": "velocityValidFlags",
+            "shortDesc": "Velocity validity flags",
+            "type": "uint16"
+        },
+        {
+            "name": "velocityDriveType",
+            "shortDesc": "Velocity drivetrain type",
+            "type": "uint8"
+        },
+        {
+            "name": "velocityTimestamp",
+            "shortDesc": "Velocity source timestamp",
+            "type": "uint64",
+            "units": "us"
+        },
+        {
+            "name": "positionNorth",
+            "shortDesc": "North position",
+            "type": "double",
+            "decimalPlaces": 3,
+            "units": "m"
+        },
+        {
+            "name": "positionEast",
+            "shortDesc": "East position",
+            "type": "double",
+            "decimalPlaces": 3,
+            "units": "m"
+        },
+        {
+            "name": "targetNorth",
+            "shortDesc": "North path target",
+            "type": "double",
+            "decimalPlaces": 3,
+            "units": "m"
+        },
+        {
+            "name": "targetEast",
+            "shortDesc": "East path target",
+            "type": "double",
+            "decimalPlaces": 3,
+            "units": "m"
+        },
+        {
+            "name": "crosstrackError",
+            "shortDesc": "Cross-track error",
+            "type": "double",
+            "decimalPlaces": 3,
+            "units": "m"
+        },
+        {
+            "name": "lookaheadDistance",
+            "shortDesc": "Pure Pursuit lookahead distance",
+            "type": "double",
+            "decimalPlaces": 3,
+            "units": "m"
+        },
+        {
+            "name": "targetBearing",
+            "shortDesc": "Path target bearing",
+            "type": "double",
+            "decimalPlaces": 2,
+            "units": "deg"
+        },
+        {
+            "name": "distanceToWaypoint",
+            "shortDesc": "Distance to active waypoint",
+            "type": "double",
+            "decimalPlaces": 3,
+            "units": "m"
+        },
+        {
+            "name": "positionValidFlags",
+            "shortDesc": "Position validity flags",
+            "type": "uint16"
+        },
+        {
+            "name": "positionDriveType",
+            "shortDesc": "Position drivetrain type",
+            "type": "uint8"
+        },
+        {
+            "name": "positionXYResetCounter",
+            "shortDesc": "Local position XY reset counter",
+            "type": "uint8"
+        },
+        {
+            "name": "positionTimestamp",
+            "shortDesc": "Position source timestamp",
+            "type": "uint64",
+            "units": "us"
+        }
+    ]
+}

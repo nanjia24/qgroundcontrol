@@ -125,6 +125,7 @@ qt_add_qml_module(QGroundControlControlsModule
         ParameterEditor.qml
         ParameterEditorDialog.qml
         PIDTuning.qml
+        PIDTuningMath.js
         PipState.qml
         PipView.qml
         PreFlightCheckButton.qml

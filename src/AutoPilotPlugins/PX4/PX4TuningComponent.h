@@ -8,6 +8,7 @@ class PX4TuningComponent : public VehicleComponent
 
 public:
     PX4TuningComponent(Vehicle* vehicle, AutoPilotPlugin* autopilot, QObject* parent = nullptr);
+    static QUrl setupSourceForVehicleType(MAV_TYPE vehicleType);
 
     // Virtuals from VehicleComponent
     QStringList setupCompleteChangedTriggerList(void) const final;

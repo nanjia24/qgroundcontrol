@@ -1,12 +1,15 @@
 #include "MavCommandQueue.h"
 
+#include <QtCore/QPointer>
 #include <QtCore/QTimer>
+#include <utility>
 
 #include "FirmwarePlugin.h"
+#include "LinkManager.h"
+#include "AppMessages.h"
 #include "MAVLinkLib.h"
 #include "MAVLinkProtocol.h"
 #include "MissionCommandTree.h"
-#include "AppMessages.h"
 #include "QGCLoggingCategory.h"
 #include "Vehicle.h"
 #include "VehicleLinkManager.h"
@@ -41,6 +44,8 @@ void MavCommandQueue::stop()
     _responseCheckTimer.disconnect();
     _list.clear();
     _reservations.clear();
+    _setMessageIntervalTombstones.clear();
+    _observedSetMessageIntervalLinks.clear();
 }
 
 void MavCommandQueue::sendCommand(int compId, MAV_CMD command, bool showError, float param1, float param2, float param3, float param4, float param5, float param6, float param7)
@@ -80,6 +85,16 @@ MavCommandQueue::MavCmdQueueEntryToken MavCommandQueue::sendCommandWithHandler(
                       false,  // showError
                       ackHandlerInfo, compId, command, MAV_FRAME_GLOBAL, param1, param2, param3, param4, param5, param6,
                       param7, reservationToken);
+}
+
+MavCommandQueue::MavCmdQueueEntryToken MavCommandQueue::sendCommandWithHandlerOnLink(
+    const MavCmdAckHandlerInfo_t* ackHandlerInfo, const SharedLinkInterfacePtr& link, int compId, MAV_CMD command,
+    float param1, float param2, float param3, float param4, float param5, float param6, float param7)
+{
+    return sendWorker(false,  // commandInt
+                      false,  // showError
+                      ackHandlerInfo, compId, command, MAV_FRAME_GLOBAL, param1, param2, param3, param4, param5, param6,
+                      param7, InvalidMavCmdQueueReservationToken, link);
 }
 
 void MavCommandQueue::sendCommandIntWithHandler(const MavCmdAckHandlerInfo_t* ackHandlerInfo, int compId, MAV_CMD command, MAV_FRAME frame, float param1, float param2, float param3, float param4, double param5, double param6, float param7)
@@ -218,10 +233,20 @@ int MavCommandQueue::_responseCheckIntervalMSecs()
     return QGC::runningUnitTests() ? 50 : 500;
 }
 
-int MavCommandQueue::_ackTimeoutMSecs()
+int MavCommandQueue::_ackTimeoutMSecs(MAV_CMD command, const LinkInterface* link) const
 {
     // Use shorter ack timeout during unit tests for faster test execution
-    return QGC::runningUnitTests() ? kTestAckTimeoutMs : 1200;
+    if (QGC::runningUnitTests()) {
+        return kTestAckTimeoutMs;
+    }
+
+    // PX4 moves stream subscription changes onto its MAVLink main thread. USB
+    // startup load can delay that handoff, and this ACK cannot identify param1.
+    if (_vehicle->px4Firmware() && command == MAV_CMD_SET_MESSAGE_INTERVAL && LinkManager::isLinkUSBDirect(link)) {
+        return _usbSetMessageIntervalAckTimeoutMSecs;
+    }
+
+    return 1200;
 }
 
 bool MavCommandQueue::_shouldRetry(MAV_CMD command)
@@ -262,11 +287,141 @@ bool MavCommandQueue::_canBeDuplicated(MAV_CMD command)
     // This test avoids commands not being sent due to an ACK not being received yet.
     // MOTOR_TEST in ardusub is a case where we need a constant stream of commands so it doesn't time out.
     switch (command) {
-    case MAV_CMD_DO_MOTOR_TEST:
-    case MAV_CMD_SET_MESSAGE_INTERVAL:
-        return true;
-    default:
-        return false;
+        case MAV_CMD_DO_MOTOR_TEST:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool MavCommandQueue::_mustBeSerialized(MAV_CMD command)
+{
+    // COMMAND_ACK does not echo the message id from param1. Sending more than one
+    // interval request to the same component and link would make their ACKs ambiguous.
+    return command == MAV_CMD_SET_MESSAGE_INTERVAL;
+}
+
+bool MavCommandQueue::_hasSetMessageIntervalEntry(int targetCompId, LinkInterface* targetLink) const
+{
+    for (const MavCommandListEntry_t& entry : _list) {
+        if (entry.targetCompId == targetCompId && entry.command == MAV_CMD_SET_MESSAGE_INTERVAL &&
+            entry.targetLinkIdentity == targetLink) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool MavCommandQueue::_isSetMessageIntervalQuarantined(int targetCompId, LinkInterface* targetLink)
+{
+    _pruneExpiredSetMessageIntervalTombstones();
+    for (const SetMessageIntervalTombstone& tombstone : _setMessageIntervalTombstones) {
+        if (tombstone.targetCompId == targetCompId && tombstone.targetLink == targetLink) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void MavCommandQueue::_observeSetMessageIntervalLink(LinkInterface* targetLink)
+{
+    if (!targetLink || _observedSetMessageIntervalLinks.contains(targetLink)) {
+        return;
+    }
+
+    _observedSetMessageIntervalLinks.insert(targetLink);
+    connect(targetLink, &LinkInterface::disconnected, this, [this, targetLink]() {
+        _clearSetMessageIntervalTombstones(targetLink);
+        _failSetMessageIntervalEntriesForLink(targetLink);
+    });
+    connect(targetLink, &QObject::destroyed, this, [this, targetLink]() {
+        _clearSetMessageIntervalTombstones(targetLink);
+        _failSetMessageIntervalEntriesForLink(targetLink);
+        _observedSetMessageIntervalLinks.remove(targetLink);
+    });
+}
+
+void MavCommandQueue::_failSetMessageIntervalEntriesForLink(LinkInterface* targetLink)
+{
+    QList<MavCommandListEntry_t> failedEntries;
+    for (int i = _list.count() - 1; i >= 0; --i) {
+        const MavCommandListEntry_t& entry = _list[i];
+        if (entry.command == MAV_CMD_SET_MESSAGE_INTERVAL && entry.targetLinkIdentity == targetLink) {
+            failedEntries.prepend(_list.takeAt(i));
+        }
+    }
+
+    for (const MavCommandListEntry_t& failedEntry : std::as_const(failedEntries)) {
+        QPointer<MavCommandQueue> guard(this);
+        if (failedEntry.ackHandlerInfo.resultHandler) {
+            mavlink_command_ack_t ack = {};
+            ack.command = failedEntry.command;
+            ack.result = MAV_RESULT_FAILED;
+            (*failedEntry.ackHandlerInfo.resultHandler)(failedEntry.ackHandlerInfo.resultHandlerData,
+                                                        failedEntry.targetCompId, ack,
+                                                        MavCmdResultFailureNoResponseToCommand);
+        } else {
+            emit commandResult(_vehicle->id(), failedEntry.targetCompId, failedEntry.command, MAV_RESULT_FAILED,
+                               MavCmdResultFailureNoResponseToCommand);
+        }
+        if (!guard) {
+            return;
+        }
+        if (failedEntry.showError) {
+            QGC::showAppMessage(tr("Vehicle did not respond to command: %1")
+                                    .arg(MissionCommandTree::instance()->friendlyName(failedEntry.command)));
+        }
+    }
+}
+
+void MavCommandQueue::_addSetMessageIntervalTombstone(int targetCompId, LinkInterface* targetLink,
+                                                      int quarantineDurationMSecs)
+{
+    if (!targetLink || !targetLink->isConnected() || _isSetMessageIntervalQuarantined(targetCompId, targetLink)) {
+        return;
+    }
+
+    SetMessageIntervalTombstone tombstone;
+    tombstone.targetCompId = targetCompId;
+    tombstone.targetLink = targetLink;
+    tombstone.quarantineDurationMSecs = qMax(quarantineDurationMSecs, _responseCheckIntervalMSecs() * 2);
+    tombstone.elapsedTimer.start();
+    _setMessageIntervalTombstones.append(tombstone);
+    _observeSetMessageIntervalLink(targetLink);
+}
+
+bool MavCommandQueue::_consumeSetMessageIntervalTombstone(int targetCompId, LinkInterface* targetLink)
+{
+    _pruneExpiredSetMessageIntervalTombstones();
+    for (int i = 0; i < _setMessageIntervalTombstones.count(); ++i) {
+        const SetMessageIntervalTombstone& tombstone = _setMessageIntervalTombstones[i];
+        if (tombstone.targetCompId == targetCompId && tombstone.targetLink == targetLink) {
+            _setMessageIntervalTombstones.removeAt(i);
+            return true;
+        }
+    }
+    return false;
+}
+
+void MavCommandQueue::_pruneExpiredSetMessageIntervalTombstones()
+{
+    for (int i = _setMessageIntervalTombstones.count() - 1; i >= 0; --i) {
+        const SetMessageIntervalTombstone& tombstone = _setMessageIntervalTombstones[i];
+        if (tombstone.targetLink.isNull() || tombstone.elapsedTimer.hasExpired(tombstone.quarantineDurationMSecs)) {
+            qCDebug(MavCommandQueueLog) << "Expired SET_MESSAGE_INTERVAL late-ACK quarantine"
+                                        << "component" << tombstone.targetCompId;
+            _setMessageIntervalTombstones.removeAt(i);
+        }
+    }
+}
+
+void MavCommandQueue::_clearSetMessageIntervalTombstones(LinkInterface* targetLink)
+{
+    for (int i = _setMessageIntervalTombstones.count() - 1; i >= 0; --i) {
+        if (_setMessageIntervalTombstones[i].targetLink == targetLink ||
+            _setMessageIntervalTombstones[i].targetLink.isNull()) {
+            _setMessageIntervalTombstones.removeAt(i);
+        }
     }
 }
 
@@ -274,7 +429,7 @@ QString MavCommandQueue::_formatCommand(MAV_CMD command, float param1)
 {
     QString rawName = MissionCommandTree::instance()->rawName(command);
     QString friendlyName = MissionCommandTree::instance()->friendlyName(command);
-    QString commandStr = friendlyName.isEmpty() ? rawName : QStringLiteral("%1 (%2)").arg(friendlyName, rawName);
+    QString commandStr   = friendlyName.isEmpty() ? rawName : QStringLiteral("%1 (%2)").arg(friendlyName, rawName);
 
     if (command == MAV_CMD_REQUEST_MESSAGE) {
         const mavlink_message_info_t* info = mavlink_get_message_info_by_id(static_cast<int>(param1));
@@ -289,7 +444,7 @@ QString MavCommandQueue::_formatCommand(MAV_CMD command, float param1)
 MavCommandQueue::MavCmdQueueEntryToken MavCommandQueue::sendWorker(
     bool commandInt, bool showError, const MavCmdAckHandlerInfo_t* ackHandlerInfo, int targetCompId, MAV_CMD command,
     MAV_FRAME frame, float param1, float param2, float param3, float param4, double param5, double param6, float param7,
-    MavCmdQueueReservationToken reservationToken)
+    MavCmdQueueReservationToken reservationToken, const SharedLinkInterfacePtr& targetLink)
 {
     if (_stopped) {
         return InvalidMavCmdQueueEntryToken;
@@ -299,13 +454,21 @@ MavCommandQueue::MavCmdQueueEntryToken MavCommandQueue::sendWorker(
     // which this code can't handle.
     // We also can't send the majority of commands again if we are already waiting for a response from that same command. If we did that we would not be able to discern
     // which ack was associated with which command.
+    const bool serializedCommand = _mustBeSerialized(command);
+    SharedLinkInterfacePtr sharedLink =
+        serializedCommand ? (targetLink ? targetLink : _vehicle->vehicleLinkManager()->primaryLink().lock())
+                          : SharedLinkInterfacePtr{};
+    const bool commandPending = serializedCommand && sharedLink
+                                    ? _hasSetMessageIntervalEntry(targetCompId, sharedLink.get())
+                                    : isPending(targetCompId, command);
+    const bool waitingToSend = commandPending && serializedCommand;
     const int reservationIndex = _findReservationIndex(targetCompId, command);
     const bool ownsReservation =
         (reservationIndex != -1) && (_reservations[reservationIndex].token == reservationToken);
     const bool reservationConflict = ((reservationIndex != -1) && !ownsReservation) ||
                                      ((reservationToken != InvalidMavCmdQueueReservationToken) && !ownsReservation);
     if ((targetCompId == MAV_COMP_ID_ALL) || reservationConflict ||
-        (isPending(targetCompId, command) && !_canBeDuplicated(command))) {
+        (commandPending && !_canBeDuplicated(command) && !serializedCommand)) {
         const bool compIdAll = targetCompId == MAV_COMP_ID_ALL;
         QString rawCommandName  = MissionCommandTree::instance()->rawName(command);
 
@@ -330,7 +493,9 @@ MavCommandQueue::MavCmdQueueEntryToken MavCommandQueue::sendWorker(
         return InvalidMavCmdQueueEntryToken;
     }
 
-    SharedLinkInterfacePtr sharedLink = _vehicle->vehicleLinkManager()->primaryLink().lock();
+    if (!sharedLink) {
+        sharedLink = targetLink ? targetLink : _vehicle->vehicleLinkManager()->primaryLink().lock();
+    }
     if (!sharedLink) {
         qCDebug(MavCommandQueueLog) << "sendWorker: primary link gone!";
 
@@ -350,6 +515,46 @@ MavCommandQueue::MavCmdQueueEntryToken MavCommandQueue::sendWorker(
         return InvalidMavCmdQueueEntryToken;
     }
 
+    if (serializedCommand) {
+        _observeSetMessageIntervalLink(sharedLink.get());
+        if (!sharedLink->isConnected()) {
+            const MavCmdResultFailureCode_t failureCode = MavCmdResultFailureNoResponseToCommand;
+            QPointer<MavCommandQueue> guard(this);
+            if (ackHandlerInfo && ackHandlerInfo->resultHandler) {
+                mavlink_command_ack_t ack = {};
+                ack.command = command;
+                ack.result = MAV_RESULT_FAILED;
+                (*ackHandlerInfo->resultHandler)(ackHandlerInfo->resultHandlerData, targetCompId, ack, failureCode);
+            } else {
+                emit commandResult(_vehicle->id(), targetCompId, command, MAV_RESULT_FAILED, failureCode);
+            }
+            if (guard && showError) {
+                QGC::showAppMessage(tr("Unable to send command: Vehicle is not connected."));
+            }
+            return InvalidMavCmdQueueEntryToken;
+        }
+    }
+
+    if (serializedCommand && _isSetMessageIntervalQuarantined(targetCompId, sharedLink.get())) {
+        qCWarning(MavCommandQueueLog) << "Rejecting SET_MESSAGE_INTERVAL while awaiting a late ACK"
+                                      << "component:link" << targetCompId << sharedLink->linkConfiguration()->name();
+
+        const MavCmdResultFailureCode_t failureCode = MavCmdResultFailureNoResponseToCommand;
+        QPointer<MavCommandQueue> guard(this);
+        if (ackHandlerInfo && ackHandlerInfo->resultHandler) {
+            mavlink_command_ack_t ack = {};
+            ack.command = command;
+            ack.result = MAV_RESULT_FAILED;
+            (*ackHandlerInfo->resultHandler)(ackHandlerInfo->resultHandlerData, targetCompId, ack, failureCode);
+        } else {
+            emit commandResult(_vehicle->id(), targetCompId, command, MAV_RESULT_FAILED, failureCode);
+        }
+        if (guard && showError) {
+            QGC::showAppMessage(tr("Unable to send command: Waiting on previous response to same command."));
+        }
+        return InvalidMavCmdQueueEntryToken;
+    }
+
     MavCommandListEntry_t entry;
     entry.token = _nextEntryToken++;
     if (_nextEntryToken == InvalidMavCmdQueueEntryToken) {
@@ -364,21 +569,33 @@ MavCommandQueue::MavCmdQueueEntryToken MavCommandQueue::sendWorker(
     if (ackHandlerInfo) {
         entry.ackHandlerInfo = *ackHandlerInfo;
     }
-    entry.rgParam1          = param1;
-    entry.rgParam2          = param2;
-    entry.rgParam3          = param3;
-    entry.rgParam4          = param4;
-    entry.rgParam5          = param5;
-    entry.rgParam6          = param6;
-    entry.rgParam7          = param7;
-    entry.maxTries          = _shouldRetry(command) ? kMaxRetryCount : 1;
-    entry.ackTimeoutMSecs   = sharedLink->linkConfiguration()->isHighLatency() ? _ackTimeoutMSecsHighLatency : _ackTimeoutMSecs();
-    entry.elapsedTimer.start();
+    entry.rgParam1 = param1;
+    entry.rgParam2 = param2;
+    entry.rgParam3 = param3;
+    entry.rgParam4 = param4;
+    entry.rgParam5 = param5;
+    entry.rgParam6 = param6;
+    entry.rgParam7 = param7;
+    entry.maxTries = _shouldRetry(command) ? kMaxRetryCount : 1;
+    entry.ackTimeoutMSecs = sharedLink->linkConfiguration()->isHighLatency()
+                                ? _ackTimeoutMSecsHighLatency
+                                : _ackTimeoutMSecs(command, sharedLink.get());
+    entry.targetLink = serializedCommand ? sharedLink : targetLink;
+    entry.targetLinkIdentity = entry.targetLink.lock().get();
+    entry.targetLinkPinned = static_cast<bool>(entry.targetLink.lock());
+    entry.waitingToSend = waitingToSend;
+    if (!waitingToSend) {
+        entry.elapsedTimer.start();
+    }
 
-    qCDebug(MavCommandQueueLog) << "Sending" << _formatCommand(command, param1) << "param1-7:" << command << param1 << param2 << param3 << param4 << param5 << param6 << param7;
+    qCDebug(MavCommandQueueLog) << (waitingToSend ? "Queueing" : "Sending") << _formatCommand(command, param1)
+                                << "param1-7:" << command << param1 << param2 << param3 << param4 << param5 << param6
+                                << param7;
 
     _list.append(entry);
-    _sendFromList(_list.count() - 1);
+    if (!waitingToSend) {
+        _sendFromList(_list.count() - 1);
+    }
     return entry.token;
 }
 
@@ -412,7 +629,47 @@ void MavCommandQueue::_sendFromList(int index)
 
         qCWarning(MavCommandQueueLog) << logMsg;
 
+        if (commandEntry.command == MAV_CMD_SET_MESSAGE_INTERVAL) {
+            const SharedLinkInterfacePtr timedOutLink = commandEntry.targetLink.lock();
+            _addSetMessageIntervalTombstone(commandEntry.targetCompId, timedOutLink.get(),
+                                            commandEntry.ackTimeoutMSecs);
+
+            QList<MavCommandListEntry_t> failedEntries;
+            for (int i = _list.count() - 1; i >= 0; --i) {
+                const MavCommandListEntry_t& entry = _list[i];
+                const bool sameKey = entry.targetCompId == commandEntry.targetCompId &&
+                                     entry.command == MAV_CMD_SET_MESSAGE_INTERVAL &&
+                                     entry.targetLinkIdentity == commandEntry.targetLinkIdentity;
+                if (i == index || sameKey) {
+                    failedEntries.prepend(_list.takeAt(i));
+                }
+            }
+
+            for (const MavCommandListEntry_t& failedEntry : std::as_const(failedEntries)) {
+                QPointer<MavCommandQueue> guard(this);
+                if (failedEntry.ackHandlerInfo.resultHandler) {
+                    mavlink_command_ack_t ack = {};
+                    ack.command = failedEntry.command;
+                    ack.result = MAV_RESULT_FAILED;
+                    (*failedEntry.ackHandlerInfo.resultHandler)(failedEntry.ackHandlerInfo.resultHandlerData,
+                                                                failedEntry.targetCompId, ack,
+                                                                MavCmdResultFailureNoResponseToCommand);
+                } else {
+                    emit commandResult(_vehicle->id(), failedEntry.targetCompId, failedEntry.command, MAV_RESULT_FAILED,
+                                       MavCmdResultFailureNoResponseToCommand);
+                }
+                if (!guard) {
+                    return;
+                }
+                if (failedEntry.showError) {
+                    QGC::showAppMessage(tr("Vehicle did not respond to command: %1").arg(friendlyName));
+                }
+            }
+            return;
+        }
+
         _list.removeAt(index);
+        QPointer<MavCommandQueue> guard(this);
         if (commandEntry.ackHandlerInfo.resultHandler) {
             mavlink_command_ack_t ack = {};
             ack.result = MAV_RESULT_FAILED;
@@ -420,9 +677,13 @@ void MavCommandQueue::_sendFromList(int index)
         } else {
             emit commandResult(_vehicle->id(), commandEntry.targetCompId, commandEntry.command, MAV_RESULT_FAILED, MavCmdResultFailureNoResponseToCommand);
         }
+        if (!guard) {
+            return;
+        }
         if (commandEntry.showError) {
             QGC::showAppMessage(tr("Vehicle did not respond to command: %1").arg(friendlyName));
         }
+        _sendNextWaitingCommand(commandEntry.targetCompId, commandEntry.command, nullptr);
         return;
     }
 
@@ -435,9 +696,14 @@ void MavCommandQueue::_sendFromList(int index)
     }
 
     qCDebug(MavCommandQueueLog) << "Sending" << _formatCommand(commandEntry.command, commandEntry.rgParam1)
-                                << "tryCount:param1-7" << commandEntry.tryCount << commandEntry.rgParam1 << commandEntry.rgParam2 << commandEntry.rgParam3 << commandEntry.rgParam4 << commandEntry.rgParam5 << commandEntry.rgParam6 << commandEntry.rgParam7;
+                                << "timeoutMs:tryCount:param1-7" << commandEntry.ackTimeoutMSecs
+                                << commandEntry.tryCount << commandEntry.rgParam1 << commandEntry.rgParam2
+                                << commandEntry.rgParam3 << commandEntry.rgParam4 << commandEntry.rgParam5
+                                << commandEntry.rgParam6 << commandEntry.rgParam7;
 
-    SharedLinkInterfacePtr sharedLink = _vehicle->vehicleLinkManager()->primaryLink().lock();
+    SharedLinkInterfacePtr sharedLink = commandEntry.targetLinkPinned
+                                            ? commandEntry.targetLink.lock()
+                                            : _vehicle->vehicleLinkManager()->primaryLink().lock();
     if (!sharedLink) {
         qCDebug(MavCommandQueueLog) << "_sendFromList: primary link gone!";
         return;
@@ -489,6 +755,48 @@ void MavCommandQueue::_sendFromList(int index)
     _vehicle->sendMessageOnLinkThreadSafe(sharedLink.get(), msg);
 }
 
+void MavCommandQueue::_sendNextWaitingCommand(int targetCompId, MAV_CMD command, LinkInterface* targetLink)
+{
+    for (int i = 0; i < _list.count(); ++i) {
+        MavCommandListEntry_t& entry = _list[i];
+        if (entry.targetCompId != targetCompId || entry.command != command || !entry.waitingToSend ||
+            entry.targetLink.lock().get() != targetLink) {
+            continue;
+        }
+
+        const SharedLinkInterfacePtr sharedLink = entry.targetLink.lock();
+        if (sharedLink) {
+            entry.ackTimeoutMSecs = sharedLink->linkConfiguration()->isHighLatency()
+                                        ? _ackTimeoutMSecsHighLatency
+                                        : _ackTimeoutMSecs(entry.command, sharedLink.get());
+        }
+        entry.waitingToSend = false;
+        entry.elapsedTimer.start();
+        _sendFromList(i);
+        return;
+    }
+}
+
+int MavCommandQueue::_findActiveEntryIndex(const mavlink_message_t& message, const mavlink_command_ack_t& ack,
+                                           LinkInterface* incomingLink) const
+{
+    for (int i = 0; i < _list.count(); ++i) {
+        const MavCommandListEntry_t& entry = _list[i];
+        if (entry.targetCompId != message.compid || entry.command != static_cast<MAV_CMD>(ack.command) ||
+            entry.waitingToSend) {
+            continue;
+        }
+        if (entry.targetLinkPinned && entry.targetLink.lock().get() != incomingLink) {
+            continue;
+        }
+        if (entry.ackHandlerInfo.ackMatcher && !entry.ackHandlerInfo.ackMatcher(entry.ackHandlerInfo.ackMatcherData, message, ack)) {
+            continue;
+        }
+        return i;
+    }
+    return -1;
+}
+
 void MavCommandQueue::_responseTimeoutCheck()
 {
     if (_list.isEmpty()) {
@@ -498,6 +806,9 @@ void MavCommandQueue::_responseTimeoutCheck()
     // Walk the list backwards since _sendFromList can remove entries
     for (int i = _list.count() - 1; i >= 0; i--) {
         MavCommandListEntry_t& commandEntry = _list[i];
+        if (commandEntry.waitingToSend) {
+            continue;
+        }
         if (commandEntry.elapsedTimer.elapsed() > commandEntry.ackTimeoutMSecs) {
             // Try sending command again
             _sendFromList(i);
@@ -509,7 +820,7 @@ void MavCommandQueue::showCommandAckError(const mavlink_command_ack_t& ack)
 {
     QString rawName      = MissionCommandTree::instance()->rawName(static_cast<MAV_CMD>(ack.command));
     QString friendlyName = MissionCommandTree::instance()->friendlyName(static_cast<MAV_CMD>(ack.command));
-    QString commandStr   = friendlyName.isEmpty() ? rawName : QStringLiteral("%1 (%2)").arg(friendlyName, rawName);
+    QString commandStr = friendlyName.isEmpty() ? rawName : QStringLiteral("%1 (%2)").arg(friendlyName, rawName);
 
     switch (ack.result) {
     case MAV_RESULT_TEMPORARILY_REJECTED:
@@ -530,22 +841,18 @@ void MavCommandQueue::showCommandAckError(const mavlink_command_ack_t& ack)
     }
 }
 
-bool MavCommandQueue::handleCommandAck(const mavlink_message_t& message, const mavlink_command_ack_t& ack)
+bool MavCommandQueue::handleCommandAck(const mavlink_message_t& message, const mavlink_command_ack_t& ack,
+                                       LinkInterface* incomingLink)
 {
-    int entryIndex = -1;
-    for (int i = 0; i < _list.count(); ++i) {
-        const MavCommandListEntry_t& entry = _list[i];
-        if (entry.targetCompId != message.compid || entry.command != static_cast<MAV_CMD>(ack.command)) {
-            continue;
-        }
-        if (entry.ackHandlerInfo.ackMatcher && !entry.ackHandlerInfo.ackMatcher(entry.ackHandlerInfo.ackMatcherData, message, ack)) {
-            continue;
-        }
-        entryIndex = i;
-        break;
-    }
-
+    const int entryIndex = _findActiveEntryIndex(message, ack, incomingLink);
     if (entryIndex == -1) {
+        if (ack.command == MAV_CMD_SET_MESSAGE_INTERVAL && incomingLink &&
+            _consumeSetMessageIntervalTombstone(message.compid, incomingLink)) {
+            qCDebug(MavCommandQueueLog) << "Consumed late SET_MESSAGE_INTERVAL ACK"
+                                        << "component:link" << message.compid
+                                        << incomingLink->linkConfiguration()->name();
+            return true;
+        }
         QString rawCommandName = MissionCommandTree::instance()->rawName(static_cast<MAV_CMD>(ack.command));
         qCDebug(MavCommandQueueLog) << "handleCommandAck Ack not in list" << rawCommandName;
         return false;
@@ -572,6 +879,8 @@ bool MavCommandQueue::handleCommandAck(const mavlink_message_t& message, const m
     }
 
     MavCommandListEntry_t commandEntry = _list.takeAt(entryIndex);
+    const SharedLinkInterfacePtr completedLink = commandEntry.targetLink.lock();
+    QPointer<MavCommandQueue> guard(this);
     if (commandEntry.ackHandlerInfo.resultHandler) {
         (*commandEntry.ackHandlerInfo.resultHandler)(commandEntry.ackHandlerInfo.resultHandlerData, message.compid, ack, MavCmdResultCommandResultOnly);
     } else {
@@ -579,6 +888,9 @@ bool MavCommandQueue::handleCommandAck(const mavlink_message_t& message, const m
             showCommandAckError(ack);
         }
         emit commandResult(_vehicle->id(), message.compid, ack.command, ack.result, MavCmdResultCommandResultOnly);
+    }
+    if (guard) {
+        _sendNextWaitingCommand(commandEntry.targetCompId, commandEntry.command, completedLink.get());
     }
     return true;
 }
@@ -590,7 +902,11 @@ bool MavCommandQueue::cancelCommand(MavCmdQueueEntryToken token)
     }
     for (int i = 0; i < _list.count(); ++i) {
         if (_list[i].token == token) {
-            _list.removeAt(i);
+            const MavCommandListEntry_t cancelledEntry = _list.takeAt(i);
+            if (!cancelledEntry.waitingToSend) {
+                _sendNextWaitingCommand(cancelledEntry.targetCompId, cancelledEntry.command,
+                                        cancelledEntry.targetLink.lock().get());
+            }
             return true;
         }
     }

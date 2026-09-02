@@ -1307,7 +1307,7 @@ void MockLink::_handleInProgressCommandLong(const mavlink_command_long_t &reques
 void MockLink::_handleCommandLongSetMessageInterval(const mavlink_command_long_t &request, bool &accepted)
 {
     Q_UNUSED(request);
-    accepted = false;
+    accepted = _setMessageIntervalAccepted;
 }
 
 void MockLink::_handleCommandLong(const mavlink_message_t &msg)
@@ -1422,6 +1422,9 @@ void MockLink::_handleCommandLong(const mavlink_message_t &msg)
         bool accepted = false;
 
         _handleCommandLongSetMessageInterval(request, accepted);
+        if (!_messageIntervalResponseEnabled) {
+            return;
+        }
         if (accepted) {
             commandResult = MAV_RESULT_ACCEPTED;
         }
