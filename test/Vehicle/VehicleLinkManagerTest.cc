@@ -4,6 +4,7 @@
 #include <QtTest/QSignalSpy>
 
 #include "LinkManager.h"
+#include "MavCommandQueue.h"
 #include "MultiSignalSpy.h"
 #include "MultiVehicleManager.h"
 #include "UnitTest.h"
@@ -102,6 +103,8 @@ void VehicleLinkManagerTest::_multiLinkSingleVehicleTest()
     // Depending on how the thread scheduling works, that could be the mockLink2.
     const SharedLinkInterfacePtr primaryLink = vehicleLinkManager->primaryLink().lock();
     QVERIFY(primaryLink == mockLink1 || primaryLink == mockLink2);
+    const int primaryStatusIndex = primaryLink == mockLink1 ? 0 : 1;
+    const int secondaryStatusIndex = 1 - primaryStatusIndex;
     MockLink* pMockLink1 = qobject_cast<MockLink*>(mockLink1.get());
     MockLink* pMockLink2 = qobject_cast<MockLink*>(mockLink2.get());
     if (primaryLink == mockLink2) {
@@ -128,8 +131,8 @@ void VehicleLinkManagerTest::_multiLinkSingleVehicleTest()
     QVERIFY(multiSpy.onlyEmittedOnce(_linkStatusesChangedSignalName));
     rgStatus = vehicleLinkManager->linkStatuses();
     QCOMPARE(rgStatus.count(), 2);
-    QVERIFY(rgStatus[0].isEmpty());
-    QVERIFY(!rgStatus[1].isEmpty());
+    QVERIFY(rgStatus[primaryStatusIndex].isEmpty());
+    QVERIFY(!rgStatus[secondaryStatusIndex].isEmpty());
     multiSpy.clearAllSignals();
     pMockLink2->setCommLost(false);
     QCOMPARE(multiSpy.waitForSignal(_linkStatusesChangedSignalName, VehicleLinkManager::kTestCommLostDetectionTimeoutMs),
@@ -149,8 +152,8 @@ void VehicleLinkManagerTest::_multiLinkSingleVehicleTest()
     QCOMPARE(pMockLink2, vehicleLinkManager->primaryLink().lock().get());
     rgStatus = vehicleLinkManager->linkStatuses();
     QCOMPARE(rgStatus.count(), 2);
-    QVERIFY(!rgStatus[0].isEmpty());
-    QVERIFY(rgStatus[1].isEmpty());
+    QVERIFY(!rgStatus[primaryStatusIndex].isEmpty());
+    QVERIFY(rgStatus[secondaryStatusIndex].isEmpty());
     multiSpy.clearAllSignals();
     // Comm regained on 1 should leave 2 as primary and only update status
     pMockLink1->setCommLost(false);
@@ -163,6 +166,348 @@ void VehicleLinkManagerTest::_multiLinkSingleVehicleTest()
     QVERIFY(rgStatus[0].isEmpty());
     QVERIFY(rgStatus[1].isEmpty());
     multiSpy.clearAllSignals();
+}
+
+void VehicleLinkManagerTest::_manualPrimaryLinkTuningStreamTest()
+{
+    SharedLinkConfigurationPtr mockConfig1;
+    SharedLinkInterfacePtr mockLink1;
+    SharedLinkConfigurationPtr mockConfig2;
+    SharedLinkInterfacePtr mockLink2;
+    _startMockLink(1, false /*highLatency*/, false /*incrementVehicleId*/, mockConfig1, mockLink1);
+    _startMockLink(2, false /*highLatency*/, false /*incrementVehicleId*/, mockConfig2, mockLink2);
+
+    Vehicle* const vehicle = waitForVehicleConnect(TestTimeout::shortMs());
+    QVERIFY(vehicle);
+    QVERIFY_TRUE_WAIT(vehicle->isInitialConnectComplete(), TestTimeout::longMs());
+
+    VehicleLinkManager* const vehicleLinkManager = vehicle->vehicleLinkManager();
+    QVERIFY(vehicleLinkManager);
+    const SharedLinkInterfacePtr primaryLink = vehicleLinkManager->primaryLink().lock();
+    QVERIFY(primaryLink == mockLink1 || primaryLink == mockLink2);
+    const SharedLinkInterfacePtr secondaryLink = primaryLink == mockLink1 ? mockLink2 : mockLink1;
+    auto* const primaryMockLink = qobject_cast<MockLink*>(primaryLink.get());
+    auto* const secondaryMockLink = qobject_cast<MockLink*>(secondaryLink.get());
+    QVERIFY(primaryMockLink);
+    QVERIFY(secondaryMockLink);
+    primaryMockLink->setMessageIntervalAccepted(true);
+    secondaryMockLink->setMessageIntervalAccepted(true);
+
+    primaryMockLink->clearReceivedMavCommandCounts();
+    secondaryMockLink->clearReceivedMavCommandCounts();
+    vehicle->setPIDTuningTelemetryMode(Vehicle::ModeRoverRate);
+    QTRY_VERIFY_WITH_TIMEOUT(primaryMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL) >= 1,
+                             TestTimeout::shortMs());
+
+    primaryMockLink->clearReceivedMavCommandCounts();
+    secondaryMockLink->clearReceivedMavCommandCounts();
+    vehicleLinkManager->setPrimaryLinkByName(secondaryLink->linkConfiguration()->name());
+
+    QTRY_VERIFY_WITH_TIMEOUT(primaryMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL) >= 1,
+                             TestTimeout::shortMs());
+    QTRY_VERIFY_WITH_TIMEOUT(secondaryMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL) >= 1,
+                             TestTimeout::shortMs());
+    QVERIFY(vehicleLinkManager->primaryLink().lock() == secondaryLink);
+
+    vehicle->setPIDTuningTelemetryMode(Vehicle::ModeDisabled);
+}
+
+void VehicleLinkManagerTest::_pendingTuningAckRestoresOriginalPrimaryLinkTest()
+{
+    SharedLinkConfigurationPtr mockConfig1;
+    SharedLinkInterfacePtr mockLink1;
+    SharedLinkConfigurationPtr mockConfig2;
+    SharedLinkInterfacePtr mockLink2;
+    _startMockLink(1, false /*highLatency*/, false /*incrementVehicleId*/, mockConfig1, mockLink1);
+    _startMockLink(2, false /*highLatency*/, false /*incrementVehicleId*/, mockConfig2, mockLink2);
+
+    Vehicle* const vehicle = waitForVehicleConnect(TestTimeout::shortMs());
+    QVERIFY(vehicle);
+    QVERIFY_TRUE_WAIT(vehicle->isInitialConnectComplete(), TestTimeout::longMs());
+
+    VehicleLinkManager* const vehicleLinkManager = vehicle->vehicleLinkManager();
+    const SharedLinkInterfacePtr originalPrimary = vehicleLinkManager->primaryLink().lock();
+    const SharedLinkInterfacePtr newPrimary = originalPrimary == mockLink1 ? mockLink2 : mockLink1;
+    auto* const originalMockLink = qobject_cast<MockLink*>(originalPrimary.get());
+    auto* const newMockLink = qobject_cast<MockLink*>(newPrimary.get());
+    QVERIFY(originalMockLink);
+    QVERIFY(newMockLink);
+    originalMockLink->setMessageIntervalAccepted(true);
+    originalMockLink->setMessageIntervalResponseEnabled(false);
+    newMockLink->setMessageIntervalAccepted(true);
+    originalMockLink->clearReceivedMavCommandCounts();
+    newMockLink->clearReceivedMavCommandCounts();
+
+    vehicle->setPIDTuningTelemetryMode(Vehicle::ModeRoverRate);
+    QTRY_COMPARE_WITH_TIMEOUT(originalMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 1,
+                              TestTimeout::shortMs());
+    vehicleLinkManager->setPrimaryLinkByName(newPrimary->linkConfiguration()->name());
+    newMockLink->sendUnexpectedCommandAck(MAV_CMD_SET_MESSAGE_INTERVAL, MAV_RESULT_ACCEPTED);
+    QTest::qWait(100);
+    QCOMPARE(originalMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 1);
+    QCOMPARE(newMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 0);
+
+    originalMockLink->setMessageIntervalResponseEnabled(true);
+    originalMockLink->sendUnexpectedCommandAck(MAV_CMD_SET_MESSAGE_INTERVAL, MAV_RESULT_ACCEPTED);
+    QTRY_COMPARE_WITH_TIMEOUT(originalMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 2,
+                              TestTimeout::shortMs());
+    QTRY_COMPARE_WITH_TIMEOUT(newMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 1,
+                              TestTimeout::shortMs());
+
+    vehicle->setPIDTuningTelemetryMode(Vehicle::ModeDisabled);
+}
+
+void VehicleLinkManagerTest::_failedOldLinkRestoreDoesNotBlockNewPrimaryTest()
+{
+    SharedLinkConfigurationPtr mockConfig1;
+    SharedLinkInterfacePtr mockLink1;
+    SharedLinkConfigurationPtr mockConfig2;
+    SharedLinkInterfacePtr mockLink2;
+    _startMockLink(1, false /*highLatency*/, false /*incrementVehicleId*/, mockConfig1, mockLink1);
+    _startMockLink(2, false /*highLatency*/, false /*incrementVehicleId*/, mockConfig2, mockLink2);
+
+    Vehicle* const vehicle = waitForVehicleConnect(TestTimeout::shortMs());
+    QVERIFY(vehicle);
+    QVERIFY_TRUE_WAIT(vehicle->isInitialConnectComplete(), TestTimeout::longMs());
+
+    VehicleLinkManager* const vehicleLinkManager = vehicle->vehicleLinkManager();
+    const SharedLinkInterfacePtr originalPrimary = vehicleLinkManager->primaryLink().lock();
+    const SharedLinkInterfacePtr newPrimary = originalPrimary == mockLink1 ? mockLink2 : mockLink1;
+    auto* const originalMockLink = qobject_cast<MockLink*>(originalPrimary.get());
+    auto* const newMockLink = qobject_cast<MockLink*>(newPrimary.get());
+    QVERIFY(originalMockLink);
+    QVERIFY(newMockLink);
+    originalMockLink->setMessageIntervalAccepted(true);
+    newMockLink->setMessageIntervalAccepted(true);
+
+    vehicle->setPIDTuningTelemetryMode(Vehicle::ModeRoverRate);
+    QTRY_VERIFY_WITH_TIMEOUT(originalMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL) >= 1,
+                             TestTimeout::shortMs());
+    QTest::qWait(100);
+    originalMockLink->clearReceivedMavCommandCounts();
+    newMockLink->clearReceivedMavCommandCounts();
+    originalMockLink->setMessageIntervalResponseEnabled(false);
+
+    vehicleLinkManager->setPrimaryLinkByName(newPrimary->linkConfiguration()->name());
+    QTRY_COMPARE_WITH_TIMEOUT(originalMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 1,
+                              TestTimeout::shortMs());
+    QTRY_COMPARE_WITH_TIMEOUT(newMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 1,
+                              TestTimeout::longMs());
+    QTRY_VERIFY_WITH_TIMEOUT(!vehicle->roverTuningTelemetryError().isEmpty(), MavCommandQueue::kTestMaxWaitMs);
+
+    originalMockLink->setMessageIntervalResponseEnabled(true);
+    originalMockLink->sendUnexpectedCommandAck(MAV_CMD_SET_MESSAGE_INTERVAL, MAV_RESULT_ACCEPTED);
+    QTest::qWait(100);
+    vehicle->setPIDTuningTelemetryMode(Vehicle::ModeDisabled);
+    QTRY_COMPARE_WITH_TIMEOUT(newMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 2,
+                              TestTimeout::shortMs());
+
+    originalMockLink->clearReceivedMavCommandCounts();
+    vehicleLinkManager->setPrimaryLinkByName(originalPrimary->linkConfiguration()->name());
+    QTRY_COMPARE_WITH_TIMEOUT(originalMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 1,
+                              TestTimeout::shortMs());
+    QTRY_VERIFY_WITH_TIMEOUT(vehicle->roverTuningTelemetryError().isEmpty(), TestTimeout::shortMs());
+}
+
+void VehicleLinkManagerTest::_setMessageIntervalQueueIsolationTest()
+{
+    SharedLinkConfigurationPtr mockConfig1;
+    SharedLinkInterfacePtr mockLink1;
+    SharedLinkConfigurationPtr mockConfig2;
+    SharedLinkInterfacePtr mockLink2;
+    _startMockLink(1, false /*highLatency*/, false /*incrementVehicleId*/, mockConfig1, mockLink1);
+    _startMockLink(2, false /*highLatency*/, false /*incrementVehicleId*/, mockConfig2, mockLink2);
+
+    Vehicle* const vehicle = waitForVehicleConnect(TestTimeout::shortMs());
+    QVERIFY(vehicle);
+    QVERIFY_TRUE_WAIT(vehicle->isInitialConnectComplete(), TestTimeout::longMs());
+    auto* const commandQueue = vehicle->findChild<MavCommandQueue*>();
+    auto* const firstMockLink = qobject_cast<MockLink*>(mockLink1.get());
+    auto* const secondMockLink = qobject_cast<MockLink*>(mockLink2.get());
+    QVERIFY(commandQueue);
+    QVERIFY(firstMockLink);
+    QVERIFY(secondMockLink);
+
+    const int componentId = vehicle->defaultComponentId();
+    QTRY_VERIFY_WITH_TIMEOUT(!commandQueue->isPending(componentId, MAV_CMD_SET_MESSAGE_INTERVAL),
+                             TestTimeout::longMs());
+    firstMockLink->setMessageIntervalAccepted(true);
+    firstMockLink->setMessageIntervalResponseEnabled(false);
+    secondMockLink->setMessageIntervalAccepted(true);
+    secondMockLink->setMessageIntervalResponseEnabled(false);
+    firstMockLink->clearReceivedMavCommandCounts();
+    secondMockLink->clearReceivedMavCommandCounts();
+
+    commandQueue->sendCommandWithHandlerOnLink(nullptr, mockLink1, componentId, MAV_CMD_SET_MESSAGE_INTERVAL,
+                                               MAVLINK_MSG_ID_ATTITUDE, 20000);
+    commandQueue->sendCommandWithHandlerOnLink(nullptr, mockLink2, componentId, MAV_CMD_SET_MESSAGE_INTERVAL,
+                                               MAVLINK_MSG_ID_LOCAL_POSITION_NED, 20000);
+    QTRY_COMPARE_WITH_TIMEOUT(firstMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 1,
+                              TestTimeout::shortMs());
+    QTRY_COMPARE_WITH_TIMEOUT(secondMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 1,
+                              TestTimeout::shortMs());
+
+    commandQueue->sendCommandWithHandlerOnLink(nullptr, mockLink1, componentId,
+                                               MockLink::MAV_CMD_MOCKLINK_ALWAYS_RESULT_ACCEPTED);
+    QTRY_COMPARE_WITH_TIMEOUT(firstMockLink->receivedMavCommandCount(MockLink::MAV_CMD_MOCKLINK_ALWAYS_RESULT_ACCEPTED),
+                              1, TestTimeout::shortMs());
+    QTRY_VERIFY_WITH_TIMEOUT(!commandQueue->isPending(componentId, MockLink::MAV_CMD_MOCKLINK_ALWAYS_RESULT_ACCEPTED),
+                             TestTimeout::shortMs());
+
+    firstMockLink->sendUnexpectedCommandAck(MAV_CMD_SET_MESSAGE_INTERVAL, MAV_RESULT_ACCEPTED);
+    secondMockLink->sendUnexpectedCommandAck(MAV_CMD_SET_MESSAGE_INTERVAL, MAV_RESULT_ACCEPTED);
+    QTRY_VERIFY_WITH_TIMEOUT(!commandQueue->isPending(componentId, MAV_CMD_SET_MESSAGE_INTERVAL),
+                             TestTimeout::shortMs());
+}
+
+void VehicleLinkManagerTest::_setMessageIntervalLateAckQuarantineTest()
+{
+    SharedLinkConfigurationPtr mockConfig;
+    SharedLinkInterfacePtr mockLink;
+    _startMockLink(1, false /*highLatency*/, false /*incrementVehicleId*/, mockConfig, mockLink);
+
+    Vehicle* const vehicle = waitForVehicleConnect(TestTimeout::shortMs());
+    QVERIFY(vehicle);
+    QVERIFY_TRUE_WAIT(vehicle->isInitialConnectComplete(), TestTimeout::longMs());
+    auto* const commandQueue = vehicle->findChild<MavCommandQueue*>();
+    auto* const mockLinkRaw = qobject_cast<MockLink*>(mockLink.get());
+    QVERIFY(commandQueue);
+    QVERIFY(mockLinkRaw);
+
+    const int componentId = vehicle->defaultComponentId();
+    QTRY_VERIFY_WITH_TIMEOUT(!commandQueue->isPending(componentId, MAV_CMD_SET_MESSAGE_INTERVAL),
+                             TestTimeout::longMs());
+    mockLinkRaw->setMessageIntervalAccepted(true);
+    mockLinkRaw->setMessageIntervalResponseEnabled(false);
+    mockLinkRaw->clearReceivedMavCommandCounts();
+    QSignalSpy resultSpy(commandQueue, &MavCommandQueue::commandResult);
+    QVERIFY(resultSpy.isValid());
+    const auto intervalResultCount = [&resultSpy]() {
+        int count = 0;
+        for (const QList<QVariant>& arguments : resultSpy) {
+            if (arguments[2].toInt() == static_cast<int>(MAV_CMD_SET_MESSAGE_INTERVAL)) {
+                ++count;
+            }
+        }
+        return count;
+    };
+
+    commandQueue->sendCommandWithHandlerOnLink(nullptr, mockLink, componentId, MAV_CMD_SET_MESSAGE_INTERVAL,
+                                               MAVLINK_MSG_ID_ATTITUDE, 20000);
+    commandQueue->sendCommandWithHandlerOnLink(nullptr, mockLink, componentId, MAV_CMD_SET_MESSAGE_INTERVAL,
+                                               MAVLINK_MSG_ID_LOCAL_POSITION_NED, 20000);
+    QTRY_COMPARE_WITH_TIMEOUT(mockLinkRaw->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 1,
+                              TestTimeout::shortMs());
+    QTRY_COMPARE_WITH_TIMEOUT(intervalResultCount(), 2, MavCommandQueue::kTestMaxWaitMs);
+    QCOMPARE(mockLinkRaw->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 1);
+    for (const QList<QVariant>& arguments : resultSpy) {
+        if (arguments[2].toInt() == static_cast<int>(MAV_CMD_SET_MESSAGE_INTERVAL)) {
+            QCOMPARE(arguments[4].toInt(), static_cast<int>(Vehicle::MavCmdResultFailureNoResponseToCommand));
+        }
+    }
+
+    commandQueue->sendCommandWithHandlerOnLink(nullptr, mockLink, componentId, MAV_CMD_SET_MESSAGE_INTERVAL,
+                                               MAVLINK_MSG_ID_VFR_HUD, 20000);
+    QCOMPARE(intervalResultCount(), 3);
+    QCOMPARE(mockLinkRaw->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 1);
+
+    mockLinkRaw->sendUnexpectedCommandAck(MAV_CMD_SET_MESSAGE_INTERVAL, MAV_RESULT_ACCEPTED);
+    QTest::qWait(100);
+    QCOMPARE(intervalResultCount(), 3);
+    QCOMPARE(mockLinkRaw->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 1);
+
+    commandQueue->sendCommandWithHandlerOnLink(nullptr, mockLink, componentId, MAV_CMD_SET_MESSAGE_INTERVAL,
+                                               MAVLINK_MSG_ID_VFR_HUD, 20000);
+    QTRY_COMPARE_WITH_TIMEOUT(mockLinkRaw->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 2,
+                              TestTimeout::shortMs());
+    mockLinkRaw->sendUnexpectedCommandAck(MAV_CMD_SET_MESSAGE_INTERVAL, MAV_RESULT_ACCEPTED);
+    QTRY_COMPARE_WITH_TIMEOUT(intervalResultCount(), 4, TestTimeout::shortMs());
+    QTRY_VERIFY_WITH_TIMEOUT(!commandQueue->isPending(componentId, MAV_CMD_SET_MESSAGE_INTERVAL),
+                             TestTimeout::shortMs());
+
+    // A truly lost ACK must not quarantine all future interval requests for the
+    // lifetime of the connection. Reuse stays fail-closed for one ACK window,
+    // then becomes available again without unplugging the link.
+    mockLinkRaw->setMessageIntervalResponseEnabled(false);
+    commandQueue->sendCommandWithHandlerOnLink(nullptr, mockLink, componentId, MAV_CMD_SET_MESSAGE_INTERVAL,
+                                               MAVLINK_MSG_ID_ATTITUDE, 20000);
+    QTRY_COMPARE_WITH_TIMEOUT(intervalResultCount(), 5, MavCommandQueue::kTestMaxWaitMs);
+    const int sendsAfterSecondTimeout = mockLinkRaw->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL);
+
+    commandQueue->sendCommandWithHandlerOnLink(nullptr, mockLink, componentId, MAV_CMD_SET_MESSAGE_INTERVAL,
+                                               MAVLINK_MSG_ID_VFR_HUD, 20000);
+    QCOMPARE(intervalResultCount(), 6);
+    QCOMPARE(mockLinkRaw->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), sendsAfterSecondTimeout);
+
+    QTest::qWait(MavCommandQueue::kTestAckTimeoutMs + 100);
+    commandQueue->sendCommandWithHandlerOnLink(nullptr, mockLink, componentId, MAV_CMD_SET_MESSAGE_INTERVAL,
+                                               MAVLINK_MSG_ID_VFR_HUD, 20000);
+    QTRY_COMPARE_WITH_TIMEOUT(mockLinkRaw->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL),
+                              sendsAfterSecondTimeout + 1, TestTimeout::shortMs());
+    mockLinkRaw->sendUnexpectedCommandAck(MAV_CMD_SET_MESSAGE_INTERVAL, MAV_RESULT_ACCEPTED);
+    QTRY_COMPARE_WITH_TIMEOUT(intervalResultCount(), 7, TestTimeout::shortMs());
+    QTRY_VERIFY_WITH_TIMEOUT(!commandQueue->isPending(componentId, MAV_CMD_SET_MESSAGE_INTERVAL),
+                             TestTimeout::shortMs());
+}
+
+void VehicleLinkManagerTest::_pendingSetMessageIntervalDisconnectFailsOverTest()
+{
+    SharedLinkConfigurationPtr mockConfig1;
+    SharedLinkInterfacePtr mockLink1;
+    SharedLinkConfigurationPtr mockConfig2;
+    SharedLinkInterfacePtr mockLink2;
+    _startMockLink(1, false /*highLatency*/, false /*incrementVehicleId*/, mockConfig1, mockLink1);
+    _startMockLink(2, false /*highLatency*/, false /*incrementVehicleId*/, mockConfig2, mockLink2);
+
+    Vehicle* const vehicle = waitForVehicleConnect(TestTimeout::shortMs());
+    QVERIFY(vehicle);
+    QVERIFY_TRUE_WAIT(vehicle->isInitialConnectComplete(), TestTimeout::longMs());
+    VehicleLinkManager* const vehicleLinkManager = vehicle->vehicleLinkManager();
+    auto* const commandQueue = vehicle->findChild<MavCommandQueue*>();
+    const SharedLinkInterfacePtr originalPrimary = vehicleLinkManager->primaryLink().lock();
+    const SharedLinkInterfacePtr backupLink = originalPrimary == mockLink1 ? mockLink2 : mockLink1;
+    auto* const originalMockLink = qobject_cast<MockLink*>(originalPrimary.get());
+    auto* const backupMockLink = qobject_cast<MockLink*>(backupLink.get());
+    QVERIFY(commandQueue);
+    QVERIFY(originalMockLink);
+    QVERIFY(backupMockLink);
+
+    const int componentId = vehicle->defaultComponentId();
+    QTRY_VERIFY_WITH_TIMEOUT(!commandQueue->isPending(componentId, MAV_CMD_SET_MESSAGE_INTERVAL),
+                             TestTimeout::longMs());
+    originalMockLink->setMessageIntervalAccepted(true);
+    originalMockLink->setMessageIntervalResponseEnabled(false);
+    backupMockLink->setMessageIntervalAccepted(true);
+    originalMockLink->clearReceivedMavCommandCounts();
+    backupMockLink->clearReceivedMavCommandCounts();
+
+    QSignalSpy resultSpy(commandQueue, &MavCommandQueue::commandResult);
+    QVERIFY(resultSpy.isValid());
+    vehicle->setPIDTuningTelemetryMode(Vehicle::ModeRoverRate);
+    QTRY_COMPARE_WITH_TIMEOUT(originalMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 1,
+                              TestTimeout::shortMs());
+    commandQueue->sendCommandWithHandlerOnLink(nullptr, originalPrimary, componentId, MAV_CMD_SET_MESSAGE_INTERVAL,
+                                               MAVLINK_MSG_ID_HIGHRES_IMU, 50000);
+    QCOMPARE(originalMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 1);
+
+    originalMockLink->disconnect();
+
+    int intervalFailureCount = 0;
+    for (const QList<QVariant>& arguments : resultSpy) {
+        if (arguments[2].toInt() == static_cast<int>(MAV_CMD_SET_MESSAGE_INTERVAL)) {
+            ++intervalFailureCount;
+            QCOMPARE(arguments[4].toInt(), static_cast<int>(Vehicle::MavCmdResultFailureNoResponseToCommand));
+        }
+    }
+    QCOMPARE(intervalFailureCount, 1);
+    QTRY_VERIFY_WITH_TIMEOUT(vehicleLinkManager->primaryLink().lock() == backupLink, TestTimeout::shortMs());
+    QTRY_VERIFY_WITH_TIMEOUT(backupMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL) >= 1,
+                             TestTimeout::shortMs());
+    QCOMPARE(originalMockLink->receivedMavCommandCount(MAV_CMD_SET_MESSAGE_INTERVAL), 1);
+
+    vehicle->setPIDTuningTelemetryMode(Vehicle::ModeDisabled);
+    QTRY_VERIFY_WITH_TIMEOUT(!commandQueue->isPending(componentId, MAV_CMD_SET_MESSAGE_INTERVAL),
+                             TestTimeout::shortMs());
 }
 
 void VehicleLinkManagerTest::_connectionRemovedTest()

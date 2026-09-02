@@ -71,6 +71,7 @@ void QGCMAVLinkTest::_testVehicleClassClassification()
 
 void QGCMAVLinkTest::_testQuadRoverClassification()
 {
+    QCOMPARE(static_cast<int>(MAV_TYPE_QUAD_ROVER), 200);
     QCOMPARE(QGCMAVLink::vehicleClass(MAV_TYPE_QUAD_ROVER), QGCMAVLink::VehicleClassQuadRover);
     QVERIFY(QGCMAVLink::isQuadRover(MAV_TYPE_QUAD_ROVER));
     QVERIFY(!QGCMAVLink::isMultiRotor(MAV_TYPE_QUAD_ROVER));

@@ -5,11 +5,26 @@
 
 #include <QtCore/QPair>
 #include <QtCore/QList>
+#include <array>
 
 namespace {
 
 // 100 Hz in microseconds — must match the static constexpr in MAVLinkStreamConfig.cc
 constexpr int kHighRate = static_cast<int>(1000000.0 / 100.0);
+
+struct RoverStreamExpectation
+{
+    void (MAVLinkStreamConfig::*configure)();
+    int messageId;
+    int intervalUs;
+};
+
+constexpr std::array<RoverStreamExpectation, 4> kRoverStreams{{
+    {&MAVLinkStreamConfig::setRoverRateTuning, MAVLINK_MSG_ID_ROVER_RATE_TUNING_STATUS, 20000},
+    {&MAVLinkStreamConfig::setRoverAttitudeTuning, MAVLINK_MSG_ID_ROVER_ATTITUDE_TUNING_STATUS, 33333},
+    {&MAVLinkStreamConfig::setRoverVelocityTuning, MAVLINK_MSG_ID_ROVER_VELOCITY_TUNING_STATUS, 40000},
+    {&MAVLinkStreamConfig::setRoverPositionTuning, MAVLINK_MSG_ID_ROVER_POSITION_TUNING_STATUS, 100000},
+}};
 
 } // namespace
 
@@ -130,6 +145,30 @@ void MAVLinkStreamConfigTest::_testRestoreDefaultsAfterConfigure()
     // Both restored; further ack is a no-op.
     config.gotSetMessageIntervalAck();
     QCOMPARE(calls.size(), 2);
+
+    // Each Rover page configures one stream and restores that same stream through
+    // the normal ACK-driven path.
+    for (const RoverStreamExpectation& stream : kRoverStreams) {
+        QList<QPair<int, int>> roverCalls;
+        MAVLinkStreamConfig roverConfig([&roverCalls](int id, int rate) { roverCalls.append({id, rate}); });
+
+        (roverConfig.*stream.configure)();
+        QCOMPARE(roverCalls.size(), 1);
+        QCOMPARE(roverCalls[0].first, stream.messageId);
+        QCOMPARE(roverCalls[0].second, stream.intervalUs);
+
+        roverConfig.gotSetMessageIntervalAck();
+        QCOMPARE(roverCalls.size(), 1);
+
+        roverConfig.restoreDefaults();
+        QCOMPARE(roverCalls.size(), 2);
+        QCOMPARE(roverCalls[1].first, stream.messageId);
+        QCOMPARE(roverCalls[1].second, 0);
+
+        roverConfig.gotSetMessageIntervalAck();
+        roverConfig.gotSetMessageIntervalAck();
+        QCOMPARE(roverCalls.size(), 2);
+    }
 }
 
 // restoreDefaults() from Idle (no previously configured messages) is a no-op.
@@ -143,6 +182,49 @@ void MAVLinkStreamConfigTest::_testRestoreDefaultsFromIdle()
 
     config.gotSetMessageIntervalAck();
     QVERIFY(calls.isEmpty());
+
+    config.abortAndRestoreDefaults();
+    QVERIFY(calls.isEmpty());
+
+    // Abort restores every stream which was already requested, one ACK at a time.
+    config.setHighRateRateAndAttitude();
+    config.gotSetMessageIntervalAck();
+    config.gotSetMessageIntervalAck();
+    QCOMPARE(calls.size(), 2);
+
+    calls.clear();
+    config.abortAndRestoreDefaults();
+    QCOMPARE(calls.size(), 1);
+    QCOMPARE(calls[0].first, MAVLINK_MSG_ID_ATTITUDE_QUATERNION);
+    QCOMPARE(calls[0].second, 0);
+
+    config.gotSetMessageIntervalAck();
+    QCOMPARE(calls.size(), 2);
+    QCOMPARE(calls[1].first, MAVLINK_MSG_ID_ATTITUDE_TARGET);
+    QCOMPARE(calls[1].second, 0);
+    config.gotSetMessageIntervalAck();
+    QCOMPARE(calls.size(), 2);
+}
+
+void MAVLinkStreamConfigTest::_testRestoreFailureRetainsDebt()
+{
+    QList<QPair<int,int>> calls;
+    MAVLinkStreamConfig config([&calls](int id, int rate){ calls.append({id, rate}); });
+
+    config.setRoverRateTuning();
+    config.gotSetMessageIntervalAck();
+    config.restoreDefaults();
+    QCOMPARE(calls.size(), 2);
+    QCOMPARE(calls.last(), qMakePair(MAVLINK_MSG_ID_ROVER_RATE_TUNING_STATUS, 0));
+
+    config.gotSetMessageIntervalFailure();
+    config.restoreDefaults();
+    QCOMPARE(calls.size(), 3);
+    QCOMPARE(calls.last(), qMakePair(MAVLINK_MSG_ID_ROVER_RATE_TUNING_STATUS, 0));
+
+    config.gotSetMessageIntervalAck();
+    config.restoreDefaults();
+    QCOMPARE(calls.size(), 3);
 }
 
 // Calling setHighRateVelAndPos() while setHighRateRateAndAttitude() is mid-flight
@@ -190,6 +272,95 @@ void MAVLinkStreamConfigTest::_testInterruptConfigureWithNewRequest()
     // Ack → Idle, no more calls.
     config.gotSetMessageIntervalAck();
     QCOMPARE(calls.size(), 4);
+
+    // Switching Rover pages first restores the old single stream, then starts
+    // the newly requested stream after the restore ACK.
+    QList<QPair<int, int>> roverCalls;
+    MAVLinkStreamConfig roverConfig([&roverCalls](int id, int rate) { roverCalls.append({id, rate}); });
+
+    roverConfig.setRoverRateTuning();
+    roverConfig.setRoverAttitudeTuning();
+    QCOMPARE(roverCalls.size(), 1);
+    QCOMPARE(roverCalls[0], qMakePair(MAVLINK_MSG_ID_ROVER_RATE_TUNING_STATUS, 20000));
+
+    roverConfig.gotSetMessageIntervalAck();
+    QCOMPARE(roverCalls.size(), 2);
+    QCOMPARE(roverCalls[1], qMakePair(MAVLINK_MSG_ID_ROVER_RATE_TUNING_STATUS, 0));
+
+    roverConfig.gotSetMessageIntervalAck();
+    QCOMPARE(roverCalls.size(), 3);
+    QCOMPARE(roverCalls[2], qMakePair(MAVLINK_MSG_ID_ROVER_ATTITUDE_TUNING_STATUS, 33333));
+
+    roverConfig.gotSetMessageIntervalAck();
+    QCOMPARE(roverCalls.size(), 3);
+
+    // Abort discards the pending page, restores the stream already requested,
+    // and ignores ACKs from the abandoned operation.
+    QList<QPair<int, int>> abortCalls;
+    MAVLinkStreamConfig abortConfig([&abortCalls](int id, int rate) { abortCalls.append({id, rate}); });
+
+    abortConfig.setRoverRateTuning();
+    abortConfig.setRoverAttitudeTuning();
+    abortConfig.abortAndRestoreDefaults();
+    QCOMPARE(abortCalls.size(), 2);
+    QCOMPARE(abortCalls[0], qMakePair(MAVLINK_MSG_ID_ROVER_RATE_TUNING_STATUS, 20000));
+    QCOMPARE(abortCalls[1], qMakePair(MAVLINK_MSG_ID_ROVER_RATE_TUNING_STATUS, 0));
+
+    abortConfig.gotSetMessageIntervalAck();
+    abortConfig.gotSetMessageIntervalAck();
+    QCOMPARE(abortCalls.size(), 2);
+
+    // A fresh configuration starts immediately after abort. Aborting it after
+    // its ACK restores it once and still leaves the state reusable.
+    abortConfig.setRoverVelocityTuning();
+    QCOMPARE(abortCalls.size(), 3);
+    QCOMPARE(abortCalls[2], qMakePair(MAVLINK_MSG_ID_ROVER_VELOCITY_TUNING_STATUS, 40000));
+    abortConfig.gotSetMessageIntervalAck();
+    abortConfig.abortAndRestoreDefaults();
+    QCOMPARE(abortCalls.size(), 4);
+    QCOMPARE(abortCalls[3], qMakePair(MAVLINK_MSG_ID_ROVER_VELOCITY_TUNING_STATUS, 0));
+    abortConfig.gotSetMessageIntervalAck();
+    QCOMPARE(abortCalls.size(), 4);
+
+    abortConfig.setRoverPositionTuning();
+    QCOMPARE(abortCalls.size(), 5);
+    QCOMPARE(abortCalls[4], qMakePair(MAVLINK_MSG_ID_ROVER_POSITION_TUNING_STATUS, 100000));
+}
+
+void MAVLinkStreamConfigTest::_testSynchronousCallbackReentrancy()
+{
+    QList<QPair<int, int>> calls;
+    MAVLinkStreamConfig* configPtr = nullptr;
+    bool failSynchronously = true;
+    MAVLinkStreamConfig config([&](int id, int rate) {
+        calls.append({id, rate});
+        if (failSynchronously) {
+            configPtr->gotSetMessageIntervalFailure();
+        } else {
+            configPtr->gotSetMessageIntervalAck();
+        }
+    });
+    configPtr = &config;
+
+    // A queue-level rejection can invoke the result handler before the configure
+    // callback returns. The failed configure immediately attempts one restore,
+    // which also fails synchronously, without invalidating nextDesiredRate state.
+    config.setRoverRateTuning();
+    QCOMPARE(calls.size(), 2);
+    QCOMPARE(calls[0], qMakePair(MAVLINK_MSG_ID_ROVER_RATE_TUNING_STATUS, 20000));
+    QCOMPARE(calls[1], qMakePair(MAVLINK_MSG_ID_ROVER_RATE_TUNING_STATUS, 0));
+    QVERIFY(config.hasChangedStreams());
+
+    failSynchronously = false;
+    config.restoreDefaults();
+    QCOMPARE(calls.size(), 3);
+    QCOMPARE(calls[2], qMakePair(MAVLINK_MSG_ID_ROVER_RATE_TUNING_STATUS, 0));
+    QVERIFY(!config.hasChangedStreams());
+
+    config.setRoverAttitudeTuning();
+    QCOMPARE(calls.size(), 4);
+    QCOMPARE(calls[3], qMakePair(MAVLINK_MSG_ID_ROVER_ATTITUDE_TUNING_STATUS, 33333));
+    QVERIFY(config.hasChangedStreams());
 }
 
 UT_REGISTER_TEST(MAVLinkStreamConfigTest, TestLabel::Unit)

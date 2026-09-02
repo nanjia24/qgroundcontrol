@@ -6,6 +6,7 @@
 #include "MAVLinkLib.h"
 #include "MultiVehicleManager.h"
 #include "ParameterManager.h"
+#include "RoverTuningFactGroup.h"
 #include "Vehicle.h"
 #include "VehicleSupports.h"
 
@@ -40,6 +41,19 @@ void injectSystemTime(MockLink* mockLink, Vehicle* vehicle, uint32_t timeBootMs)
     mavlink_message_t message{};
     mavlink_msg_system_time_encode_chan(vehicle->id(), MAV_COMP_ID_AUTOPILOT1, mockLink->mavlinkChannel(), &message,
                                         &time);
+    mockLink->respondWithMavlinkMessage(message);
+}
+
+void injectRoverRateStatus(MockLink* mockLink, Vehicle* vehicle, uint64_t timestamp)
+{
+    constexpr uint16_t flags = static_cast<uint16_t>(
+        ROVER_TUNING_STATUS_FLAGS_CONTROLLER_ACTIVE | ROVER_TUNING_STATUS_FLAGS_RESPONSE_PRIMARY_VALID |
+        ROVER_TUNING_STATUS_FLAGS_SETPOINT_PRIMARY_VALID | ROVER_TUNING_STATUS_FLAGS_INTEGRAL_PRIMARY_VALID |
+        ROVER_TUNING_STATUS_FLAGS_OUTPUT_PRIMARY_VALID);
+    mavlink_message_t message{};
+    mavlink_msg_rover_rate_tuning_status_pack_chan(vehicle->id(), MAV_COMP_ID_AUTOPILOT1, mockLink->mavlinkChannel(),
+                                                   &message, timestamp, 1.F, 0.5F, 0.25F, 0.75F, flags,
+                                                   ROVER_DRIVE_TYPE_DIFFERENTIAL);
     mockLink->respondWithMavlinkMessage(message);
 }
 
@@ -110,6 +124,8 @@ void HybridVehicleIngressTest::_systemTimeRebootResetsVehicleState()
     _connectQuadRoverMockLink();
 
     injectStatus(mockLink(), vehicle()->id(), MAV_COMP_ID_AUTOPILOT1, makeStatus(HybridVehicleState::Rover, 900000));
+    injectRoverRateStatus(mockLink(), vehicle(), 900000);
+    QTRY_VERIFY(vehicle()->roverTuningFactGroup()->rateAvailable());
     injectSystemTime(mockLink(), vehicle(), 5000);
     injectStatus(mockLink(), vehicle()->id(), MAV_COMP_ID_AUTOPILOT1, makeStatus(HybridVehicleState::Quad, 100));
     injectSystemTime(mockLink(), vehicle(), 20);
@@ -121,9 +137,14 @@ void HybridVehicleIngressTest::_systemTimeRebootResetsVehicleState()
 
     QTRY_COMPARE(vehicle()->hybridVehicleState()->currentState(), HybridVehicleState::Unknown);
     QVERIFY(vehicle()->hybridVehicleState()->stale());
+    QVERIFY(!vehicle()->roverTuningFactGroup()->rateAvailable());
+    QCOMPARE(vehicle()->roverTuningFactGroup()->rateTimestamp()->rawValue().toULongLong(), 0ULL);
 
     injectStatus(mockLink(), vehicle()->id(), MAV_COMP_ID_AUTOPILOT1, makeStatus(HybridVehicleState::Quad, 102));
     QTRY_COMPARE(vehicle()->hybridVehicleState()->currentState(), HybridVehicleState::Quad);
+    injectRoverRateStatus(mockLink(), vehicle(), 100);
+    QTRY_VERIFY(vehicle()->roverTuningFactGroup()->rateAvailable());
+    QCOMPARE(vehicle()->roverTuningFactGroup()->rateTimestamp()->rawValue().toULongLong(), 100ULL);
 }
 
 void HybridVehicleIngressTest::_manualControlProfileSurvivesStatusLoss()

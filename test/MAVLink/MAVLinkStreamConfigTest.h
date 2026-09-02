@@ -14,4 +14,6 @@ private slots:
     void _testRestoreDefaultsAfterConfigure();
     void _testRestoreDefaultsFromIdle();
     void _testInterruptConfigureWithNewRequest();
+    void _testRestoreFailureRetainsDebt();
+    void _testSynchronousCallbackReentrancy();
 };

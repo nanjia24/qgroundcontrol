@@ -148,6 +148,7 @@ add_qgc_test(ParameterManagerTest LABELS Integration Vehicle SERIAL TIMEOUT ${QG
 # ----------------------------------------------------------------------------
 add_subdirectory(AutoPilotPlugins)
 add_qgc_test(PX4AirframeLoaderTest LABELS Unit)
+add_qgc_test(PX4TuningComponentTest LABELS Unit)
 
 # ----------------------------------------------------------------------------
 # FollowMe
@@ -409,6 +410,8 @@ add_qgc_test(InitialConnectPeripheralStartupTest LABELS Integration Vehicle RESO
 add_qgc_test(MAVLinkLogManagerTest LABELS Integration Vehicle RESOURCE_LOCK MockLink)
 add_qgc_test(RequestMessageTest LABELS Integration Vehicle RESOURCE_LOCK MockLink TIMEOUT ${QGC_TEST_TIMEOUT_EXTENDED})
 add_qgc_test(RequestMetaDataTypeStateMachineTest LABELS Integration Vehicle RESOURCE_LOCK MockLink)
+add_qgc_test(RoverTuningFactGroupTest LABELS Unit Vehicle)
 add_qgc_test(SendMavCommandWithHandlerTest LABELS Integration Vehicle RESOURCE_LOCK MockLink)
 add_qgc_test(SendMavCommandWithSignallingTest LABELS Integration Vehicle RESOURCE_LOCK MockLink)
 add_qgc_test(VehicleLinkManagerTest LABELS Integration Vehicle RESOURCE_LOCK MockLink)
+add_qgc_test(VehiclePIDTuningTelemetryTest LABELS Integration Vehicle RESOURCE_LOCK MockLink)
