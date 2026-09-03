@@ -364,6 +364,7 @@ GridLayout {
 
         GraphsView {
             id:                     chart
+            objectName:             "pidTuningChart"
             width:                  root._stackPanels
                                         ? Math.max(1, availableWidth - _margins)
                                         : Math.max(_minChartWidth, availableWidth - rightPanel.width - root.columnSpacing - _margins)
@@ -476,6 +477,7 @@ GridLayout {
                 }
 
                 QGCButton {
+                    objectName: "pidTuningPlotToggleButton"
                     text:       _plottingActive ? qsTr("Stop") : qsTr("Start")
                     onClicked: {
                         setPlottingActive(!_plottingActive)
@@ -613,7 +615,7 @@ GridLayout {
                 QGCLabel { text: qsTr("Clipboard Values:") }
 
                 GridLayout {
-                    rows:           savedRepeater.model.length
+                    rows:           savedRepeater.model ? savedRepeater.model.length : 0
                     flow:           GridLayout.TopToBottom
                     rowSpacing:     0
                     columnSpacing:  _margins

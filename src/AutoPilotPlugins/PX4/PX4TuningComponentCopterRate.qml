@@ -46,6 +46,7 @@ ColumnLayout {
 
     PIDTuning {
         id:                 pidTuning
+        objectName:         "copterRatePIDTuning"
         availableWidth:     _availableWidth
         availableHeight:    _availableHeight - pidTuning.y
         title:              qsTr("Rate")

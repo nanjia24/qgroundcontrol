@@ -218,3 +218,10 @@ record below.
 - The bounded command-511 quarantine is an explicit wire-protocol tradeoff: `COMMAND_ACK` does not echo the requested message ID, so QGC cannot distinguish an arbitrarily late old ACK from a new request. QGC therefore remains fail-closed for one full additional ACK window, then restores operator access without requiring a cable reconnect.
 - Independent post-fix review closed both Important findings and found no new Critical or Important issue. It confirmed safe reverse tombstone pruning, atomic prune-and-enqueue behavior, preserved link disconnect cleanup, and the real ingress path from paired HRT/`SYSTEM_TIME` reboot evidence to Rover tuning clock reset.
 - Remote branch `origin/codex/quad-rover-realtime-tuning` was created and verified against the local feature head after the implementation, tests, and evidence commits.
+
+## 2026-09-03 Quad-Rover PID layout acceptance fix
+
+- Target-aircraft USB inspection showed normal `ATTITUDE_QUATERNION` and `ATTITUDE` ingress, but the Quad-Rover Multirotor Rate page displayed only Airmode/Thrust Curve; the plot and Start/Stop controls were absent. Hybrid shape and actuator attachment were therefore excluded as causes.
+- `PX4TuningComponentQuadRover.qml` was the only direct PX4 tuning route that omitted the standard `SetupPage` boundary. Nested tuning pages consequently lacked a reliable available-size context. The route now matches the native Copter/VTOL structure.
+- A production-QML integration test loads the Quad-Rover route with a Mock PX4 vehicle in an offscreen `Window` and requires the Rate PID container, QtGraphs plot, and Start/Stop button to be visible with non-zero geometry. The test also exposed and closed a null saved-model binding, missing modern PX4 rate-multiplier fixtures, and a Chinese `%1` translation placeholder omission.
+- Windows Debug linked successfully. The structural and production-QML page tests passed 2/2; the wider tuning/QML regression passed 5/5; QmlControls and changed-file PX4 qmllint exited 0. Operator confirmation of a moving Multirotor Response trace on the connected target remains pending.

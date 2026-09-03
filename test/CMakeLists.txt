@@ -149,6 +149,7 @@ add_qgc_test(ParameterManagerTest LABELS Integration Vehicle SERIAL TIMEOUT ${QG
 add_subdirectory(AutoPilotPlugins)
 add_qgc_test(PX4AirframeLoaderTest LABELS Unit)
 add_qgc_test(PX4TuningComponentTest LABELS Unit)
+add_qgc_test(PX4TuningComponentQmlTest LABELS Integration Vehicle RESOURCE_LOCK MockLink)
 
 # ----------------------------------------------------------------------------
 # FollowMe

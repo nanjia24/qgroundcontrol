@@ -212,3 +212,6 @@
 - [x] Prepare non-actuating USB acceptance instructions; powered controller waveform acceptance remains user-coordinated.
 - [x] Complete independent review and update state evidence; both Important findings were closed with no new Critical/Important result.
 - [x] Commit and push the QGC feature branch, then verify the remote head.
+- [x] Fix the Quad-Rover Multirotor PID page's missing `SetupPage` size boundary found during USB acceptance.
+- [x] Add a production-QML geometry test for the Rate PID container, plot, and Start/Stop control.
+- [ ] Confirm on the connected target that Multirotor Rate/Attitude Response traces move when the USB-powered flight controller is rotated; no battery or arming is required.

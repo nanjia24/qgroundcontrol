@@ -24,6 +24,8 @@ void PX4TuningComponentTest::_quadRoverTabsDoNotDependOnLegacyParameter()
     QFile source(QStringLiteral(":/qml/QGroundControl/AutoPilotPlugins/PX4/PX4TuningComponentQuadRover.qml"));
     QVERIFY(source.open(QIODevice::ReadOnly));
     const QByteArray qml = source.readAll();
+    QVERIFY(qml.contains("SetupPage {"));
+    QVERIFY(qml.contains("pageComponent: pageComponent"));
     QVERIFY(qml.contains("buttonText: qsTr(\"Multirotor\")"));
     QVERIFY(qml.contains("buttonText: qsTr(\"Rover\")"));
     QVERIFY(!qml.contains("HYBR_QUAD_ROV"));
