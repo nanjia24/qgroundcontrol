@@ -215,3 +215,10 @@
 - [x] Fix the Quad-Rover Multirotor PID page's missing `SetupPage` size boundary found during USB acceptance.
 - [x] Add a production-QML geometry test for the Rate PID container, plot, and Start/Stop control.
 - [ ] Confirm on the connected target that Multirotor Rate/Attitude Response traces move when the USB-powered flight controller is rotated; no battery or arming is required.
+
+## 2026-09-07 HX65 MAVLink enum release
+
+- [x] Pin QGC to protected `qgc-hybrid-rover-tuning-v1.16.1-r2` / `ec506d609e775035b7c8ed37f09ef05774409281`.
+- [x] Regenerate the `qgc_hybrid` C binding and verify both HX65 enum symbols are present.
+- [x] Run the full Windows Debug build, seven Hybrid MAVLink contract cases, and `HybridVehicleStateTest`.
+- [ ] Confirm on a connected HX65-equipped aircraft that QGC accepts raw sensor/backend values `4/2`; no new UI label was added in this protocol-only update.

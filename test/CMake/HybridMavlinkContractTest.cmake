@@ -1,7 +1,7 @@
 include("${QGC_SOURCE_DIR}/cmake/HybridMavlinkContract.cmake")
 
 set(QGC_MAVLINK_GIT_REPO "https://github.com/QQgdiw/mavlink.git")
-set(QGC_MAVLINK_GIT_TAG "qgc-hybrid-rover-tuning-v1.16.1-r1")
+set(QGC_MAVLINK_GIT_TAG "qgc-hybrid-rover-tuning-v1.16.1-r2")
 set(QGC_MAVLINK_DIALECT "qgc_hybrid")
 set(QGC_MAVLINK_VERSION "2.0")
 set(QGC_DISABLE_APM_MAVLINK OFF)
