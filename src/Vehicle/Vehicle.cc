@@ -2953,6 +2953,36 @@ void Vehicle::setPIDTuningTelemetryMode(PIDTuningTelemetryMode mode)
 
 void Vehicle::setPIDTuningTelemetryMode(PIDTuningTelemetryMode mode, const QString& sourcePage)
 {
+    ++_pidTuningTelemetryLease;
+    _pidTuningTelemetrySourcePage = mode == ModeDisabled ? QString() : sourcePage;
+    _setPIDTuningTelemetryMode(mode, sourcePage);
+}
+
+quint64 Vehicle::acquirePIDTuningTelemetryMode(PIDTuningTelemetryMode mode, const QString& sourcePage)
+{
+    ++_pidTuningTelemetryLease;
+    _pidTuningTelemetrySourcePage = sourcePage;
+    _setPIDTuningTelemetryMode(mode, sourcePage);
+    return _pidTuningTelemetryLease;
+}
+
+void Vehicle::releasePIDTuningTelemetryMode(quint64 lease, const QString& sourcePage)
+{
+    if (lease == 0 || lease != _pidTuningTelemetryLease) {
+        qCDebug(PIDTuningTelemetryLog) << "ignore stale release"
+                                      << "page" << sourcePage
+                                      << "lease:current" << lease << _pidTuningTelemetryLease
+                                      << "currentPage" << _pidTuningTelemetrySourcePage;
+        return;
+    }
+
+    ++_pidTuningTelemetryLease;
+    _pidTuningTelemetrySourcePage.clear();
+    _setPIDTuningTelemetryMode(ModeDisabled, sourcePage);
+}
+
+void Vehicle::_setPIDTuningTelemetryMode(PIDTuningTelemetryMode mode, const QString& sourcePage)
+{
     const SharedLinkInterfacePtr sharedLink =
         _vehicleLinkManager ? _vehicleLinkManager->primaryLink().lock() : SharedLinkInterfacePtr{};
     qCDebug(PIDTuningTelemetryLog) << "set mode"

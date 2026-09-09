@@ -397,6 +397,8 @@ public:
 
     Q_INVOKABLE void setPIDTuningTelemetryMode(PIDTuningTelemetryMode mode);
     Q_INVOKABLE void setPIDTuningTelemetryMode(PIDTuningTelemetryMode mode, const QString& sourcePage);
+    Q_INVOKABLE quint64 acquirePIDTuningTelemetryMode(PIDTuningTelemetryMode mode, const QString& sourcePage);
+    Q_INVOKABLE void releasePIDTuningTelemetryMode(quint64 lease, const QString& sourcePage);
 
     Q_INVOKABLE void forceArm           ();
 
@@ -932,6 +934,7 @@ private:
     void _flightTimerStart              ();
     void _flightTimerStop               ();
     void _setMessageInterval            (int messageId, int rate);
+    void _setPIDTuningTelemetryMode     (PIDTuningTelemetryMode mode, const QString& sourcePage);
     void _applyPIDTuningTelemetryMode();
     void _abortPIDTuningTelemetry();
     void _continuePIDTuningTelemetryTransition();
@@ -1093,6 +1096,8 @@ private:
 
     std::unique_ptr<MAVLinkStreamConfig> _mavlinkStreamConfig;
     PIDTuningTelemetryMode _pidTuningTelemetryMode = ModeDisabled;
+    quint64 _pidTuningTelemetryLease = 0;
+    QString _pidTuningTelemetrySourcePage;
     bool _roverTuningMavlink2Supported = false;
     bool _pidTuningRestorePending = false;
     bool _pidTuningApplyPending = false;

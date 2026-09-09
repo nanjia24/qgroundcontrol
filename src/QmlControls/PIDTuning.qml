@@ -10,6 +10,7 @@ import "PIDTuningMath.js" as PIDTuningMath
 
 GridLayout {
     id:            root
+    objectName:    "pidTuningMode" + tuningMode
     columns:       _stackPanels ? 1 : 2
     rowSpacing:    _margins
     columnSpacing: _margins
@@ -45,6 +46,7 @@ GridLayout {
     property var    _sourceSampleQueue:     []
     property bool   _plottingActive:        true
     property var    _configuredVehicle:     null
+    property double _telemetryLease:         0
     property bool   _componentComplete:      false
     property var    _savedTuningParamValues:    [ ]
 
@@ -225,13 +227,15 @@ GridLayout {
         }
 
         var previousVehicle = _configuredVehicle
+        var previousLease = _telemetryLease
         _configuredVehicle = null
+        _telemetryLease = 0
         if (previousVehicle) {
-            previousVehicle.setPIDTuningTelemetryMode(Vehicle.ModeDisabled, root.objectName)
+            previousVehicle.releasePIDTuningTelemetryMode(previousLease, root.objectName)
         }
 
         if (vehicle) {
-            vehicle.setPIDTuningTelemetryMode(tuningMode, root.objectName)
+            _telemetryLease = vehicle.acquirePIDTuningTelemetryMode(tuningMode, root.objectName)
             _configuredVehicle = vehicle
         }
         if (resetChart !== false) {
@@ -285,7 +289,16 @@ GridLayout {
         _componentComplete = true
     }
 
-    Component.onDestruction: configureVehicle(null, false)
+    Component.onDestruction: {
+        var vehicle = _configuredVehicle
+        var lease = _telemetryLease
+        var page = root.objectName
+        _configuredVehicle = null
+        _telemetryLease = 0
+        if (vehicle && lease !== 0) {
+            Qt.callLater(function() { vehicle.releasePIDTuningTelemetryMode(lease, page) })
+        }
+    }
     on_CurrentAxisChanged: axisIndexChanged()
     onSourceResetCounterChanged: {
         if (_componentComplete && useSourceTimestamp) {

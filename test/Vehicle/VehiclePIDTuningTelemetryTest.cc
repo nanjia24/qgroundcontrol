@@ -23,6 +23,7 @@ private slots:
     void _quadRoverVehicleTypeGate();
     void _mavlink2NegotiationAppliesRequestedRoverMode();
     void _staleMavlink2CacheIsRefreshedOnRoverRequest();
+    void _staleTelemetryLeaseCannotDisableNewPage();
     void _communicationLossRecoveryReappliesRequestedMode();
     void _staleAckDoesNotAdvanceCurrentGeneration();
     void _rejectedAckAbortsCurrentGeneration();
@@ -148,6 +149,31 @@ void VehiclePIDTuningTelemetryTest::_staleMavlink2CacheIsRefreshedOnRoverRequest
     vehicle()->setPIDTuningTelemetryMode(Vehicle::ModeRoverRate);
     QVERIFY(vehicle()->roverTuningMavlink2Supported());
     QTRY_COMPARE_WITH_TIMEOUT(_matchingRequestCount(MAVLINK_MSG_ID_ROVER_RATE_TUNING_STATUS, 20000), 1,
+                              TestTimeout::shortMs());
+}
+
+void VehiclePIDTuningTelemetryTest::_staleTelemetryLeaseCannotDisableNewPage()
+{
+    const quint64 copterLease =
+        vehicle()->acquirePIDTuningTelemetryMode(Vehicle::ModeRateAndAttitude, QStringLiteral("copterRatePIDTuning"));
+    QTRY_COMPARE_WITH_TIMEOUT(_matchingRequestCount(MAVLINK_MSG_ID_ATTITUDE_TARGET, 10000), 1,
+                              TestTimeout::shortMs());
+    QTRY_COMPARE_WITH_TIMEOUT(_matchingRequestCount(MAVLINK_MSG_ID_ATTITUDE_QUATERNION, 10000), 1,
+                              TestTimeout::shortMs());
+
+    const quint64 roverLease =
+        vehicle()->acquirePIDTuningTelemetryMode(Vehicle::ModeRoverRate, QStringLiteral("roverRatePIDTuning"));
+    QTRY_COMPARE_WITH_TIMEOUT(_matchingRequestCount(MAVLINK_MSG_ID_ROVER_RATE_TUNING_STATUS, 20000), 1,
+                              TestTimeout::shortMs());
+    QTest::qWait(100);
+    _resetRequests();
+
+    vehicle()->releasePIDTuningTelemetryMode(copterLease, QStringLiteral("copterRatePIDTuning"));
+    QTest::qWait(100);
+    QCOMPARE(_requests.size(), 0);
+
+    vehicle()->releasePIDTuningTelemetryMode(roverLease, QStringLiteral("roverRatePIDTuning"));
+    QTRY_COMPARE_WITH_TIMEOUT(_matchingRequestCount(MAVLINK_MSG_ID_ROVER_RATE_TUNING_STATUS, 0), 1,
                               TestTimeout::shortMs());
 }
 
