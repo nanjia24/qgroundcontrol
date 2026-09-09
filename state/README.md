@@ -222,6 +222,7 @@ record below.
 - Remote branch `origin/codex/quad-rover-realtime-tuning` was created and verified against the local feature head after the implementation, tests, and evidence commits.
 - Wireless Rover tuning diagnosis found that the page and message definitions were correct, but the Rover action gate consumed an event-driven MAVLink2 capability cache without refreshing the actual primary-link output flag. UDP initialization could therefore restore messages 31/83 and abort before requesting 60100.
 - The wireless fix refreshes the current primary-link channel synchronously before the Rover gate and adds opt-in `Vehicle.PIDTuningTelemetry` diagnostics for page/mode, link/channel, output version, message interval, target, generation, and ACK outcome. Wireless target acceptance remains pending.
+- Remote branch `origin/codex/quad-rover-wireless-tuning` contains the implementation and automated evidence; the first implementation commit is `93a572b74`.
 
 ## 2026-09-03 Quad-Rover PID layout acceptance fix
 

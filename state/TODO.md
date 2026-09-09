@@ -230,4 +230,5 @@
 - [x] Refresh the actual primary-link output protocol at the Rover request boundary and add opt-in lifecycle/request/ACK diagnostics.
 - [x] Verify Quad-Rover Rover Rate remains routed to `ModeRoverRate`, while Multirotor Rate remains on `ModeRateAndAttitude`.
 - [x] Complete a short-path Windows Debug build, core stream/link tests, Hybrid/command regressions, targeted qmllint, and isolated startup smoke.
+- [x] Commit and push the isolated implementation to `origin/codex/quad-rover-wireless-tuning`.
 - [ ] Connect only through the Tailscale/mavlink-router wireless route, open PID Tuning > Rover > Rate, and capture command 511 with `param1=60100`, `param2=20000` plus its accepted ACK. This static request check needs no battery or arming.
