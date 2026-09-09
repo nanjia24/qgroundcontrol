@@ -91,6 +91,7 @@
 #include <utility>
 
 QGC_LOGGING_CATEGORY(VehicleLog, "Vehicle.Vehicle")
+QGC_LOGGING_CATEGORY(PIDTuningTelemetryLog, "Vehicle.PIDTuningTelemetry")
 
 struct Vehicle::PIDTuningStreamAckContext
 {
@@ -2947,6 +2948,21 @@ int Vehicle::versionCompare(int major, int minor, int patch) const
 
 void Vehicle::setPIDTuningTelemetryMode(PIDTuningTelemetryMode mode)
 {
+    setPIDTuningTelemetryMode(mode, QString());
+}
+
+void Vehicle::setPIDTuningTelemetryMode(PIDTuningTelemetryMode mode, const QString& sourcePage)
+{
+    const SharedLinkInterfacePtr sharedLink =
+        _vehicleLinkManager ? _vehicleLinkManager->primaryLink().lock() : SharedLinkInterfacePtr{};
+    qCDebug(PIDTuningTelemetryLog) << "set mode"
+                                  << "page" << sourcePage
+                                  << "system" << _systemID
+                                  << "old:new" << _pidTuningTelemetryMode << mode
+                                  << "link" << (sharedLink && sharedLink->linkConfiguration()
+                                                     ? sharedLink->linkConfiguration()->name()
+                                                     : QStringLiteral("<none>"))
+                                  << "communicationLost" << (_vehicleLinkManager && _vehicleLinkManager->communicationLost());
     if (_pidTuningRestoreDebts.empty()) {
         _setRoverTuningTelemetryError(QString());
     }
@@ -2965,11 +2981,33 @@ void Vehicle::_applyPIDTuningTelemetryMode()
     const SharedLinkInterfacePtr sharedLink =
         _vehicleLinkManager ? _vehicleLinkManager->primaryLink().lock() : SharedLinkInterfacePtr{};
     if (!sharedLink || _vehicleLinkManager->communicationLost()) {
+        qCDebug(PIDTuningTelemetryLog) << "apply aborted"
+                                      << "mode" << _pidTuningTelemetryMode
+                                      << "reason" << (!sharedLink ? "no primary link" : "communication lost");
         _abortPIDTuningTelemetry();
         return;
     }
 
+    const bool mavlink2SupportedBeforeRefresh = roverTuningMavlink2Supported();
+    _updateRoverTuningMavlink2Supported();
+    const int mavlinkChannel = sharedLink->mavlinkChannelIsSet() ? sharedLink->mavlinkChannel() : -1;
+    const bool outMavlink1 = mavlinkChannel >= 0 &&
+                             (mavlink_get_channel_status(static_cast<mavlink_channel_t>(mavlinkChannel))->flags &
+                              MAVLINK_STATUS_FLAG_OUT_MAVLINK1);
+    qCDebug(PIDTuningTelemetryLog) << "apply"
+                                  << "mode" << _pidTuningTelemetryMode
+                                  << "mavlink2 cached:refreshed" << mavlink2SupportedBeforeRefresh
+                                  << roverTuningMavlink2Supported()
+                                  << "link" << (sharedLink->linkConfiguration()
+                                                     ? sharedLink->linkConfiguration()->name()
+                                                     : QStringLiteral("<unnamed>"))
+                                  << "channel" << mavlinkChannel
+                                  << "outMavlink1" << outMavlink1;
+
     if (_isRoverTuningMode() && !roverTuningMavlink2Supported()) {
+        qCDebug(PIDTuningTelemetryLog) << "apply aborted"
+                                      << "mode" << _pidTuningTelemetryMode
+                                      << "reason" << "primary link MAVLink 2 required";
         _abortPIDTuningTelemetry();
         if (_pidTuningStreamAckContexts.empty() && !_pidTuningRestorePending &&
             !_mavlinkStreamConfig->hasChangedStreams() && _adoptPIDTuningRestoreDebt(sharedLink)) {
@@ -3172,6 +3210,13 @@ void Vehicle::_setMessageInterval(int messageId, int rate)
     auto* context = new PIDTuningStreamAckContext{
         this, _pidTuningStreamGeneration, rate == 0, messageId, rate, _pidTuningCommandLink,
     };
+    qCDebug(PIDTuningTelemetryLog) << "set message interval"
+                                  << "messageId:interval" << messageId << rate
+                                  << "link" << (context->commandLink && context->commandLink->linkConfiguration()
+                                                     ? context->commandLink->linkConfiguration()->name()
+                                                     : QStringLiteral("<none>"))
+                                  << "target" << _systemID << defaultComponentId()
+                                  << "generation" << context->generation;
     _pidTuningStreamAckContexts.insert(context);
 
     MavCmdAckHandlerInfo_t handlerInfo = {};
@@ -3194,6 +3239,15 @@ void Vehicle::_pidTuningStreamCommandResultHandler(void* resultHandlerData, int,
     const int messageId = context->messageId;
     const int intervalUsecs = context->intervalUsecs;
     const SharedLinkInterfacePtr commandLink = context->commandLink;
+    qCDebug(PIDTuningTelemetryLog) << "message interval ACK"
+                                  << "messageId:interval" << messageId << intervalUsecs
+                                  << "command:result:failure" << ack.command << ack.result << failureCode
+                                  << "generation:current:matched" << generation
+                                  << (vehicle ? vehicle->_pidTuningStreamGeneration : 0)
+                                  << (vehicle && generation == vehicle->_pidTuningStreamGeneration)
+                                  << "link" << (commandLink && commandLink->linkConfiguration()
+                                                     ? commandLink->linkConfiguration()->name()
+                                                     : QStringLiteral("<none>"));
     if (vehicle) {
         vehicle->_pidTuningStreamAckContexts.remove(context);
     }

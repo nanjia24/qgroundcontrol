@@ -1,6 +1,7 @@
 #include "PX4TuningComponentQmlTest.h"
 
 #include <QtCore/QCoreApplication>
+#include <QtCore/QScopedPointer>
 #include <QtQml/QQmlApplicationEngine>
 #include <QtQml/QQmlError>
 #include <QtQuick/QQuickItem>
@@ -15,11 +16,11 @@ PX4TuningComponentQmlTest::PX4TuningComponentQmlTest(QObject* parent) : VehicleT
 
 void PX4TuningComponentQmlTest::_quadRoverRatePageHasUsablePlotLayout()
 {
-    QQmlApplicationEngine* const engine = QGCCorePlugin::instance()->createQmlApplicationEngine(nullptr);
+    QScopedPointer<QQmlApplicationEngine> engine(QGCCorePlugin::instance()->createQmlApplicationEngine(nullptr));
     engine->addImageProvider(QLatin1String(ColoredSvgImageProvider::ProviderId), new ColoredSvgImageProvider());
 
     QStringList qmlWarnings;
-    connect(engine, &QQmlEngine::warnings, this, [&qmlWarnings](const QList<QQmlError>& warnings) {
+    connect(engine.data(), &QQmlEngine::warnings, this, [&qmlWarnings](const QList<QQmlError>& warnings) {
         for (const QQmlError& warning : warnings) {
             qmlWarnings.append(warning.toString());
         }
@@ -79,7 +80,6 @@ Window {
     QVERIFY(toggleButton->height() > 0.0);
     QVERIFY(toggleButton->isVisible());
 
-    delete engine;
 }
 
 UT_REGISTER_TEST(PX4TuningComponentQmlTest, TestLabel::Integration, TestLabel::Vehicle)

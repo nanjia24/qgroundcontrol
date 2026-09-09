@@ -227,11 +227,11 @@ GridLayout {
         var previousVehicle = _configuredVehicle
         _configuredVehicle = null
         if (previousVehicle) {
-            previousVehicle.setPIDTuningTelemetryMode(Vehicle.ModeDisabled)
+            previousVehicle.setPIDTuningTelemetryMode(Vehicle.ModeDisabled, root.objectName)
         }
 
         if (vehicle) {
-            vehicle.setPIDTuningTelemetryMode(tuningMode)
+            vehicle.setPIDTuningTelemetryMode(tuningMode, root.objectName)
             _configuredVehicle = vehicle
         }
         if (resetChart !== false) {

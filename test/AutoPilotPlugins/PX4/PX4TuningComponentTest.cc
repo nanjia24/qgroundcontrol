@@ -39,6 +39,19 @@ void PX4TuningComponentTest::_quadRoverTabsDoNotDependOnLegacyParameter()
     QVERIFY(roverQml.contains("buttonText: qsTr(\"Velocity\")"));
     QVERIFY(roverQml.contains("buttonText: qsTr(\"Path Tracking\")"));
     QVERIFY(!roverQml.contains("HYBR_QUAD_ROV"));
+
+    QFile roverRateSource(QStringLiteral(":/qml/QGroundControl/AutoPilotPlugins/PX4/PX4TuningComponentRoverRate.qml"));
+    QVERIFY(roverRateSource.open(QIODevice::ReadOnly));
+    const QByteArray roverRateQml = roverRateSource.readAll();
+    QVERIFY(roverRateQml.contains("Vehicle.ModeRoverRate"));
+    QVERIFY(roverRateQml.contains("\"roverRatePIDTuning\""));
+    QVERIFY(!roverRateQml.contains("Vehicle.ModeRateAndAttitude"));
+
+    QFile copterRateSource(QStringLiteral(":/qml/QGroundControl/AutoPilotPlugins/PX4/PX4TuningComponentCopterRate.qml"));
+    QVERIFY(copterRateSource.open(QIODevice::ReadOnly));
+    const QByteArray copterRateQml = copterRateSource.readAll();
+    QVERIFY(copterRateQml.contains("Vehicle.ModeRateAndAttitude"));
+    QVERIFY(!copterRateQml.contains("Vehicle.ModeRoverRate"));
 }
 
 UT_REGISTER_TEST(PX4TuningComponentTest, TestLabel::Unit)

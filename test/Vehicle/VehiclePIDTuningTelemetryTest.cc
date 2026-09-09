@@ -1,5 +1,6 @@
 #include <QtCore/QList>
 #include <QtCore/QMetaObject>
+#include <QtCore/QSignalBlocker>
 #include <QtTest/QTest>
 #include <array>
 #include <cmath>
@@ -21,6 +22,7 @@ private slots:
     void _mavlink1RejectsRoverMode();
     void _quadRoverVehicleTypeGate();
     void _mavlink2NegotiationAppliesRequestedRoverMode();
+    void _staleMavlink2CacheIsRefreshedOnRoverRequest();
     void _communicationLossRecoveryReappliesRequestedMode();
     void _staleAckDoesNotAdvanceCurrentGeneration();
     void _rejectedAckAbortsCurrentGeneration();
@@ -125,6 +127,27 @@ void VehiclePIDTuningTelemetryTest::_mavlink2NegotiationAppliesRequestedRoverMod
     QVERIFY(_setPrimaryLinkMavlink1(false));
     QTRY_VERIFY_WITH_TIMEOUT(vehicle()->roverTuningMavlink2Supported(), TestTimeout::shortMs());
     QTRY_COMPARE_WITH_TIMEOUT(_matchingRequestCount(MAVLINK_MSG_ID_ROVER_VELOCITY_TUNING_STATUS, 40000), 1,
+                              TestTimeout::shortMs());
+}
+
+void VehiclePIDTuningTelemetryTest::_staleMavlink2CacheIsRefreshedOnRoverRequest()
+{
+    QVERIFY(_setPrimaryLinkMavlink1(true));
+    QTRY_VERIFY_WITH_TIMEOUT(!vehicle()->roverTuningMavlink2Supported(), TestTimeout::shortMs());
+    _resetRequests();
+
+    const SharedLinkInterfacePtr link = vehicle()->vehicleLinkManager()->primaryLink().lock();
+    QVERIFY(link);
+    QVERIFY(link->mavlinkChannelIsSet());
+
+    QSignalBlocker protocolSignals(MAVLinkProtocol::instance());
+    mavlink_status_t* const status = mavlink_get_channel_status(static_cast<mavlink_channel_t>(link->mavlinkChannel()));
+    status->flags &= ~MAVLINK_STATUS_FLAG_OUT_MAVLINK1;
+    QVERIFY(!vehicle()->roverTuningMavlink2Supported());
+
+    vehicle()->setPIDTuningTelemetryMode(Vehicle::ModeRoverRate);
+    QVERIFY(vehicle()->roverTuningMavlink2Supported());
+    QTRY_COMPARE_WITH_TIMEOUT(_matchingRequestCount(MAVLINK_MSG_ID_ROVER_RATE_TUNING_STATUS, 20000), 1,
                               TestTimeout::shortMs());
 }
 

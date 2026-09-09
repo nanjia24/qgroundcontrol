@@ -203,7 +203,7 @@ record below.
 
 ## 2026-09-02 Hybrid Quad-Rover realtime tuning merge
 
-- Active worktree: `E:\workspace\QGC\qgroundcontrol-worktrees\quad-rover-realtime-tuning`; branch: `codex/quad-rover-realtime-tuning`; base: `c9064aaa0`.
+- Active worktree: `E:\workspace\QGC\qgroundcontrol-worktrees\quad-rover-wireless-tuning`; branch: `codex/quad-rover-wireless-tuning`; base: `232ffa771`. The previous `quad-rover-realtime-tuning` worktree and `build/windows-debug-rover-tuning` remain untouched for operator use.
 - Source semantics come from `codex/mini-rover-realtime-tuning` feature commit `2696ed408`, but the 49-file commit is not cherry-picked because 19 files overlap the current Hybrid architecture.
 - PX4 is read-only at `/home/crocodile/PX4-Autopilot-testc4-rover-tuning`, branch `feature/testc4-rover-tuning`, commit `96f3b7165`.
 - The baseline combined MAVLink tag `qgc-hybrid-rover-tuning-v1.16.1-r1` remains protected by active GitHub ruleset `22006870` and is not moved or reused.
@@ -220,6 +220,8 @@ record below.
 - The bounded command-511 quarantine is an explicit wire-protocol tradeoff: `COMMAND_ACK` does not echo the requested message ID, so QGC cannot distinguish an arbitrarily late old ACK from a new request. QGC therefore remains fail-closed for one full additional ACK window, then restores operator access without requiring a cable reconnect.
 - Independent post-fix review closed both Important findings and found no new Critical or Important issue. It confirmed safe reverse tombstone pruning, atomic prune-and-enqueue behavior, preserved link disconnect cleanup, and the real ingress path from paired HRT/`SYSTEM_TIME` reboot evidence to Rover tuning clock reset.
 - Remote branch `origin/codex/quad-rover-realtime-tuning` was created and verified against the local feature head after the implementation, tests, and evidence commits.
+- Wireless Rover tuning diagnosis found that the page and message definitions were correct, but the Rover action gate consumed an event-driven MAVLink2 capability cache without refreshing the actual primary-link output flag. UDP initialization could therefore restore messages 31/83 and abort before requesting 60100.
+- The wireless fix refreshes the current primary-link channel synchronously before the Rover gate and adds opt-in `Vehicle.PIDTuningTelemetry` diagnostics for page/mode, link/channel, output version, message interval, target, generation, and ACK outcome. Wireless target acceptance remains pending.
 
 ## 2026-09-03 Quad-Rover PID layout acceptance fix
 

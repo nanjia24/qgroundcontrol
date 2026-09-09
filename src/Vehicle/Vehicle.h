@@ -396,6 +396,7 @@ public:
     Q_ENUM(PIDTuningTelemetryMode)
 
     Q_INVOKABLE void setPIDTuningTelemetryMode(PIDTuningTelemetryMode mode);
+    Q_INVOKABLE void setPIDTuningTelemetryMode(PIDTuningTelemetryMode mode, const QString& sourcePage);
 
     Q_INVOKABLE void forceArm           ();
 

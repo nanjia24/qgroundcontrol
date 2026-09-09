@@ -186,6 +186,7 @@ enabled: vehicle && vehicle.armed
 - `VehicleCameraControlTest` has a verified Windows offscreen runtime of 161.519 seconds and `MissionControllerTreeTest` has a verified runtime of 123.426 seconds; their default 120-second integration registration is insufficient on this environment.
 - A fresh Ninja/MSVC configure can silently select MSYS `ar.exe`/`ranlib.exe`, or even OpenOCD as the compiler, when inherited `CC`, `CXX`, `LD`, `AR`, or `RANLIB` variables contaminate the process. The accepted VS2022 configuration resolves `cl.exe`, `link.exe`, and `lib.exe`, with `CMAKE_RANLIB=:`; verify these cache values before accepting a build.
 - QGC direct unittest execution is sensitive to the CTest working directory and environment. The verified Windows invocation uses the build root as `WorkingDirectory`, `QT_QPA_PLATFORM=offscreen`, `QT_QPA_FONTDIR=%WINDIR%\Fonts`, and `QT_LOGGING_RULES=*.debug=false`.
+- A nested worktree plus nested build root produced a 258-character Qt resource object path that existed on disk but still failed in `link.exe` with `LNK1104`; `E:\workspace\QGC\build-wireless-tuning` is the verified short-path build root for the wireless tuning fix.
 
 【项目规范区域】
 
@@ -208,6 +209,8 @@ enabled: vehicle && vehicle.armed
 - Mission-command visibility tests must scan every category returned by `MissionCommandTree::categoriesForVehicle()`. Checking only the last category cannot prove a command is absent from the complete UI command list.
 - `QGC_USE_CACHE=OFF` does not clear compiler launchers already stored in `CMakeCache.txt`; explicitly set `CMAKE_C_COMPILER_LAUNCHER` and `CMAKE_CXX_COMPILER_LAUNCHER` empty, then verify generated Ninja files contain no `ccache` invocation.
 - Qt Test's per-function watchdog is independent of CTest's `TIMEOUT`; a proven Windows test above 300 seconds needs a test-scoped `QTEST_FUNCTION_TIMEOUT` below its CTest ceiling.
+- A cached link capability used as an action gate must be refreshed synchronously from the current primary link at the action boundary. Event-only refresh can remain stale across UDP/MAVLink protocol negotiation and suppress a valid command indefinitely.
+- Production-QML tests must own `QQmlApplicationEngine` through RAII; otherwise an early assertion can leak a visible QtGraphs timer and turn a useful failure into a CTest timeout.
 - Before treating a Windows timing test as isolated, inspect all `QGroundControl.exe` and parent `ctest.exe` processes across worktrees. Cross-worktree runs can inflate wall-clock time and create false heartbeat/timeout failures.
 - Never run two CMake/Ninja writers against the same build directory. Concurrent regeneration can leave `.ninja_log.restat`, remove `.ninja_log`, and race Qt/GStreamer generated files; finish or stop the verified duplicate before repairing the build tree.
 - A failed MSVC compile can leave a timestamped, linkable, but untrusted object. A later successful link is not sufficient evidence: force the failed object to rebuild and confirm its compile line in the accepted build log.

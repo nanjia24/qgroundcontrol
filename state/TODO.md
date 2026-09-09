@@ -222,3 +222,12 @@
 - [x] Regenerate the `qgc_hybrid` C binding and verify both HX65 enum symbols are present.
 - [x] Run the full Windows Debug build, seven Hybrid MAVLink contract cases, and `HybridVehicleStateTest`.
 - [ ] Confirm on a connected HX65-equipped aircraft that QGC accepts raw sensor/backend values `4/2`; no new UI label was added in this protocol-only update.
+
+## 2026-09-09 Wireless Rover tuning request fix
+
+- [x] Create isolated `codex/quad-rover-wireless-tuning` worktree and preserve the operator's existing Rover-tuning build.
+- [x] Reproduce the stale MAVLink2 capability gate with a deterministic Vehicle regression test before changing production code.
+- [x] Refresh the actual primary-link output protocol at the Rover request boundary and add opt-in lifecycle/request/ACK diagnostics.
+- [x] Verify Quad-Rover Rover Rate remains routed to `ModeRoverRate`, while Multirotor Rate remains on `ModeRateAndAttitude`.
+- [x] Complete a short-path Windows Debug build, core stream/link tests, Hybrid/command regressions, targeted qmllint, and isolated startup smoke.
+- [ ] Connect only through the Tailscale/mavlink-router wireless route, open PID Tuning > Rover > Rate, and capture command 511 with `param1=60100`, `param2=20000` plus its accepted ACK. This static request check needs no battery or arming.

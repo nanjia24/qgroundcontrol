@@ -45,6 +45,7 @@ ColumnLayout {
 
     PIDTuning {
         id:                     pidTuning
+        objectName:             "roverAttitudePIDTuning"
         availableWidth:         root._availableWidth
         availableHeight:        root._availableHeight - pidTuning.y
         title:                  qsTr("Yaw Attitude")

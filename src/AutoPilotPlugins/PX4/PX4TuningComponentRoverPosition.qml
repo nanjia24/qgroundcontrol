@@ -83,6 +83,7 @@ ColumnLayout {
 
     PIDTuning {
         id:                     pidTuning
+        objectName:             "roverPositionPIDTuning"
         availableWidth:         root._availableWidth
         availableHeight:        root._availableHeight - pidTuning.y
         title:                  qsTr("Path Tracking (Pure Pursuit)")

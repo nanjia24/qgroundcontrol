@@ -45,6 +45,7 @@ ColumnLayout {
 
     PIDTuning {
         id:                     pidTuning
+        objectName:             "roverVelocityPIDTuning"
         availableWidth:         root._availableWidth
         availableHeight:        root._availableHeight - pidTuning.y
         title:                  qsTr("Body-X Velocity")
