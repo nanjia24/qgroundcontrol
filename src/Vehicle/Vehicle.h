@@ -15,6 +15,7 @@
 #include <functional>
 #include <memory>
 
+#include "LinkInterface.h"
 #include "QGCMAVLink.h"
 #include "VehicleFactGroup.h"
 #include "VehicleTypes.h"
