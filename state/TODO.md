@@ -232,3 +232,11 @@
 - [x] Complete a short-path Windows Debug build, core stream/link tests, Hybrid/command regressions, targeted qmllint, and isolated startup smoke.
 - [x] Commit and push the isolated implementation to `origin/codex/quad-rover-wireless-tuning`.
 - [x] Connect only through the Tailscale/mavlink-router wireless route and open PID Tuning > Rover > Rate. The isolated QGC diagnostic log captured command 511 for `60100/20000` and its accepted ACK, and the operator confirmed a visible Rover Rate waveform. No external tcpdump rerun is claimed.
+
+## 2026-09-18 Windows Release installer
+
+- [x] Configure a new short-path Windows x64 Release tree with VS2022, Qt 6.10.3, GStreamer, NSIS, tests disabled, installer enabled, and compiler caching disabled.
+- [x] Verify the resolved compiler/linker/librarian tuple and the exact `qgc_hybrid` MAVLink peeled commit.
+- [x] Complete the Release build and fix the public-header self-containment failure exposed by the clean build.
+- [x] Generate the unsigned NSIS installer and record its size, signature status, and SHA-256.
+- [x] Run a 15-second isolated startup smoke against the final staged x64 executable.

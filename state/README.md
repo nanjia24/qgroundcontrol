@@ -232,3 +232,10 @@ record below.
 - `PX4TuningComponentQuadRover.qml` was the only direct PX4 tuning route that omitted the standard `SetupPage` boundary. Nested tuning pages consequently lacked a reliable available-size context. The route now matches the native Copter/VTOL structure.
 - A production-QML integration test loads the Quad-Rover route with a Mock PX4 vehicle in an offscreen `Window` and requires the Rate PID container, QtGraphs plot, and Start/Stop button to be visible with non-zero geometry. The test also exposed and closed a null saved-model binding, missing modern PX4 rate-multiplier fixtures, and a Chinese `%1` translation placeholder omission.
 - Windows Debug linked successfully. The structural and production-QML page tests passed 2/2; the wider tuning/QML regression passed 5/5; QmlControls and changed-file PX4 qmllint exited 0. Operator confirmation of a moving Multirotor Response trace on the connected target remains pending.
+
+## 2026-09-18 Windows Release installer
+
+- The Windows x64 Release installer for the accepted wireless Rover-tuning branch is available at `E:\workspace\QGC\build-wireless-tuning-release\QGroundControl-installer-AMD64.exe`.
+- The installer was built from source commit `4a445375f`, is intentionally unsigned, and retains the current default QGroundControl application identity/version (`0.0.0`). Its SHA-256 is `77B4BA2416438785993593ABDA1EA5C99134B2E3B2F5D15F0628D3B832AE996D`.
+- The independent Release configuration selected VS2022 x64 `cl/link/lib`, disabled compiler caching, retained APM support, and resolved `qgc_hybrid` tag `qgc-hybrid-rover-tuning-v1.16.1-r2` to `ec506d609e775035b7c8ed37f09ef05774409281`.
+- The final staged x64 executable survived a 15-second isolated offscreen/software-rendered startup with no missing-DLL, fatal, or QML-load match.

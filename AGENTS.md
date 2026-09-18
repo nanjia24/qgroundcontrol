@@ -188,6 +188,7 @@ enabled: vehicle && vehicle.armed
 - QGC direct unittest execution is sensitive to the CTest working directory and environment. The verified Windows invocation uses the build root as `WorkingDirectory`, `QT_QPA_PLATFORM=offscreen`, `QT_QPA_FONTDIR=%WINDIR%\Fonts`, and `QT_LOGGING_RULES=*.debug=false`.
 - A nested worktree plus nested build root produced a 258-character Qt resource object path that existed on disk but still failed in `link.exe` with `LNK1104`; `E:\workspace\QGC\build-wireless-tuning` is the verified short-path build root for the wireless tuning fix.
 - Live wireless tuning diagnostics measured synchronous Rover PID QML replacement at about 2.96 seconds, close enough to the generic 3-second MAVLink command timeout that an ACK already returned by PX4 could lose the event-loop race to timeout handling. Identical restore commands completed in 0.2-0.7 seconds outside page construction.
+- A clean Windows Release build exposed that `Q_MOC_INCLUDE("LinkInterface.h")` does not make `SharedLinkInterfacePtr` visible to ordinary C++ translation units. `Vehicle.h` must include `LinkInterface.h` directly because the alias appears in its declarations and members.
 
 【项目规范区域】
 
@@ -225,3 +226,4 @@ enabled: vehicle && vehicle.armed
 - Per-stream source timestamps must treat isolated backwards samples as reordering and drop only that sample. Reset all monotonic watermarks only from an established vehicle-session boundary or the existing confirmed reboot detector; a single UDP packet must never manufacture a reboot.
 - A vehicle component `setupSource` loaded directly by `VehicleConfigView` must provide the standard `SetupPage` boundary before nested pages consume `availableWidth` or `availableHeight`. Text-only QML routing tests are insufficient; instantiate the production page in a visible offscreen `Window` and assert the plot and controls have non-zero geometry.
 - Synchronous Loader page destruction must not start an ACK-timed stream command immediately before constructing its replacement. Represent PID telemetry ownership with a guarded lease and defer destruction-time release so the replacement can supersede it; do not hide this event-loop race by increasing command timeouts or enabling streams permanently.
+- Public headers must directly include the header that defines every alias used in their API or data members. `Q_MOC_INCLUDE` is only a MOC dependency hint and must never be treated as C++ header self-containment.
